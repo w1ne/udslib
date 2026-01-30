@@ -115,4 +115,12 @@ set(CMAKE_DEPEND_INFO_FILES
   "tests/CMakeFiles/test_service_28.dir/DependInfo.cmake"
   "tests/CMakeFiles/test_service_did.dir/DependInfo.cmake"
   "tests/CMakeFiles/test_timing.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_service_29.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_service_dtc.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_service_flash.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_service_mem.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_osal.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_endian.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_fuzz_core.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_transport.dir/DependInfo.cmake"
   )

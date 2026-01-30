@@ -1,6 +1,6 @@
 examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.o: \
- /home/andrii/Projects/mobile_3000/UDS/libuds/examples/host_sim/main.c \
- /usr/include/stdc-predef.h /usr/include/errno.h /usr/include/features.h \
+ /app/examples/host_sim/main.c /usr/include/stdc-predef.h \
+ /usr/include/errno.h /usr/include/features.h \
  /usr/include/features-time64.h \
  /usr/include/x86_64-linux-gnu/bits/wordsize.h \
  /usr/include/x86_64-linux-gnu/bits/timesize.h \
@@ -60,12 +60,10 @@ examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.o: \
  /usr/include/x86_64-linux-gnu/bits/time.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_tm.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_itimerspec.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_core.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_config.h \
+ /app/include/uds/uds_core.h /app/include/uds/uds_config.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_isotp.h \
- /usr/include/arpa/inet.h /usr/include/netinet/in.h \
- /usr/include/x86_64-linux-gnu/sys/socket.h \
+ /app/include/uds/uds_isotp.h /usr/include/arpa/inet.h \
+ /usr/include/netinet/in.h /usr/include/x86_64-linux-gnu/sys/socket.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_iovec.h \
  /usr/include/x86_64-linux-gnu/bits/socket.h \
  /usr/include/x86_64-linux-gnu/bits/socket_type.h \

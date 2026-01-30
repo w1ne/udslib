@@ -1,10 +1,18 @@
-test_core 1 0.0141745
-test_service_10 1 0.0144337
-test_service_22 1 0.012944
-test_service_27 1 0.0113388
-test_service_3E 1 0.0098241
-test_service_11 1 0.00816797
-test_service_28 1 0.00672307
-test_service_did 1 0.00516684
-test_timing 1 0.00258426
+test_core 1 0.0086073
+test_service_10 1 0.00843696
+test_service_22 1 0.00858934
+test_service_27 1 0.0088805
+test_service_3E 1 0.00890264
+test_service_11 1 0.00900081
+test_service_28 1 0.00896029
+test_service_did 1 0.00919707
+test_timing 1 0.00883716
+test_service_29 1 0.0090094
+test_service_dtc 1 0.00805854
+test_service_flash 1 0.00696194
+test_service_mem 1 0.00598543
+test_osal 1 0.00493467
+test_endian 1 0.00398044
+test_fuzz_core 1 0.00290755
+test_transport 1 0.00179886
 ---

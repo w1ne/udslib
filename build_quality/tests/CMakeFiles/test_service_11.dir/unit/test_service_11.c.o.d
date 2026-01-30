@@ -1,6 +1,5 @@
 tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.o: \
- /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_service_11.c \
- /usr/include/stdc-predef.h \
+ /app/tests/unit/test_service_11.c /usr/include/stdc-predef.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdarg.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h /usr/include/setjmp.h \
  /usr/include/features.h /usr/include/features-time64.h \
@@ -24,8 +23,6 @@ tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h /usr/include/string.h \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
- /usr/include/strings.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_helpers.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_core.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_config.h \
+ /usr/include/strings.h /app/tests/unit/test_helpers.h \
+ /app/include/uds/uds_core.h /app/include/uds/uds_config.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h

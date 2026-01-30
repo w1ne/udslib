@@ -28,3 +28,30 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
     }
     return -1;
 }
+
+int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    if (len < 2) {
+        return uds_send_nrc(ctx, 0x29, 0x13); /* Incorrect Msg Length */
+    }
+
+    uint8_t sub = data[1] & 0x7F;
+
+    if (!ctx->config->fn_auth) {
+        return uds_send_nrc(ctx, 0x29, 0x22); /* Conditions Not Correct */
+    }
+
+    /* Payload begins at data[2]. Output payload at tx_buffer[2] */
+    uint8_t *out_payload = &ctx->config->tx_buffer[2];
+    uint16_t max_payload = ctx->config->tx_buffer_size - 2;
+
+    int written = ctx->config->fn_auth(ctx, sub, &data[2], len - 2, out_payload, max_payload);
+
+    if (written < 0) {
+        return uds_send_nrc(ctx, 0x29, (uint8_t)(-written));
+    }
+
+    ctx->config->tx_buffer[0] = 0x69;
+    ctx->config->tx_buffer[1] = data[1];
+    return uds_send_response(ctx, written + 2);
+}

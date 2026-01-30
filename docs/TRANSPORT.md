@@ -1,39 +1,34 @@
 # Transport Layer Architecture
 
-LibUDS utilizes a "Spliced Layer" design for the Transport Layer (ISO 15765-2), allowing it to remain lightweight while supporting complex multi-frame communication.
+LibUDS uses a modular Transport Layer (ISO 15765-2), allowing it to fit both OS-managed and bare-metal environments.
 
-## 1. SDU vs PDU Separation
+## 1. SDU vs PDU
 
-- **SDU (Service Data Unit)**: The complete UDS message (max 4095 bytes in standard ISO-TP).
-- **PDU (Protocol Data Unit)**: Individual CAN frames (8 bytes for CAN 2.0).
-
-The core stack (`uds_core.c`) only deals with SDUs. Segmenting these into PDUs is the responsibility of the Transport Layer.
+- **SDU (Service Data Unit)**: The complete UDS message (max 4095 bytes). The core stack (`uds_core.c`) operates only on SDUs.
+- **PDU (Protocol Data Unit)**: Individual CAN frames (8 bytes). The Transport Layer handles segmentation and reassembly.
 
 ## 2. Integration Models
 
-### 2.1. Native OS (High-Level)
-If your OS (e.g., Zephyr, Linux SocketCAN) provides a native ISO-TP stack:
+### 2.1. Native OS Stack
+If the OS (Zephyr, Linux SocketCAN) provides an ISO-TP stack:
 1.  Initialize LibUDS with a `tp_send` function that writes to the OS socket.
-2.  When the OS socket receives a full message, call `uds_input_sdu()`.
-3.  In this model, the internal `uds_tp_isotp.c` is **not** used.
+2.  Pass received SDUs from the socket directly to `uds_input_sdu()`.
+3.  The internal `uds_tp_isotp.c` is **not** used.
 
 ### 2.2. Internal Fallback (Bare Metal)
-If no OS stack exists, use `uds_tp_isotp.c`:
+If no OS stack is available:
 1.  Initialize with `uds_tp_isotp_init(can_send_fn, tx_id, rx_id)`.
-2.  Hook your raw CAN driver RX to `uds_isotp_rx_callback()`.
-3.  Call `uds_tp_isotp_process()` in your main loop.
+2.  Feed raw CAN frames into `uds_isotp_rx_callback()`.
+3.  Proces logic via `uds_tp_isotp_process()`.
 
-## 3. Multi-Frame State Machine
+## 3. Internal ISO-TP States
 
-The internal fallback implements the standard ISO-TP state machine:
+The fallback implementation handles standard ISO-TP flows:
 - **SF (Single Frame)**: Immediate dispatch.
-- **FF (First Frame)**: Caches data, sends **FC (Flow Control)**, enters `ISOTP_RX_WAIT_CF`.
-- **CF (Consecutive Frame)**: Reassembles data until `msg_len` is reached.
-- **FC (Flow Control)**: Triggered during TX. If the core sends a large SDU, the TP layer sends FF, then waits for FC before resuming with CFs in the `process()` loop.
+- **FF (First Frame)**: Allocates buffer, sends **FC (Flow Control)**, waits for data.
+- **CF (Consecutive Frame)**: Reassembles payload.
+- **TX Flow Control**: When sending large SDUs, the stack sends FF and waits for the peer's FC before streaming CFs.
 
-## 4. Virtual CAN over UDP
+## 4. Virtual CAN (Host Simulation)
 
-For host-based verification (Linux/Windows), we use a virtual CAN layer:
-- CAN frames are encapsulated in UDP packets.
-- This allows running the full stack on a PC without physical CAN hardware.
-- The `uds_host_sim` example demonstrates this integration.
+For PC-based verification, we encapsulate CAN frames in UDP packets. This allows full stack execution without physical hardware.

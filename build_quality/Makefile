@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds
+CMAKE_SOURCE_DIR = /app
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality
+CMAKE_BINARY_DIR = /app/build_quality
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -97,9 +97,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles /app/build_quality//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -269,6 +269,110 @@ test_timing/fast:
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/build
 .PHONY : test_timing/fast
 
+#=============================================================================
+# Target rules for targets named test_service_29
+
+# Build rule for target.
+test_service_29: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_service_29
+.PHONY : test_service_29
+
+# fast build rule for target.
+test_service_29/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/build
+.PHONY : test_service_29/fast
+
+#=============================================================================
+# Target rules for targets named test_service_dtc
+
+# Build rule for target.
+test_service_dtc: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_service_dtc
+.PHONY : test_service_dtc
+
+# fast build rule for target.
+test_service_dtc/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/build
+.PHONY : test_service_dtc/fast
+
+#=============================================================================
+# Target rules for targets named test_service_flash
+
+# Build rule for target.
+test_service_flash: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_service_flash
+.PHONY : test_service_flash
+
+# fast build rule for target.
+test_service_flash/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/build
+.PHONY : test_service_flash/fast
+
+#=============================================================================
+# Target rules for targets named test_service_mem
+
+# Build rule for target.
+test_service_mem: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_service_mem
+.PHONY : test_service_mem
+
+# fast build rule for target.
+test_service_mem/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/build
+.PHONY : test_service_mem/fast
+
+#=============================================================================
+# Target rules for targets named test_osal
+
+# Build rule for target.
+test_osal: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_osal
+.PHONY : test_osal
+
+# fast build rule for target.
+test_osal/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/build
+.PHONY : test_osal/fast
+
+#=============================================================================
+# Target rules for targets named test_endian
+
+# Build rule for target.
+test_endian: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_endian
+.PHONY : test_endian
+
+# fast build rule for target.
+test_endian/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/build
+.PHONY : test_endian/fast
+
+#=============================================================================
+# Target rules for targets named test_fuzz_core
+
+# Build rule for target.
+test_fuzz_core: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_fuzz_core
+.PHONY : test_fuzz_core
+
+# fast build rule for target.
+test_fuzz_core/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/build
+.PHONY : test_fuzz_core/fast
+
+#=============================================================================
+# Target rules for targets named test_transport
+
+# Build rule for target.
+test_transport: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_transport
+.PHONY : test_transport
+
+# fast build rule for target.
+test_transport/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/build
+.PHONY : test_transport/fast
+
 src/core/uds_core.o: src/core/uds_core.c.o
 .PHONY : src/core/uds_core.o
 
@@ -317,6 +421,30 @@ src/services/uds_service_data.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_data.c.s
 .PHONY : src/services/uds_service_data.c.s
 
+src/services/uds_service_flash.o: src/services/uds_service_flash.c.o
+.PHONY : src/services/uds_service_flash.o
+
+# target to build an object file
+src/services/uds_service_flash.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_flash.c.o
+.PHONY : src/services/uds_service_flash.c.o
+
+src/services/uds_service_flash.i: src/services/uds_service_flash.c.i
+.PHONY : src/services/uds_service_flash.i
+
+# target to preprocess a source file
+src/services/uds_service_flash.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_flash.c.i
+.PHONY : src/services/uds_service_flash.c.i
+
+src/services/uds_service_flash.s: src/services/uds_service_flash.c.s
+.PHONY : src/services/uds_service_flash.s
+
+# target to generate assembly for a file
+src/services/uds_service_flash.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_flash.c.s
+.PHONY : src/services/uds_service_flash.c.s
+
 src/services/uds_service_maintenance.o: src/services/uds_service_maintenance.c.o
 .PHONY : src/services/uds_service_maintenance.o
 
@@ -340,6 +468,30 @@ src/services/uds_service_maintenance.s: src/services/uds_service_maintenance.c.s
 src/services/uds_service_maintenance.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.s
 .PHONY : src/services/uds_service_maintenance.c.s
+
+src/services/uds_service_mem.o: src/services/uds_service_mem.c.o
+.PHONY : src/services/uds_service_mem.o
+
+# target to build an object file
+src/services/uds_service_mem.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_mem.c.o
+.PHONY : src/services/uds_service_mem.c.o
+
+src/services/uds_service_mem.i: src/services/uds_service_mem.c.i
+.PHONY : src/services/uds_service_mem.i
+
+# target to preprocess a source file
+src/services/uds_service_mem.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_mem.c.i
+.PHONY : src/services/uds_service_mem.c.i
+
+src/services/uds_service_mem.s: src/services/uds_service_mem.c.s
+.PHONY : src/services/uds_service_mem.s
+
+# target to generate assembly for a file
+src/services/uds_service_mem.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/src/services/uds_service_mem.c.s
+.PHONY : src/services/uds_service_mem.c.s
 
 src/services/uds_service_security.o: src/services/uds_service_security.c.o
 .PHONY : src/services/uds_service_security.o
@@ -423,14 +575,22 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... test_core"
+	@echo "... test_endian"
+	@echo "... test_fuzz_core"
+	@echo "... test_osal"
 	@echo "... test_service_10"
 	@echo "... test_service_11"
 	@echo "... test_service_22"
 	@echo "... test_service_27"
 	@echo "... test_service_28"
+	@echo "... test_service_29"
 	@echo "... test_service_3E"
 	@echo "... test_service_did"
+	@echo "... test_service_dtc"
+	@echo "... test_service_flash"
+	@echo "... test_service_mem"
 	@echo "... test_timing"
+	@echo "... test_transport"
 	@echo "... uds"
 	@echo "... uds_host_sim"
 	@echo "... src/core/uds_core.o"
@@ -439,9 +599,15 @@ help:
 	@echo "... src/services/uds_service_data.o"
 	@echo "... src/services/uds_service_data.i"
 	@echo "... src/services/uds_service_data.s"
+	@echo "... src/services/uds_service_flash.o"
+	@echo "... src/services/uds_service_flash.i"
+	@echo "... src/services/uds_service_flash.s"
 	@echo "... src/services/uds_service_maintenance.o"
 	@echo "... src/services/uds_service_maintenance.i"
 	@echo "... src/services/uds_service_maintenance.s"
+	@echo "... src/services/uds_service_mem.o"
+	@echo "... src/services/uds_service_mem.i"
+	@echo "... src/services/uds_service_mem.s"
 	@echo "... src/services/uds_service_security.o"
 	@echo "... src/services/uds_service_security.i"
 	@echo "... src/services/uds_service_security.s"

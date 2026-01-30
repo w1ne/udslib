@@ -1,27 +1,26 @@
 # LibUDS Vision
 
-## Our Mission
-To provide the most portable, hardware-agnostic UDS stack in the industry, enabling engineers to build diagnostic systems once and deploy them anywhere.
+## Mission
+To provide a robust, hardware-agnostic, and **safety-first** UDS stack that eases the transition to Software-Defined Vehicles (SDV).
 
-## The Problem in Embedded Diagnostics
-Diagnostics software is notoriously difficult to maintain. The "Spaghetti Factor" is high:
-- **Portability is an afterthought.**
-- **Testing requires hardware.**
-- **Licensing is opaque.**
+## Industry Challenges
+- **Security**: Moving from Seed/Key to Certificate-based Authentication (ISO 21434).
+- **Safety**: Preventing resets or writes during active machine operation.
+- **Concurrency**: Integrating with RTOS (Zephyr, FreeRTOS) without blocking main loops or introducing race conditions.
+- **Throughput**: Handling high-speed flashing over DoIP without stalling via P2 limits.
 
-## The LibUDS Approach
+## Approach
 
-### 1. Hardware is an Interface, Not a Constraint
-We believe your protocol logic should not know if it's running on a $0.50 8-bit chip or a high-end Linux Gateway. By strictly abstracting the Transport and Time layers, we move the "Cost of Porting" from weeks to minutes.
+### 1. Hardware Independence
+Core logic is identical whether running on an 8-bit MCU or a Linux Gateway. Abstracting Transport and Time layers reduces porting time significantly.
 
-### 2. Testable by Design
-The primary reason embedded projects fail is that testing requires physical hardware. LibUDS is designed from Day 1 to be "Host First". You can write and verify 100% of your service logic on a PC, in a CI/CD pipeline, before a single PCB is ever manufactured.
+### 2. Host-First Design
+Validation happens on PC/Cloud before targeting hardware. This removes hardware dependencies from the critical path.
 
-### 3. Commercial Simplicity
-No "Price on Request". No royalties. No per-device fees.
-We target the high-end industrial consultant who needs a reliable, reusable tool that just works. We provide the source code, the tests, and the docs—you provide the application.
+### 3. Reliability
+- **Safety Gates**: Critical services (Reset, Write, Download) require application checks before execution.
+- **Concurrency**: Architecture separates Ingress from Processing for safe RTOS integration.
+- **Atomic Operations**: State recovery is the default.
 
 ## Market Position
-We are the bridge between "DIY GitHub Repos" (which lack support and robustness) and "Heavyweight Tier-1 Stacks" (which cost $50k+ and are overkill for many industrial IoT projects). 
-
-LibUDS is the **"Industrial Middle Class"** of UDS stacks.
+LibUDS targets the mid-market. We bridge the gap between "DIY" repositories and expensive Tier-1 commercial stacks. We offer commercial stability with open-source agility.

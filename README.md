@@ -22,19 +22,38 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ## 2. Technical Architecture (The "How")
 
-### 🚀 Status: v1.1.0 (Maintenance & Hardening)
+### 🚀 Status: v1.3.0 (Industrial Hardening & Safety)
 
-LibUDS v1.1.0 introduces full support for **ECU Reset (0x11)**, **Communication Control (0x28)**, and a scalable **Table-Driven DID Registry** for Data Identifiers (0x22/0x2E). It remains 100% compliant with its rigorous unit test suite.
+LibUDS v1.3.0 introduces deep architectural support for **Safety Gates**, **Asynchronous Dispatching**, and **State Persistence**.
+- **Safety Gates**: Mandatory application check (`fn_is_safe`) before destructive services (Reset, Flash, Write).
+- **Service Modularization**: Fully decoupled service handlers in `src/services/` with a scalable registry.
+- **NVM Persistence**: Native hooks to save/restore session and security state across resets.
+- **Enhanced Testing**: 100% CMocka coverage, parallel execution, and automated JUnit/LCOV reporting.
 
-### 🛠️ Quick Start (Simulated)
+### 2. Quick Start
+
+### Standardized Environment (Recommended)
+
+Run all tests and generate coverage reports using Docker:
 
 ```bash
-# 1. Build host simulator & tests
+./scripts/docker_run.sh
+```
+
+### Manual Installation
+
+#### Ubuntu/Debian
+```bash
+sudo apt-get install build-essential cmake libcmocka-dev lcov
+```
+
+#### Build and Run Tests
+```bash
 mkdir build && cd build
 cmake ..
 make
-
-# 2. Run unit tests
+ctest
+```# 2. Run unit tests
 ctest --output-on-failure
 
 # 3. Run ECU Simulator
@@ -162,10 +181,40 @@ Call `uds_process(&ctx)` periodically (e.g., every 1ms or in the idle task) to h
 
 ---
 
-## 5. Documentation
+## 5. Enterprise Features (Commercial Readiness)
+
+LibUDS is designed for industrial and automotive applications requiring high reliability and compliance.
+
+- **Thread-Safe Architecture**: Built-in OS Abstraction Layer (OSAL) with mutex support for RTOS integration.
+- **Zero-Copy Memory Model**: Optimized for low-footprint microcontrollers (no malloc).
+- **ISO-14229 Compliance**: Implements 15+ standard services including Read/Write Memory (0x23/0x3D) and Authentication (0x29).
+- **Safety Gate**: Hook-based mechanism to reject services based on vehicle state (e.g., speed > 0).
+- **Mock-Ready API**: Dependency injection for CAN Transport, Timer, and Logging facilitates unit testing.
+
+## 6. Releases
+
+Official releases are available on [GitHub Releases](https://github.com/yourusername/libuds/releases).
+
+Each release includes:
+- **📋 Changelog**: Detailed list of changes, additions, and fixes
+- **✅ Test Results**: Complete test suite validation (16 unit tests)
+- **📦 Build Artifacts**: Pre-compiled host simulator and test binaries
+- **📚 Documentation**: Updated API docs and guides
+- **🎯 Service List**: All implemented UDS services with SID reference
+
+To create a new release, simply push a version tag:
+```bash
+git tag -a v1.3.0 -m "Release version 1.3.0"
+git push origin v1.3.0
+```
+
+The GitHub Actions workflow will automatically build, test, and publish the release with formatted documentation.
+
+## 7. Documentation
 
 For deeper dives into the project's design and future, please refer to the following documents:
 
 *   [**Architecture**](docs/ARCHITECTURE.md) - Design philosophy, component diagrams, and transport strategy.
 *   [**Roadmap**](docs/ROADMAP.md) - Project phases, upcoming features, and long-term vision.
 *   [**Vision**](docs/VISION.md) - Product mission, market position, and design principles.
+*   [**Commercial Strategy**](docs/COMMERCIAL_STRATEGY.md) - Sales funnel, licensing tiers, and GTM strategy.

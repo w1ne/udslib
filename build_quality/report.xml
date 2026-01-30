@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuite name="(empty)"
-	tests="9"
+	tests="17"
 	failures="0"
 	disabled="0"
 	skipped="0"
 	hostname=""
 	time="0"
-	timestamp="2026-01-30T09:49:42"
+	timestamp="2026-01-30T22:33:23"
 	>
-	<testcase name="test_core" classname="test_core" time="0.0141745" status="run">
-		<system-out>[==========] Running 4 test(s).
+	<testcase name="test_core" classname="test_core" time="0.00860731" status="run">
+		<system-out>[==========] Running 5 test(s).
 [ RUN      ] test_uds_init_success
 [       OK ] test_uds_init_success
 [ RUN      ] test_uds_init_fail
@@ -18,11 +18,13 @@
 [       OK ] test_invalid_sid_nrc
 [ RUN      ] test_custom_service_registration
 [       OK ] test_custom_service_registration
-[==========] 4 test(s) run.
-[  PASSED  ] 4 test(s).
+[ RUN      ] test_safety_gate_rejection
+[       OK ] test_safety_gate_rejection
+[==========] 5 test(s) run.
+[  PASSED  ] 5 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_10" classname="test_service_10" time="0.0144337" status="run">
+	<testcase name="test_service_10" classname="test_service_10" time="0.00843696" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_extended_session_success
 [       OK ] test_extended_session_success
@@ -32,7 +34,7 @@
 [  PASSED  ] 2 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_22" classname="test_service_22" time="0.012944" status="run">
+	<testcase name="test_service_22" classname="test_service_22" time="0.00858934" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_rdbi_vin_success
 [       OK ] test_rdbi_vin_success
@@ -42,7 +44,7 @@
 [  PASSED  ] 2 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_27" classname="test_service_27" time="0.0113388" status="run">
+	<testcase name="test_service_27" classname="test_service_27" time="0.0088805" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_security_access_seed
 [       OK ] test_security_access_seed
@@ -52,7 +54,7 @@
 [  PASSED  ] 2 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_3E" classname="test_service_3E" time="0.0098241" status="run">
+	<testcase name="test_service_3E" classname="test_service_3E" time="0.00890264" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_tester_present_zero_sub
 [       OK ] test_tester_present_zero_sub
@@ -62,7 +64,7 @@
 [  PASSED  ] 2 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_11" classname="test_service_11" time="0.00816797" status="run">
+	<testcase name="test_service_11" classname="test_service_11" time="0.00900081" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_ecu_reset_hard_success
 [       OK ] test_ecu_reset_hard_success
@@ -72,7 +74,7 @@
 [  PASSED  ] 2 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_28" classname="test_service_28" time="0.00672307" status="run">
+	<testcase name="test_service_28" classname="test_service_28" time="0.00896029" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_comm_control_disable_rx_tx_success
 [       OK ] test_comm_control_disable_rx_tx_success
@@ -82,7 +84,7 @@
 [  PASSED  ] 2 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_service_did" classname="test_service_did" time="0.00516684" status="run">
+	<testcase name="test_service_did" classname="test_service_did" time="0.00919707" status="run">
 		<system-out>[==========] Running 4 test(s).
 [ RUN      ] test_rdbi_single_did_success
 [       OK ] test_rdbi_single_did_success
@@ -96,7 +98,7 @@
 [  PASSED  ] 4 test(s).
 </system-out>
 	</testcase>
-	<testcase name="test_timing" classname="test_timing" time="0.00258426" status="run">
+	<testcase name="test_timing" classname="test_timing" time="0.00883716" status="run">
 		<system-out>[==========] Running 2 test(s).
 [ RUN      ] test_p2_timeout_nrc78
 [       OK ] test_p2_timeout_nrc78
@@ -104,6 +106,104 @@
 [       OK ] test_s3_timeout_reset
 [==========] 2 test(s) run.
 [  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_29" classname="test_service_29" time="0.0090094" status="run">
+		<system-out>[==========] Running 3 test(s).
+[ RUN      ] test_auth_deauthenticate_success
+[       OK ] test_auth_deauthenticate_success
+[ RUN      ] test_auth_verify_cert_uni_success
+[       OK ] test_auth_verify_cert_uni_success
+[ RUN      ] test_auth_no_callback_nrc
+[       OK ] test_auth_no_callback_nrc
+[==========] 3 test(s) run.
+[  PASSED  ] 3 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_dtc" classname="test_service_dtc" time="0.00805854" status="run">
+		<system-out>[==========] Running 3 test(s).
+[ RUN      ] test_clear_dtc_success
+[       OK ] test_clear_dtc_success
+[ RUN      ] test_read_dtc_info_success
+[       OK ] test_read_dtc_info_success
+[ RUN      ] test_control_dtc_setting_success
+[       OK ] test_control_dtc_setting_success
+[==========] 3 test(s) run.
+[  PASSED  ] 3 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_flash" classname="test_service_flash" time="0.00696194" status="run">
+		<system-out>[==========] Running 4 test(s).
+[ RUN      ] test_routine_control_erase_success
+[       OK ] test_routine_control_erase_success
+[ RUN      ] test_request_download_success
+[       OK ] test_request_download_success
+[ RUN      ] test_transfer_data_success
+[       OK ] test_transfer_data_success
+[ RUN      ] test_transfer_exit_success
+[       OK ] test_transfer_exit_success
+[==========] 4 test(s) run.
+[  PASSED  ] 4 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_mem" classname="test_service_mem" time="0.00598543" status="run">
+		<system-out>[==========] Running 4 test(s).
+[ RUN      ] test_read_memory_success
+[DEBUG] mock_can_send: len=3 data=63 AA BB 
+[       OK ] test_read_memory_success
+[ RUN      ] test_read_memory_out_of_range
+[DEBUG] mock_can_send: len=3 data=7F 23 31 
+[       OK ] test_read_memory_out_of_range
+[ RUN      ] test_write_memory_success
+[DEBUG] mock_can_send: len=2 data=7D 12 
+[       OK ] test_write_memory_success
+[ RUN      ] test_write_memory_bad_length
+[DEBUG] mock_can_send: len=3 data=7F 3D 13 
+[       OK ] test_write_memory_bad_length
+[==========] 4 test(s) run.
+[  PASSED  ] 4 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_osal" classname="test_osal" time="0.00493467" status="run">
+		<system-out>[==========] Running 1 test(s).
+[ RUN      ] test_osal_locking
+[       OK ] test_osal_locking
+[==========] 1 test(s) run.
+[  PASSED  ] 1 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_endian" classname="test_endian" time="0.00398044" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_big_endian_parsing
+[       OK ] test_big_endian_parsing
+[ RUN      ] test_big_endian_parsing_small
+[       OK ] test_big_endian_parsing_small
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_fuzz_core" classname="test_fuzz_core" time="0.00290755" status="run">
+		<system-out>[==========] Running 1 test(s).
+[ RUN      ] test_overflow_checks
+[       OK ] test_overflow_checks
+[==========] 1 test(s) run.
+[  PASSED  ] 1 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_transport" classname="test_transport" time="0.00179886" status="run">
+		<system-out>[==========] Running 5 test(s).
+[ RUN      ] test_send_sf
+[       OK ] test_send_sf
+[ RUN      ] test_send_ff
+[       OK ] test_send_ff
+[ RUN      ] test_recv_fc_send_cf
+[       OK ] test_recv_fc_send_cf
+[ RUN      ] test_recv_sf
+[       OK ] test_recv_sf
+[ RUN      ] test_recv_multiframe
+[       OK ] test_recv_multiframe
+[==========] 5 test(s) run.
+[  PASSED  ] 5 test(s).
 </system-out>
 	</testcase>
 </testsuite>

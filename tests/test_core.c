@@ -131,6 +131,33 @@ static void test_custom_service_registration(void **state)
     assert_int_equal(tx_buf[0], 0xAA);
 }
 
+static bool mock_safety_check(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
+{
+    (void)ctx;
+    (void)data;
+    (void)len;
+    return (sid != 0x11); /* Block ECU Reset (0x11) for safety */
+}
+
+static void test_safety_gate_rejection(void **state)
+{
+    (void)state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_is_safe = mock_safety_check;
+
+    uint8_t req[] = {0x11, 0x01}; /* ECU Reset Request */
+    will_return(mock_get_time, 1000); /* input_sdu */
+    will_return(mock_get_time, 1000); /* dispatcher */
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 0x7F 11 22 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 2);
+    assert_int_equal(g_tx_buf[2], 0x22); /* ConditionsNotCorrect */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -138,6 +165,7 @@ int main(void)
         cmocka_unit_test(test_uds_init_fail),
         cmocka_unit_test(test_invalid_sid_nrc),
         cmocka_unit_test(test_custom_service_registration),
+        cmocka_unit_test(test_safety_gate_rejection),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

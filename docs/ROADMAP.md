@@ -1,33 +1,41 @@
-# LibUDS Roadmap
+# Roadmap
 
-This roadmap outlines the evolution of LibUDS from a core MVP to a production-ready industrial stack.
+## Phase 1: Core Architecture (Complete)
+- [x] Basic Service Dispatcher (SID 0x10).
+- [x] Dependency Injection Architecture.
+- [x] ISO-TP Fallback Layer.
+- [x] Symmetric Client/Server API.
+- [x] Transport Abstraction (Native vs Fallback).
+- [x] Host Simulation Harness (UDP Virtual CAN).
+- [x] Automated Integration Testing.
 
-## Phase 1: Symmetric Core & Integration (Current)
-- [x] Basic Service Dispatcher (SID 0x10)
-- [x] Dependency Injection Architecture
-- [x] ISO-TP Fallback Layer (Multi-frame FF/CF/FC support)
-- [x] Symmetric Client/Server API (`uds_client_request`)
-- [x] "Spliced" Transport Abstraction (Native vs Fallback)
-- [x] Host Simulation Harness (UDP Virtual CAN)
-- [x] Automated Integration Testing (C & Python)
+## Phase 2: Platform Integration (Complete)
+- [x] **Zephyr OS**: Module structure, CMake, Kconfig.
+- [x] **Shared Transport**: Wrapper for native `subsys/canbus/isotp`.
+- [x] **Validation**: Integrated `driftregion/iso14229` and `py-uds`.
+- [x] **Testing**: Full CMocka unit test suite.
 
-## Phase 2: Platform & Ecosystem (Complete)
-- [x] **Zephyr OS Integration**: Module structure, CMake, Kconfig integration.
-- [x] **Zephyr Shared Transport**: Wrapper for native `subsys/canbus/isotp`.
-- [x] **External Validation**: Integrated `driftregion/iso14229` and `py-uds`.
-- [x] **Unit Testing Hardening**: Full CMocka test suite implementation.
+## Phase 3: Industrial Hardening (Complete)
+- [x] **Modular Services**: Table-driven dispatcher.
+- [x] **Compliance**: Strict ISO-14229-1 NRC priorities and session management.
+- [x] **Data Services**: High-level handlers for 0x22/0x2E.
+- [x] **Persistence**: Hooks for saving session/security state (`fn_nvm`).
+- [x] **Safety Gates**: Callback (`fn_is_safe`) for destructive services.
+- [x] **Thread Safety**: OSAL mutex abstractions.
 
-## Phase 3: Industrial Hardening (In Progress)
-- [x] **Security Access (SID 0x27)**: Mock implementation and verification.
-- [x] **Maintenance Services (SID 0x11, 0x28)**: Formal support and tests.
-- [x] **P2/P2* Timer Logic**: Automatic handling of "Response Pending" (0x78).
-- [x] **Full ISO-14229-1 Compliance**: NRC priorities and rigid session management.
-- [x] **Read/Write Data (0x22/0x2E)**: High-level table-driven handlers.
-- [x] **Modular Service Architecture**: Table-driven dispatcher and decoupled service handlers.
+## Phase 4: Cybersecurity (Complete)
+- [x] **Authentication (0x29)**: ISO 21434 certificate exchange support.
+- [x] **Security Levels**: Multi-level state machine.
 
-## Phase 4: Advanced Features (Planned)
-- [ ] **Multi-Channel Support**: Multiple UDS contexts on different interfaces.
-- [ ] **Automated Certification**: Compliance report generator for ISO-26262/ASPICE audits.
+## Phase 5: Flash & Memory (Complete)
+- [x] **Transfer Services**: 0x34, 0x36, 0x37 for firmware updates.
+- [x] **Memory Services**: 0x23, 0x3D with bounds checking.
+- [x] **Routine Control**: 0x31 framework.
 
-## Long Term Vision
-- **Golden Standard Connectivity**: Plug-and-play testing against any major commercial or open-source UDS stack.
+## Phase 6: Tooling (Complete)
+- [x] **ODX-to-C**: Generator for DID tables from ODX.
+- [x] **Test Generator**: Python integration test scaffolding.
+
+## Future Goals
+- **Interoperability**: Automated testing against major commercial stacks.
+- **Certification**: Preparation for ISO 26262 and ASPICE compliance.

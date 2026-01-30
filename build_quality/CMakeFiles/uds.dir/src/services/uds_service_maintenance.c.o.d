@@ -1,9 +1,7 @@
 CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.o: \
- /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_maintenance.c \
- /usr/include/stdc-predef.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/src/core/uds_internal.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_core.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_config.h \
+ /app/src/services/uds_service_maintenance.c /usr/include/stdc-predef.h \
+ /app/src/core/uds_internal.h /app/include/uds/uds_core.h \
+ /app/include/uds/uds_config.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \
@@ -20,4 +18,7 @@ CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.o: \
  /usr/include/x86_64-linux-gnu/bits/time64.h \
  /usr/include/x86_64-linux-gnu/bits/wchar.h \
  /usr/include/x86_64-linux-gnu/bits/stdint-intn.h \
- /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h
+ /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h /usr/include/string.h \
+ /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
+ /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
+ /usr/include/strings.h

@@ -12,6 +12,11 @@ ROOT_DIR="$DIR/../.."
 # Looking at their main.c: UDSTpIsoTpSockInitServer(&tp, "vcan0", 0x7E0, 0x7E8, 0x7DF)
 # It takes no arguments and hardcodes vcan0.
 
+if [ ! -f "$ROOT_DIR/iso14229_server" ]; then
+    echo "Skipping: iso14229_server binary not found"
+    exit 0
+fi
+
 # 1. Start Server
 $ROOT_DIR/iso14229_server > $ROOT_DIR/iso14229_srv.log 2>&1 &
 SRV_PID=$!
@@ -22,5 +27,7 @@ sleep 1
 # Actually, I should build a vcan version of our client demo.
 
 echo "Skipping iso14229 cross-test: vcan client demo not yet built."
-kill $SRV_PID
+if ps -p $SRV_PID > /dev/null; then
+    kill $SRV_PID
+fi
 exit 0
