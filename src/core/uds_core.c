@@ -268,7 +268,25 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
             uds_internal_log(ctx, UDS_LOG_INFO, "Safety Gate Check Failed");
         }
         else {
-            service->handler(ctx, data, len);
+            int result = service->handler(ctx, data, len);
+            if (result == UDS_PENDING) {
+                /* Service is async: Send NRC 0x78 (Response Pending) immediately */
+                uds_send_nrc(ctx, sid, 0x78);
+                
+                /* Switch to P2* timing */
+                ctx->p2_msg_pending = true;
+                ctx->p2_star_active = true;
+                ctx->p2_timer_start = ctx->config->get_time_ms();
+                
+                /* Store the SID we are working on so we know what to respond to later */
+                ctx->pending_sid = sid; 
+            }
+            else if (result < 0) {
+                 /* If handler fails with negative, it presumably sent NRC? 
+                    Or should we send general reject? 
+                    Current handlers send NRC. 
+                 */
+            }
         }
     } else {
         uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
