@@ -22,7 +22,7 @@ This roadmap outlines the evolution of LibUDS from a core MVP to a production-re
 - [x] **Maintenance Services (SID 0x11, 0x28)**: Formal support and tests.
 - [x] **P2/P2* Timer Logic**: Automatic handling of "Response Pending" (0x78).
 - [ ] **Full ISO-14229-1 Compliance**: NRC priorities and rigid session management.
-- [ ] **Read/Write Data (0x22/0x2E)**: High-level table-driven handlers.
+- [x] **Read/Write Data (0x22/0x2E)**: High-level table-driven handlers.
 
 ## Phase 4: Advanced Features (Planned)
 - [ ] **Multi-Channel Support**: Multiple UDS contexts on different interfaces.

@@ -16,12 +16,12 @@ This document tracks the implementation status of UDS services in LibUDS.
 | **0x85** | Control DTC Setting | ❌ Planned | Support pending |
 | **0x86** | Response On Event | ❌ N/A | Not planned for initial release |
 | **0x87** | Link Control | ❌ N/A | Not planned for initial release |
-| **0x22** | **Read Data By Identifier** | ✅ Supported | Dynamic RDBI (Mocked for VIN F190) |
+| **0x22** | **Read Data By Identifier** | ✅ Supported | Full table-driven registry |
 | **0x23** | Read Memory By Address | ❌ Optional | Feature flag dependent |
 | **0x24** | Read Scaling Data By Identifier | ❌ Planned | Support pending |
 | **0x2A** | Read Data By Periodic Identifier| ❌ Planned | Support pending |
 | **0x2C** | Dynamically Define Data Identifier| ❌ Planned | Support pending |
-| **0x2E** | Write Data By Identifier | ✅ Experimental| Basic implementation in branch |
+| **0x2E** | **Write Data By Identifier** | ✅ Supported | Full table-driven registry |
 | **0x3D** | Write Memory By Address | ❌ Optional | Feature flag dependent |
 | **0x14** | Clear Diagnostic Information | ❌ Planned | Support pending |
 | **0x19** | Read DTC Information | ❌ Planned | Support pending |

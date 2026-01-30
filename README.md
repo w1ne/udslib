@@ -22,9 +22,9 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ## 2. Technical Architecture (The "How")
 
-### 🚀 Status: v1.0.0 (Stable)
+### 🚀 Status: v1.1.0 (Maintenance & Hardening)
 
-LibUDS is currently in its first stable release, featuring full ISO 14229-1 compliance for core services, native Zephyr support, and a complete CMocka unit testing suite.
+LibUDS v1.1.0 introduces full support for **ECU Reset (0x11)**, **Communication Control (0x28)**, and a scalable **Table-Driven DID Registry** for Data Identifiers (0x22/0x2E). It remains 100% compliant with its rigorous unit test suite.
 
 ### 🛠️ Quick Start (Simulated)
 
