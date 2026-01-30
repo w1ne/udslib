@@ -5,8 +5,9 @@ This library provides a portable, commercial-grade UDS (ISO 14229) protocol stac
 ## 📖 Core Documentation
 
 ### Getting Started
+- **[QUICKSTART.md](docs/QUICKSTART_ZEPHYR.md)**: 5-minute Zephyr example.
+- **[DOCKER.md](scripts/docker_run.sh)**: Run tests instantly with Docker.
 - **[VISION.md](VISION.md)**: Project vision and commercial model.
-- **[QUICKSTART_ZEPHYR.md](QUICKSTART_ZEPHYR.md)**: 5-minute Zephyr example.
 - **[ROADMAP.md](ROADMAP.md)**: Development timelines.
 
 ### Architecture & Design

@@ -7,9 +7,23 @@ LibUDS uses a multi-tiered testing strategy.
 - **Framework**: Minimalist C assertions and **CMocka**.
 - **Scope**: Validates core state machine, initialization, and service logic in isolation.
 - **Benefits**: Mocking capabilities allow testing without hardware dependencies.
-- **Run**: `cd build && ctest --output-on-failure` or `./tests/unit_tests`
+- **Run**: `./scripts/docker_run.sh` (Recommended) or `ctest`.
 
-## 2. ECU Simulator (Host Sim)
+## 2. Integration Tests
+- **Location**: `tests/integration/`
+- **Scope**: Full-stack lifecycle (Session -> Security -> Service -> Loopback).
+- **Purpose**: Verifies interaction between transport, dispatcher, and state machine.
+
+## 3. Docker Environment (Standardized)
+- **Script**: `scripts/docker_run.sh`
+- **Image**: Ubuntu 22.04 with GCC, CMake, CMocka, LCOV.
+- **Benefits**: Guarantees identical environment for local dev and CI.
+- **Usage**:
+  ```bash
+  ./scripts/docker_run.sh
+  ```
+
+## 4. ECU Simulator (Host Sim)
 - **Location**: `examples/host_sim/`
 - **Purpose**: A standalone POSIX application acting as an ECU.
 - **Interface**: Implements **Virtual CAN over UDP**. It listens for UDP packets (simulating CAN frames) and responds.
