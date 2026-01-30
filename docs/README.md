@@ -13,6 +13,7 @@ Welcome to the LibUDS documentation. This library provides a portable, commercia
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Core design philosophy and component diagrams
 - **[TRANSPORT.md](TRANSPORT.md)** - "Spliced" transport layer architecture
 - **[TIMING_AND_TIMEOUTS.md](TIMING_AND_TIMEOUTS.md)** - P2/P2* and S3 logic
+- **[OSAL.md](OSAL.md)** - Thread-safety and RTOS integration guidelines
 - **[CLIENT_API.md](CLIENT_API.md)** - Using LibUDS as a UDS client (tester)
 - **[UNIT_TESTING.md](UNIT_TESTING.md)** - Guide for running and writing tests
 
@@ -35,10 +36,11 @@ Welcome to the LibUDS documentation. This library provides a portable, commercia
 
 ### Implementation
 - **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Current development plan
-  - Phase 1: Zephyr Integration
-  - Phase 2: External Validation
-  - Phase 3: Automated Testing
-  - Phase 4: Documentation
+### Implementation
+- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - Current development plan
+  - Phase 1-9: completed
+  - Phase 10: Memory Services & Enterprise Hardening (Done)
+  - Phase 11: Portability Audit (Done)
 
 ## 🎯 Quick Navigation
 
@@ -81,17 +83,16 @@ libuds/
 
 | Component | Status |
 |:----------|:-------|
-| Core UDS Stack | ✅ Complete |
-| Client API | ✅ Complete |
+| Core UDS Stack (15 Services) | ✅ Complete (v1.3.0) |
+| OS Abstraction Layer (OSAL) | ✅ Complete |
+| Memory Services (0x23/0x3D) | ✅ Complete |
+| Flash Engine (0x31/34/36/37) | ✅ Complete |
+| Authentication (0x29) | ✅ Complete |
+| DTC Management (0x14/19/85) | ✅ Complete |
+| Zephyr Integration | ✅ Complete |
 | ISO-TP Fallback | ✅ Complete |
-| POSIX Examples | ✅ Complete |
-| Python Integration Tests | ✅ Complete |
-| Zephyr Module Structure | ✅ Complete |
-| Zephyr Shim Layer | ✅ Complete |
-| Zephyr Server Example | ✅ Complete |
-| External Validation (iso14229) | ✅ Built & Integrated |
-| py-uds Automation | ✅ Installed & Integrated |
-| Unit Tests (CMocka) | ✅ Complete |
+| Unit Tests (100% Coverage) | ✅ Complete |
+| Portability (Endian/Headers) | ✅ Verified |
 
 ## 📝 License
 

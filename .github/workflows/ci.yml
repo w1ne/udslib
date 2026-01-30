@@ -31,22 +31,32 @@ jobs:
       - name: Install Build Dependencies
         run: sudo apt-get install -y build-essential cmake libcmocka-dev pkg-config
         
-      - name: Build and Run Unit Tests (CMocka)
-        run: |
-          mkdir build && cd build
-          cmake ..
-          make test_core test_service_10 test_service_22 test_service_27 test_service_3E test_timing
-          ctest --output-on-failure
+      - name: Run Quality Check and Unit Tests
+        run: ./scripts/check_quality.sh
           
-      - name: Build and Run Host Simulation
-        run: |
-          mkdir build && cd build
-          cmake ..
-          make
-          ./examples/host_sim/host_sim &
-          sleep 2
-          # Note: Real integration tests would need vcan setup which requires sudo/kernel mods
-          # We will mock the vcan check or use a dedicated action for it
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: build_quality/report.xml
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Dependencies
+        run: sudo apt-get install -y build-essential cmake libcmocka-dev pkg-config lcov
+        
+      - name: Run Coverage
+        run: ./scripts/generate_coverage.sh
+          
+      - name: Archive Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build_coverage/coverage_report/
 
   build-zephyr:
     runs-on: ubuntu-latest

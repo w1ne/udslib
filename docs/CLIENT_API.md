@@ -22,6 +22,11 @@ int uds_client_request(uds_ctx_t* ctx,
 - **`len`**: Length of the payload.
 - **`callback`**: Function pointer to the handler which will be called when the response arrives.
 
+### Thread Safety
+
+`uds_client_request` is thread-safe and will lock the context mutex.
+**Warning**: Do not call `uds_client_request` from within a `callback` unless your mutex implementation is recursive, as the callback is invoked while the mutex is held.
+
 ## 2. Response Callback
 
 The callback is invoked when a complete SDU (response or NRC) is received from the server.

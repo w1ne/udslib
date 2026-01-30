@@ -88,6 +88,37 @@ typedef struct {
     uint16_t count;                 /**< Number of entries in the table */
 } uds_did_table_t;
 
+/* --- Service Handler Interface --- */
+
+/**
+ * @brief Service Session Mask
+ */
+#define UDS_SESSION_DEFAULT (1 << 0)
+#define UDS_SESSION_EXTENDED (1 << 1)
+#define UDS_SESSION_PROGRAMMING (1 << 2)
+#define UDS_SESSION_ALL (0xFF)
+
+/**
+ * @brief Service Handler Function Signature
+ *
+ * @param ctx   Pointer to the UDS context.
+ * @param data  Pointer to the request payload (including SID).
+ * @param len   Length of the request payload.
+ * @return      UDS_OK, UDS_PENDING, or negative error code.
+ */
+typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
+
+/**
+ * @brief UDS Service Registry Entry
+ */
+typedef struct {
+    uint8_t sid;             /**< Service ID (e.g., 0x22) */
+    uint16_t min_len;        /**< Minimum required request length */
+    uint8_t session_mask;    /**< Allowed sessions bitmask */
+    uint16_t security_mask;  /**< Minimum security level required (bitmask or level) */
+    uds_service_handler_t handler; /**< Function pointer to handler */
+} uds_service_entry_t;
+
 /* --- Configuration Structure --- */
 
 /**
@@ -135,6 +166,143 @@ typedef struct {
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
     uds_did_table_t did_table;
+
+    /* --- Custom Services --- */
+    /** Optional: Table of application-specific service handlers */
+    const uds_service_entry_t *user_services;
+    /** Number of entries in user_services table */
+    uint16_t user_service_count;
+
+    /* --- Advanced Policy Callbacks --- */
+
+    /** 
+     * @brief Optional: Safety Gate Check.
+     * Called before executing potentially destructive services (Reset, Write, Flash).
+     * @param sid   The service ID being requested.
+     * @param data  The request payload.
+     * @param len   Payload length.
+     * @return      true if safe to proceed, false to reject with NRC 0x22 (ConditionsNotCorrect).
+     */
+    bool (*fn_is_safe)(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, uint16_t len);
+
+    /**
+     * @brief Optional: Non-Volatile Memory (NVM) Persistence.
+     * Used to save/load stack state (session/security) across reboots.
+     */
+    int (*fn_nvm_save)(struct uds_ctx *ctx, const uint8_t *state, uint16_t len);
+    int (*fn_nvm_load)(struct uds_ctx *ctx, uint8_t *state, uint16_t len);
+
+    /* --- Fault Management (DTCs) --- */
+
+    /**
+     * @brief Optional: Read DTC Information (SID 0x19).
+     * @param ctx       Pointer to context.
+     * @param subfn     The 0x19 subfunction (e.g., 0x01, 0x02).
+     * @param out_buf   Buffer to write DTC info into.
+     * @param max_len   Max buffer size.
+     * @return          Number of bytes written, or negative NRC on failure.
+     */
+    int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: Clear Diagnostic Information (SID 0x14).
+     * @param ctx       Pointer to context.
+     * @param group     The DTC group to clear (usually 0xFFFFFF for all).
+     * @return          UDS_OK or negative NRC.
+     */
+    int (*fn_dtc_clear)(struct uds_ctx *ctx, uint32_t group);
+
+    /**
+     * @brief Optional: Authentication (SID 0x29).
+     * @param ctx       Pointer to context.
+     * @param subfn     The 0x29 subfunction.
+     * @param data      Input data (Challenge/Certificate).
+     * @param len       Input length.
+     * @param out_buf   Output buffer (Response/Certificate).
+     * @param max_len   Max output size.
+     * @return          Bytes written to out_buf, or negative NRC.
+     */
+    int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len);
+
+    /* --- Flash Engine (OTA Support) --- */
+
+    /**
+     * @brief Optional: Routine Control (SID 0x31).
+     * @param ctx       Pointer to context.
+     * @param type      Routine control type (Start, Stop, RequestResults).
+     * @param id        Routine Identifier (e.g., 0xFF00 for Erase).
+     * @param data      Input data.
+     * @param len       Input length.
+     * @param out_buf   Output response data.
+     * @param max_len   Max output size.
+     * @return          Bytes written to out_buf, or negative NRC.
+     */
+    int (*fn_routine_control)(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: Request Download (SID 0x34).
+     * @param ctx       Pointer to context.
+     * @param addr      Target memory address.
+     * @param size      Total size of the download.
+     * @return          UDS_OK or negative NRC.
+     */
+    int (*fn_request_download)(struct uds_ctx *ctx, uint32_t addr, uint32_t size);
+
+    /**
+     * @brief Optional: Transfer Data (SID 0x36).
+     * @param ctx       Pointer to context.
+     * @param sequence  Block sequence counter.
+     * @param data      Block data.
+     * @param len       Block length.
+     * @return          UDS_OK or negative NRC.
+     */
+    int (*fn_transfer_data)(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data, uint16_t len);
+
+    /**
+     * @brief Optional: Request Transfer Exit (SID 0x37).
+     * @param ctx       Pointer to context.
+     * @return          UDS_OK or negative NRC.
+     */
+    int (*fn_transfer_exit)(struct uds_ctx *ctx);
+
+    /**
+     * @brief Callback for Read Memory By Address (0x23)
+     *
+     * @param[in] ctx Pointer to UDS context.
+     * @param[in] addr Memory address to read.
+     * @param[in] size Number of bytes to read.
+     * @param[out] out_buf Buffer to store read data.
+     * @return 0 on success, negative for UDS NRC (e.g. -0x31 for out of range).
+     */
+    int (*fn_mem_read)(struct uds_ctx *ctx, uint32_t addr, uint32_t size, uint8_t *out_buf);
+
+    /**
+     * @brief Callback for Write Memory By Address (0x3D)
+     *
+     * @param[in] ctx Pointer to UDS context.
+     * @param[in] addr Memory address to write.
+     * @param[in] size Number of bytes to write.
+     * @param[in] data Data to write.
+     * @return 0 on success, negative for UDS NRC (e.g. -0x31 for out of range).
+     */
+    int (*fn_mem_write)(struct uds_ctx *ctx, uint32_t addr, uint32_t size, const uint8_t *data);
+
+    /* --- OS Abstraction Layer (OSAL) --- */
+
+    /**
+     * @brief Mutex handle provided by the application.
+     */
+    void *mutex_handle;
+
+    /**
+     * @brief Callback to lock the UDS context mutex.
+     */
+    void (*fn_mutex_lock)(void *mutex_handle);
+
+    /**
+     * @brief Callback to unlock the UDS context mutex.
+     */
+    void (*fn_mutex_unlock)(void *mutex_handle);
 } uds_config_t;
 
 /* --- Internal Context --- */

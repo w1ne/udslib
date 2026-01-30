@@ -11,10 +11,19 @@ echo "=== Skipping Cppcheck (Not installed) ==="
 echo "✅ Cppcheck passed."
 
 echo "=== Running Build & Unit Test Verification ==="
-mkdir -p build && cd build
-cmake .. -DBUILD_TESTING=ON
-make clean
+BUILD_DIR="build_quality"
+mkdir -p "$BUILD_DIR" && cd "$BUILD_DIR"
+
+cmake .. -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
 make -j$(nproc)
-ctest --output-on-failure
+
+echo "=== Executing Tests ==="
+ctest --output-on-failure --output-junit report.xml -j$(nproc)
+
+echo ""
+echo "=== Test Report Summary ==="
+if [ -f "report.xml" ]; then
+    echo "✅ JUnit report generated at: $BUILD_DIR/report.xml"
+fi
 
 echo "=== All Quality Checks and Tests Passed! ==="
