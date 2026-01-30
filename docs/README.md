@@ -12,7 +12,9 @@ Welcome to the LibUDS documentation. This library provides a portable, commercia
 ### Architecture & Design
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Core design philosophy and component diagrams
 - **[TRANSPORT.md](TRANSPORT.md)** - "Spliced" transport layer architecture
+- **[TIMING_AND_TIMEOUTS.md](TIMING_AND_TIMEOUTS.md)** - P2/P2* and S3 logic
 - **[CLIENT_API.md](CLIENT_API.md)** - Using LibUDS as a UDS client (tester)
+- **[UNIT_TESTING.md](UNIT_TESTING.md)** - Guide for running and writing tests
 
 ### Platform Integration
 - **[ZEPHYR_INTEGRATION.md](ZEPHYR_INTEGRATION.md)** - Complete Zephyr OS integration guide
@@ -89,7 +91,7 @@ libuds/
 | Zephyr Server Example | ✅ Complete |
 | External Validation (iso14229) | ✅ Built & Integrated |
 | py-uds Automation | ✅ Installed & Integrated |
-| Unit Tests (CMocka) | 🚧 Planned |
+| Unit Tests (CMocka) | ✅ Complete |
 
 ## 📝 License
 
