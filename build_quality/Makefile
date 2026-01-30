@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds
+CMAKE_SOURCE_DIR = /app
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality
+CMAKE_BINARY_DIR = /app/build_quality
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -97,9 +97,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles /app/build_quality//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -334,6 +334,45 @@ test_osal/fast:
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/build
 .PHONY : test_osal/fast
 
+#=============================================================================
+# Target rules for targets named test_endian
+
+# Build rule for target.
+test_endian: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_endian
+.PHONY : test_endian
+
+# fast build rule for target.
+test_endian/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/build
+.PHONY : test_endian/fast
+
+#=============================================================================
+# Target rules for targets named test_fuzz_core
+
+# Build rule for target.
+test_fuzz_core: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_fuzz_core
+.PHONY : test_fuzz_core
+
+# fast build rule for target.
+test_fuzz_core/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/build
+.PHONY : test_fuzz_core/fast
+
+#=============================================================================
+# Target rules for targets named test_transport
+
+# Build rule for target.
+test_transport: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_transport
+.PHONY : test_transport
+
+# fast build rule for target.
+test_transport/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/build
+.PHONY : test_transport/fast
+
 src/core/uds_core.o: src/core/uds_core.c.o
 .PHONY : src/core/uds_core.o
 
@@ -536,6 +575,8 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... test_core"
+	@echo "... test_endian"
+	@echo "... test_fuzz_core"
 	@echo "... test_osal"
 	@echo "... test_service_10"
 	@echo "... test_service_11"
@@ -549,6 +590,7 @@ help:
 	@echo "... test_service_flash"
 	@echo "... test_service_mem"
 	@echo "... test_timing"
+	@echo "... test_transport"
 	@echo "... uds"
 	@echo "... uds_host_sim"
 	@echo "... src/core/uds_core.o"

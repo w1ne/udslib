@@ -1,11 +1,30 @@
 # Build artifacts
 build/
+build_*/
 bin/
 obj/
+*.o
+*.a
+*.so
+*.dylib
+
+# Log files
+*.log
+
+# Test outputs
+*_output.txt
+test-results.xml
+trace_*.txt
+report.xml
+
+# Binaries and executables
+iso14229_server
+*_server
+*_client
+*.exe
 
 # Zephyr workspace and artifacts
 zephyr-workspace/
-zephyr_server.log
 examples/zephyr_uds_server/build/
 
 # Local Python environment
@@ -16,9 +35,13 @@ __pycache__/
 # IDE settings
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS artifacts
 .DS_Store
+Thumbs.db
 
 # Temporary files
 *.tmp

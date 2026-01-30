@@ -1,30 +1,26 @@
-# LibUDS Vision: The Standard for Modern Diagnostics
+# LibUDS Vision
 
-## Our Mission
-To provide the most robust, hardware-agnostic, and **safety-first** UDS stack in the industry, enabling the transition from legacy diagnostic tools to Software-Defined Vehicles (SDV).
+## Mission
+To provide a robust, hardware-agnostic, and **safety-first** UDS stack that eases the transition to Software-Defined Vehicles (SDV).
 
-## The Modern Industrial Pain Points
-The diagnostic landscape is no longer just about reading error codes over CAN. Engineering teams face critical hurdles:
-- **The Security "Wall"**: Legacy Seed/Key (0x27) is being replaced by Certificate-based Authentication (ISO 21434 / Service 0x29).
-- **The "Safety Gate" Dilemma**: Executing a reset or a flash write while a machine is in an active state is a catastrophic failure risk.
-- **Concurrency & OS Maturity**: Most UDS stacks are single-threaded and block the main loop, making them hard to integrate into modern RTOS (Zephyr, FreeRTOS) without race conditions.
-- **Throughput Bottlenecks**: High-speed flashing requires DoIP (Ethernet) implementation that avoids excessive copying and respects P2 timing under heavy load.
+## Industry Challenges
+- **Security**: Moving from Seed/Key to Certificate-based Authentication (ISO 21434).
+- **Safety**: Preventing resets or writes during active machine operation.
+- **Concurrency**: Integrating with RTOS (Zephyr, FreeRTOS) without blocking main loops or introducing race conditions.
+- **Throughput**: Handling high-speed flashing over DoIP without stalling via P2 limits.
 
-## The LibUDS Approach
+## Approach
 
-### 1. Hardware is an Interface, Not a Constraint
-Whether it's an 8-bit MCU over CAN or a high-end Linux Gateway over DoIP, the core protocol logic remains identical. By strictly abstracting the Transport and Time layers, we move the "Cost of Porting" from weeks to minutes.
+### 1. Hardware Independence
+Core logic is identical whether running on an 8-bit MCU or a Linux Gateway. Abstracting Transport and Time layers reduces porting time significantly.
 
-### 2. Built for the CI/CD Era (Host-First)
-We believe in "Virtual Before Physical". LibUDS is designed to be fully verified on a PC or in a cloud pipeline before ever touching a target ECU. This eliminates hardware-dependency as a blocker for software development.
+### 2. Host-First Design
+Validation happens on PC/Cloud before targeting hardware. This removes hardware dependencies from the critical path.
 
-### 3. Safety & Thread-Safe Reliability
-LibUDS is built for real-world production environments:
-- **Mandatory Safety Gates**: Every critical service (Reset, Write, Download) must clear an application-defined "Safety check" before execution.
-- **Race-Condition Preemption**: Our architecture separates "Ingress" from "Processing," allowing for asynchronous handling in RTOS environments.
-- **Atomic Operations**: Ensuring state recovery during update failures is not an extra—it's the default.
+### 3. Reliability
+- **Safety Gates**: Critical services (Reset, Write, Download) require application checks before execution.
+- **Concurrency**: Architecture separates Ingress from Processing for safe RTOS integration.
+- **Atomic Operations**: State recovery is the default.
 
 ## Market Position
-LibUDS is the **"Industrial Middle Class"**. We bridge the gap between "DIY Repos" (which lack robustness) and "Heavyweight Tier-1 Stacks" ($50k+ licenses). 
-
-We target the engineering team that needs **Commercial Stability** at **Open Source Agility**.
+LibUDS targets the mid-market. We bridge the gap between "DIY" repositories and expensive Tier-1 commercial stacks. We offer commercial stability with open-source agility.

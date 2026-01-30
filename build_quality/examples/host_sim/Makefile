@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds
+CMAKE_SOURCE_DIR = /app
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality
+CMAKE_BINARY_DIR = /app/build_quality
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -97,14 +97,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/examples/host_sim//CMakeFiles/progress.marks
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+	cd /app/build_quality && $(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles /app/build_quality/examples/host_sim//CMakeFiles/progress.marks
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/clean
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/clean
 .PHONY : clean
 
 # The main clean target
@@ -113,22 +113,22 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/preinstall
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/preinstall
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /app/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
 # Convenience name for target.
 examples/host_sim/CMakeFiles/uds_host_sim.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/CMakeFiles/uds_host_sim.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/CMakeFiles/uds_host_sim.dir/rule
 .PHONY : examples/host_sim/CMakeFiles/uds_host_sim.dir/rule
 
 # Convenience name for target.
@@ -137,7 +137,7 @@ uds_host_sim: examples/host_sim/CMakeFiles/uds_host_sim.dir/rule
 
 # fast build rule for target.
 uds_host_sim/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/build
 .PHONY : uds_host_sim/fast
 
 main.o: main.c.o
@@ -145,7 +145,7 @@ main.o: main.c.o
 
 # target to build an object file
 main.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.o
 .PHONY : main.c.o
 
 main.i: main.c.i
@@ -153,7 +153,7 @@ main.i: main.c.i
 
 # target to preprocess a source file
 main.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.i
 .PHONY : main.c.i
 
 main.s: main.c.s
@@ -161,7 +161,7 @@ main.s: main.c.s
 
 # target to generate assembly for a file
 main.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/main.c.s
 .PHONY : main.c.s
 
 # Help Target
@@ -188,6 +188,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /app/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

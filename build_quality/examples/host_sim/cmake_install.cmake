@@ -1,4 +1,4 @@
-# Install script for directory: /home/andrii/Projects/mobile_3000/UDS/libuds/examples/host_sim
+# Install script for directory: /app/examples/host_sim
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

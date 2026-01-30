@@ -1,9 +1,7 @@
 CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.o: \
- /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_maintenance.c \
- /usr/include/stdc-predef.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/src/core/uds_internal.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_core.h \
- /home/andrii/Projects/mobile_3000/UDS/libuds/include/uds/uds_config.h \
+ /app/src/services/uds_service_maintenance.c /usr/include/stdc-predef.h \
+ /app/src/core/uds_internal.h /app/include/uds/uds_core.h \
+ /app/include/uds/uds_config.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h \
  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdint.h /usr/include/stdint.h \

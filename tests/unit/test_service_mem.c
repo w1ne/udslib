@@ -44,7 +44,7 @@ static uds_config_t cfg;
 static uint8_t rx_buf[256];
 static uint8_t tx_buf[256];
 
-static void setup(void **state) {
+static int setup(void **state) {
     (void)state;
     memset(&ctx, 0, sizeof(ctx));
     memset(&cfg, 0, sizeof(cfg));
@@ -61,6 +61,7 @@ static void setup(void **state) {
     cfg.p2_ms = 50;
 
     uds_init(&ctx, &cfg);
+    return 0;
 }
 
 static void test_read_memory_success(void **state) {

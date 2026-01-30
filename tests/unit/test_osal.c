@@ -7,7 +7,10 @@
 #include "uds/uds_core.h"
 #include "uds/uds_config.h"
 
-static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len) {
+static int mock_can_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+    (void)ctx;
+    (void)data;
+    (void)len;
     return 0;
 }
 
@@ -32,7 +35,7 @@ static uint8_t rx_buf[256];
 static uint8_t tx_buf[256];
 static int g_mutex_val = 0;
 
-static void setup(void **state) {
+static int setup(void **state) {
     (void)state;
     memset(&ctx, 0, sizeof(ctx));
     memset(&cfg, 0, sizeof(cfg));
@@ -50,6 +53,7 @@ static void setup(void **state) {
     cfg.tx_buffer_size = sizeof(tx_buf);
 
     uds_init(&ctx, &cfg);
+    return 0;
 }
 
 static void test_osal_locking(void **state) {

@@ -1,22 +1,22 @@
 # ODX Tooling Guide
 
-This document explains how to use LibUDS code generation tools to reduce manual configuration.
+This guide describes how to use LibUDS code generation tools.
 
 ## Overview
 
-LibUDS provides two automation tools:
+LibUDS includes two automation tools:
 
-1. **`odx_to_c.py`**: Generates DID tables from ODX diagnostic database files
-2. **`generate_tests.py`**: Scaffolds Python integration tests from service specifications
+1. **`odx_to_c.py`**: Generates DID tables from ODX diagnostic database files.
+2. **`generate_tests.py`**: Scaffolds Python integration tests from service specifications.
 
 ## ODX-to-C Code Generator
 
-### What It Does
+### Functionality
 
-Automatically generates C code from ODX (Open Diagnostic Data Exchange) files:
-- Parses `<DIAG-DATA-DICTIONARY>` elements
-- Extracts Data Identifiers (DIDs) with read/write permissions
-- Generates `uds_did_table.c` and `uds_did_table.h`
+Generates C code from ODX (Open Diagnostic Data Exchange) files:
+- Parses `<DIAG-DATA-DICTIONARY>` elements.
+- Extracts Data Identifiers (DIDs) with read/write permissions.
+- Generates `uds_did_table.c` and `uds_did_table.h`.
 
 ### Usage
 
@@ -24,20 +24,18 @@ Automatically generates C code from ODX (Open Diagnostic Data Exchange) files:
 # Basic generation
 python tools/odx_to_c.py vehicle_spec.odx --output src/generated/
 
-# Verify mode (check for code drift in CI)
+# Verify mode (for CI checks)
 python tools/odx_to_c.py vehicle_spec.odx --output src/generated/ --verify
 ```
 
-### Example Workflow
+### Workflow
 
-1. **Export ODX from your diagnostic tool** (Vector CANdelaStudio, ETAS ISOLAR, etc.)
-
+1. **Export ODX**: Save your diagnostic specification (from Vector CANdelaStudio, ETAS ISOLAR, etc.) as an ODX file.
 2. **Generate C code**:
    ```bash
    python tools/odx_to_c.py docs/examples/sample_vehicle.odx --output examples/generated/
    ```
-
-3. **Include in your build**:
+3. **Include in build**:
    ```c
    #include "generated/uds_did_table.h"
    
@@ -52,7 +50,7 @@ python tools/odx_to_c.py vehicle_spec.odx --output src/generated/ --verify
 
 ### Generated Code Example
 
-From this ODX snippet:
+Input ODX:
 ```xml
 <DATA-OBJECT-PROP>
     <SHORT-NAME>VIN</SHORT-NAME>
@@ -61,7 +59,7 @@ From this ODX snippet:
 </DATA-OBJECT-PROP>
 ```
 
-Generates:
+Output C:
 ```c
 const uds_did_entry_t generated_did_table[] = {
     {0xF190, 17, DID_READ, NULL, NULL},  // VIN
@@ -70,12 +68,12 @@ const uds_did_entry_t generated_did_table[] = {
 
 ## Python Test Generator
 
-### What It Does
+### Functionality
 
-Scaffolds pytest-based integration tests with:
-- Positive response test cases
-- Negative response test cases (NRC validation)
-- Session-specific test stubs
+Creates pytest-based integration test skeletons with:
+- Positive response cases.
+- Negative response cases (NRC validation).
+- Session-specific stubs.
 
 ### Usage
 
@@ -99,9 +97,9 @@ def test_read_data_by_id_positive(uds):
     assert response[0] == 0x62, "Expected positive response"
 ```
 
-## CI/CD Integration
+## CI/CD Setup
 
-### Add to `.github/workflows/ci.yml`:
+### GitHub Actions (`.github/workflows/ci.yml`)
 
 ```yaml
 - name: Verify generated code is up-to-date
@@ -109,12 +107,11 @@ def test_read_data_by_id_positive(uds):
     python tools/odx_to_c.py docs/vehicle_spec.odx --output src/generated/ --verify
     if [ $? -ne 0 ]; then
       echo "❌ Generated DID tables are out of sync with ODX!"
-      echo "Run: python tools/odx_to_c.py docs/vehicle_spec.odx --output src/generated/"
       exit 1
     fi
 ```
 
-### Add to `scripts/check_quality.sh`:
+### Script (`scripts/check_quality.sh`)
 
 ```bash
 echo "=== Verifying ODX Code Generation ==="
@@ -123,43 +120,36 @@ python3 tools/odx_to_c.py docs/vehicle_spec.odx --output src/generated/ --verify
 
 ## Limitations
 
-The current `odx_to_c.py` is a **minimal parser** for demonstration:
-- Supports basic DID extraction only
-- No complex ODX features (computed parameters, encoding, etc.)
-- No validation of ODX schema
+The included `odx_to_c.py` is a **minimal parser**:
+- Extracts basic DIDs only.
+- Does not handle complex ODX features (computed parameters, encoding).
+- Does not validate ODX schema.
 
-### For Production Use
-
-Consider using the full `odxtools` library:
+### Recommendation for Production
+For full ODX 2.2 support, install `odxtools`:
 
 ```bash
 pip install odxtools
 ```
 
-Then modify `odx_to_c.py` to use `odxtools.load_file()` for proper XML namespace handling and full ODX 2.2 support.
+Then modify `odx_to_c.py` to use `odxtools.load_file()`.
 
-## Troubleshooting
+## Common Issues
 
 ### "No DIDs found in ODX file"
-
-- Check that the ODX file contains `<DIAG-DATA-DICTIONARY-SPEC>` elements
-- Verify XML namespace declarations
-- Try opening the ODX in Vector CANdela/ETAS to confirm validity
+- Ensure the file contains `<DIAG-DATA-DICTIONARY-SPEC>` elements.
+- Verify XML namespace declarations.
+- Validate the ODX file in a commercial tool.
 
 ### "Generated code differs from existing files"
-
-Your hand-written DID tables are out of sync with the ODX source. Options:
-1. Regenerate: `python tools/odx_to_c.py ... --output src/generated/`
-2. Update ODX to match code
-3. Disable verify step temporarily
+Your generated files do not match the ODX source.
+1. Regenerate: `python tools/odx_to_c.py ...`
+2. Update the ODX source.
+3. (Temporary) Disable the verify step.
 
 ## Best Practices
 
-1. **Version Control**: Commit both ODX files and generated code
-2. **Read-Only Generated Files**: Add warning comments to prevent manual edits
-3. **CI Enforcement**: Fail builds if verification fails
-4. **Incremental Adoption**: Start with one ODX file, expand gradually
-
-## Example Files
-
-See `docs/examples/sample_vehicle.odx` for a minimal working example.
+1. **Version Control**: Commit both ODX files and generated code.
+2. **Read-Only**: Treat generated files as read-only.
+3. **CI Enforcement**: Fail builds if verification fails.
+4. **Incremental Adoption**: Start with a single ODX file.

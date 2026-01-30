@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds
+CMAKE_SOURCE_DIR = /app
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality
+CMAKE_BINARY_DIR = /app/build_quality
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -97,14 +97,14 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests//CMakeFiles/progress.marks
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+	cd /app/build_quality && $(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles /app/build_quality/tests//CMakeFiles/progress.marks
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
 clean:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/clean
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/clean
 .PHONY : clean
 
 # The main clean target
@@ -113,22 +113,22 @@ clean/fast: clean
 
 # Prepare targets for installation.
 preinstall: all
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/preinstall
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/preinstall
 .PHONY : preinstall
 
 # Prepare targets for installation.
 preinstall/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/preinstall
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/preinstall
 .PHONY : preinstall/fast
 
 # clear depends
 depend:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
+	cd /app/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
 # Convenience name for target.
 tests/CMakeFiles/test_core.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_core.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_core.dir/rule
 .PHONY : tests/CMakeFiles/test_core.dir/rule
 
 # Convenience name for target.
@@ -137,12 +137,12 @@ test_core: tests/CMakeFiles/test_core.dir/rule
 
 # fast build rule for target.
 test_core/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/build
 .PHONY : test_core/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_10.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_10.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_10.dir/rule
 .PHONY : tests/CMakeFiles/test_service_10.dir/rule
 
 # Convenience name for target.
@@ -151,12 +151,12 @@ test_service_10: tests/CMakeFiles/test_service_10.dir/rule
 
 # fast build rule for target.
 test_service_10/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/build
 .PHONY : test_service_10/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_22.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_22.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_22.dir/rule
 .PHONY : tests/CMakeFiles/test_service_22.dir/rule
 
 # Convenience name for target.
@@ -165,12 +165,12 @@ test_service_22: tests/CMakeFiles/test_service_22.dir/rule
 
 # fast build rule for target.
 test_service_22/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/build
 .PHONY : test_service_22/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_27.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_27.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_27.dir/rule
 .PHONY : tests/CMakeFiles/test_service_27.dir/rule
 
 # Convenience name for target.
@@ -179,12 +179,12 @@ test_service_27: tests/CMakeFiles/test_service_27.dir/rule
 
 # fast build rule for target.
 test_service_27/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/build
 .PHONY : test_service_27/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_3E.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_3E.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_3E.dir/rule
 .PHONY : tests/CMakeFiles/test_service_3E.dir/rule
 
 # Convenience name for target.
@@ -193,12 +193,12 @@ test_service_3E: tests/CMakeFiles/test_service_3E.dir/rule
 
 # fast build rule for target.
 test_service_3E/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/build
 .PHONY : test_service_3E/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_11.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_11.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_11.dir/rule
 .PHONY : tests/CMakeFiles/test_service_11.dir/rule
 
 # Convenience name for target.
@@ -207,12 +207,12 @@ test_service_11: tests/CMakeFiles/test_service_11.dir/rule
 
 # fast build rule for target.
 test_service_11/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/build
 .PHONY : test_service_11/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_28.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_28.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_28.dir/rule
 .PHONY : tests/CMakeFiles/test_service_28.dir/rule
 
 # Convenience name for target.
@@ -221,12 +221,12 @@ test_service_28: tests/CMakeFiles/test_service_28.dir/rule
 
 # fast build rule for target.
 test_service_28/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/build
 .PHONY : test_service_28/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_did.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_did.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_did.dir/rule
 .PHONY : tests/CMakeFiles/test_service_did.dir/rule
 
 # Convenience name for target.
@@ -235,12 +235,12 @@ test_service_did: tests/CMakeFiles/test_service_did.dir/rule
 
 # fast build rule for target.
 test_service_did/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/build
 .PHONY : test_service_did/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_timing.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_timing.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_timing.dir/rule
 .PHONY : tests/CMakeFiles/test_timing.dir/rule
 
 # Convenience name for target.
@@ -249,12 +249,12 @@ test_timing: tests/CMakeFiles/test_timing.dir/rule
 
 # fast build rule for target.
 test_timing/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/build
 .PHONY : test_timing/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_29.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_29.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_29.dir/rule
 .PHONY : tests/CMakeFiles/test_service_29.dir/rule
 
 # Convenience name for target.
@@ -263,12 +263,12 @@ test_service_29: tests/CMakeFiles/test_service_29.dir/rule
 
 # fast build rule for target.
 test_service_29/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/build
 .PHONY : test_service_29/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_dtc.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_dtc.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_dtc.dir/rule
 .PHONY : tests/CMakeFiles/test_service_dtc.dir/rule
 
 # Convenience name for target.
@@ -277,12 +277,12 @@ test_service_dtc: tests/CMakeFiles/test_service_dtc.dir/rule
 
 # fast build rule for target.
 test_service_dtc/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/build
 .PHONY : test_service_dtc/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_flash.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_flash.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_flash.dir/rule
 .PHONY : tests/CMakeFiles/test_service_flash.dir/rule
 
 # Convenience name for target.
@@ -291,12 +291,12 @@ test_service_flash: tests/CMakeFiles/test_service_flash.dir/rule
 
 # fast build rule for target.
 test_service_flash/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/build
 .PHONY : test_service_flash/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_service_mem.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_mem.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_mem.dir/rule
 .PHONY : tests/CMakeFiles/test_service_mem.dir/rule
 
 # Convenience name for target.
@@ -305,12 +305,12 @@ test_service_mem: tests/CMakeFiles/test_service_mem.dir/rule
 
 # fast build rule for target.
 test_service_mem/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/build
 .PHONY : test_service_mem/fast
 
 # Convenience name for target.
 tests/CMakeFiles/test_osal.dir/rule:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_osal.dir/rule
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_osal.dir/rule
 .PHONY : tests/CMakeFiles/test_osal.dir/rule
 
 # Convenience name for target.
@@ -319,15 +319,57 @@ test_osal: tests/CMakeFiles/test_osal.dir/rule
 
 # fast build rule for target.
 test_osal/fast:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/build
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/build
 .PHONY : test_osal/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_endian.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_endian.dir/rule
+.PHONY : tests/CMakeFiles/test_endian.dir/rule
+
+# Convenience name for target.
+test_endian: tests/CMakeFiles/test_endian.dir/rule
+.PHONY : test_endian
+
+# fast build rule for target.
+test_endian/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/build
+.PHONY : test_endian/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_fuzz_core.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_fuzz_core.dir/rule
+.PHONY : tests/CMakeFiles/test_fuzz_core.dir/rule
+
+# Convenience name for target.
+test_fuzz_core: tests/CMakeFiles/test_fuzz_core.dir/rule
+.PHONY : test_fuzz_core
+
+# fast build rule for target.
+test_fuzz_core/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/build
+.PHONY : test_fuzz_core/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_transport.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_transport.dir/rule
+.PHONY : tests/CMakeFiles/test_transport.dir/rule
+
+# Convenience name for target.
+test_transport: tests/CMakeFiles/test_transport.dir/rule
+.PHONY : test_transport
+
+# fast build rule for target.
+test_transport/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/build
+.PHONY : test_transport/fast
 
 test_core.o: test_core.c.o
 .PHONY : test_core.o
 
 # target to build an object file
 test_core.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.o
 .PHONY : test_core.c.o
 
 test_core.i: test_core.c.i
@@ -335,7 +377,7 @@ test_core.i: test_core.c.i
 
 # target to preprocess a source file
 test_core.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.i
 .PHONY : test_core.c.i
 
 test_core.s: test_core.c.s
@@ -343,28 +385,79 @@ test_core.s: test_core.c.s
 
 # target to generate assembly for a file
 test_core.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.s
 .PHONY : test_core.c.s
+
+unit/test_endian.o: unit/test_endian.c.o
+.PHONY : unit/test_endian.o
+
+# target to build an object file
+unit/test_endian.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_endian.c.o
+.PHONY : unit/test_endian.c.o
+
+unit/test_endian.i: unit/test_endian.c.i
+.PHONY : unit/test_endian.i
+
+# target to preprocess a source file
+unit/test_endian.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_endian.c.i
+.PHONY : unit/test_endian.c.i
+
+unit/test_endian.s: unit/test_endian.c.s
+.PHONY : unit/test_endian.s
+
+# target to generate assembly for a file
+unit/test_endian.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_endian.c.s
+.PHONY : unit/test_endian.c.s
+
+unit/test_fuzz_core.o: unit/test_fuzz_core.c.o
+.PHONY : unit/test_fuzz_core.o
+
+# target to build an object file
+unit/test_fuzz_core.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_fuzz_core.c.o
+.PHONY : unit/test_fuzz_core.c.o
+
+unit/test_fuzz_core.i: unit/test_fuzz_core.c.i
+.PHONY : unit/test_fuzz_core.i
+
+# target to preprocess a source file
+unit/test_fuzz_core.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_fuzz_core.c.i
+.PHONY : unit/test_fuzz_core.c.i
+
+unit/test_fuzz_core.s: unit/test_fuzz_core.c.s
+.PHONY : unit/test_fuzz_core.s
+
+# target to generate assembly for a file
+unit/test_fuzz_core.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_fuzz_core.c.s
+.PHONY : unit/test_fuzz_core.c.s
 
 unit/test_helpers.o: unit/test_helpers.c.o
 .PHONY : unit/test_helpers.o
 
 # target to build an object file
 unit/test_helpers.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_helpers.c.o
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_helpers.c.o
 .PHONY : unit/test_helpers.c.o
 
 unit/test_helpers.i: unit/test_helpers.c.i
@@ -372,20 +465,23 @@ unit/test_helpers.i: unit/test_helpers.c.i
 
 # target to preprocess a source file
 unit/test_helpers.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_helpers.c.i
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_helpers.c.i
 .PHONY : unit/test_helpers.c.i
 
 unit/test_helpers.s: unit/test_helpers.c.s
@@ -393,20 +489,23 @@ unit/test_helpers.s: unit/test_helpers.c.s
 
 # target to generate assembly for a file
 unit/test_helpers.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_helpers.c.s
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_helpers.c.s
 .PHONY : unit/test_helpers.c.s
 
 unit/test_osal.o: unit/test_osal.c.o
@@ -414,7 +513,7 @@ unit/test_osal.o: unit/test_osal.c.o
 
 # target to build an object file
 unit/test_osal.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.o
 .PHONY : unit/test_osal.c.o
 
 unit/test_osal.i: unit/test_osal.c.i
@@ -422,7 +521,7 @@ unit/test_osal.i: unit/test_osal.c.i
 
 # target to preprocess a source file
 unit/test_osal.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.i
 .PHONY : unit/test_osal.c.i
 
 unit/test_osal.s: unit/test_osal.c.s
@@ -430,7 +529,7 @@ unit/test_osal.s: unit/test_osal.c.s
 
 # target to generate assembly for a file
 unit/test_osal.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.s
 .PHONY : unit/test_osal.c.s
 
 unit/test_service_10.o: unit/test_service_10.c.o
@@ -438,7 +537,7 @@ unit/test_service_10.o: unit/test_service_10.c.o
 
 # target to build an object file
 unit/test_service_10.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_service_10.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_service_10.c.o
 .PHONY : unit/test_service_10.c.o
 
 unit/test_service_10.i: unit/test_service_10.c.i
@@ -446,7 +545,7 @@ unit/test_service_10.i: unit/test_service_10.c.i
 
 # target to preprocess a source file
 unit/test_service_10.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_service_10.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_service_10.c.i
 .PHONY : unit/test_service_10.c.i
 
 unit/test_service_10.s: unit/test_service_10.c.s
@@ -454,7 +553,7 @@ unit/test_service_10.s: unit/test_service_10.c.s
 
 # target to generate assembly for a file
 unit/test_service_10.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_service_10.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/unit/test_service_10.c.s
 .PHONY : unit/test_service_10.c.s
 
 unit/test_service_11.o: unit/test_service_11.c.o
@@ -462,7 +561,7 @@ unit/test_service_11.o: unit/test_service_11.c.o
 
 # target to build an object file
 unit/test_service_11.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.o
 .PHONY : unit/test_service_11.c.o
 
 unit/test_service_11.i: unit/test_service_11.c.i
@@ -470,7 +569,7 @@ unit/test_service_11.i: unit/test_service_11.c.i
 
 # target to preprocess a source file
 unit/test_service_11.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.i
 .PHONY : unit/test_service_11.c.i
 
 unit/test_service_11.s: unit/test_service_11.c.s
@@ -478,7 +577,7 @@ unit/test_service_11.s: unit/test_service_11.c.s
 
 # target to generate assembly for a file
 unit/test_service_11.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/unit/test_service_11.c.s
 .PHONY : unit/test_service_11.c.s
 
 unit/test_service_22.o: unit/test_service_22.c.o
@@ -486,7 +585,7 @@ unit/test_service_22.o: unit/test_service_22.c.o
 
 # target to build an object file
 unit/test_service_22.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_service_22.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_service_22.c.o
 .PHONY : unit/test_service_22.c.o
 
 unit/test_service_22.i: unit/test_service_22.c.i
@@ -494,7 +593,7 @@ unit/test_service_22.i: unit/test_service_22.c.i
 
 # target to preprocess a source file
 unit/test_service_22.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_service_22.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_service_22.c.i
 .PHONY : unit/test_service_22.c.i
 
 unit/test_service_22.s: unit/test_service_22.c.s
@@ -502,7 +601,7 @@ unit/test_service_22.s: unit/test_service_22.c.s
 
 # target to generate assembly for a file
 unit/test_service_22.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_service_22.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/unit/test_service_22.c.s
 .PHONY : unit/test_service_22.c.s
 
 unit/test_service_27.o: unit/test_service_27.c.o
@@ -510,7 +609,7 @@ unit/test_service_27.o: unit/test_service_27.c.o
 
 # target to build an object file
 unit/test_service_27.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_service_27.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_service_27.c.o
 .PHONY : unit/test_service_27.c.o
 
 unit/test_service_27.i: unit/test_service_27.c.i
@@ -518,7 +617,7 @@ unit/test_service_27.i: unit/test_service_27.c.i
 
 # target to preprocess a source file
 unit/test_service_27.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_service_27.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_service_27.c.i
 .PHONY : unit/test_service_27.c.i
 
 unit/test_service_27.s: unit/test_service_27.c.s
@@ -526,7 +625,7 @@ unit/test_service_27.s: unit/test_service_27.c.s
 
 # target to generate assembly for a file
 unit/test_service_27.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_service_27.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/unit/test_service_27.c.s
 .PHONY : unit/test_service_27.c.s
 
 unit/test_service_28.o: unit/test_service_28.c.o
@@ -534,7 +633,7 @@ unit/test_service_28.o: unit/test_service_28.c.o
 
 # target to build an object file
 unit/test_service_28.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.o
 .PHONY : unit/test_service_28.c.o
 
 unit/test_service_28.i: unit/test_service_28.c.i
@@ -542,7 +641,7 @@ unit/test_service_28.i: unit/test_service_28.c.i
 
 # target to preprocess a source file
 unit/test_service_28.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.i
 .PHONY : unit/test_service_28.c.i
 
 unit/test_service_28.s: unit/test_service_28.c.s
@@ -550,7 +649,7 @@ unit/test_service_28.s: unit/test_service_28.c.s
 
 # target to generate assembly for a file
 unit/test_service_28.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.s
 .PHONY : unit/test_service_28.c.s
 
 unit/test_service_29.o: unit/test_service_29.c.o
@@ -558,7 +657,7 @@ unit/test_service_29.o: unit/test_service_29.c.o
 
 # target to build an object file
 unit/test_service_29.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.o
 .PHONY : unit/test_service_29.c.o
 
 unit/test_service_29.i: unit/test_service_29.c.i
@@ -566,7 +665,7 @@ unit/test_service_29.i: unit/test_service_29.c.i
 
 # target to preprocess a source file
 unit/test_service_29.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.i
 .PHONY : unit/test_service_29.c.i
 
 unit/test_service_29.s: unit/test_service_29.c.s
@@ -574,7 +673,7 @@ unit/test_service_29.s: unit/test_service_29.c.s
 
 # target to generate assembly for a file
 unit/test_service_29.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.s
 .PHONY : unit/test_service_29.c.s
 
 unit/test_service_3E.o: unit/test_service_3E.c.o
@@ -582,7 +681,7 @@ unit/test_service_3E.o: unit/test_service_3E.c.o
 
 # target to build an object file
 unit/test_service_3E.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o
 .PHONY : unit/test_service_3E.c.o
 
 unit/test_service_3E.i: unit/test_service_3E.c.i
@@ -590,7 +689,7 @@ unit/test_service_3E.i: unit/test_service_3E.c.i
 
 # target to preprocess a source file
 unit/test_service_3E.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.i
 .PHONY : unit/test_service_3E.c.i
 
 unit/test_service_3E.s: unit/test_service_3E.c.s
@@ -598,7 +697,7 @@ unit/test_service_3E.s: unit/test_service_3E.c.s
 
 # target to generate assembly for a file
 unit/test_service_3E.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.s
 .PHONY : unit/test_service_3E.c.s
 
 unit/test_service_did.o: unit/test_service_did.c.o
@@ -606,7 +705,7 @@ unit/test_service_did.o: unit/test_service_did.c.o
 
 # target to build an object file
 unit/test_service_did.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_service_did.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_service_did.c.o
 .PHONY : unit/test_service_did.c.o
 
 unit/test_service_did.i: unit/test_service_did.c.i
@@ -614,7 +713,7 @@ unit/test_service_did.i: unit/test_service_did.c.i
 
 # target to preprocess a source file
 unit/test_service_did.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_service_did.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_service_did.c.i
 .PHONY : unit/test_service_did.c.i
 
 unit/test_service_did.s: unit/test_service_did.c.s
@@ -622,7 +721,7 @@ unit/test_service_did.s: unit/test_service_did.c.s
 
 # target to generate assembly for a file
 unit/test_service_did.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_service_did.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/unit/test_service_did.c.s
 .PHONY : unit/test_service_did.c.s
 
 unit/test_service_dtc.o: unit/test_service_dtc.c.o
@@ -630,7 +729,7 @@ unit/test_service_dtc.o: unit/test_service_dtc.c.o
 
 # target to build an object file
 unit/test_service_dtc.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_service_dtc.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_service_dtc.c.o
 .PHONY : unit/test_service_dtc.c.o
 
 unit/test_service_dtc.i: unit/test_service_dtc.c.i
@@ -638,7 +737,7 @@ unit/test_service_dtc.i: unit/test_service_dtc.c.i
 
 # target to preprocess a source file
 unit/test_service_dtc.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_service_dtc.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_service_dtc.c.i
 .PHONY : unit/test_service_dtc.c.i
 
 unit/test_service_dtc.s: unit/test_service_dtc.c.s
@@ -646,7 +745,7 @@ unit/test_service_dtc.s: unit/test_service_dtc.c.s
 
 # target to generate assembly for a file
 unit/test_service_dtc.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_service_dtc.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/unit/test_service_dtc.c.s
 .PHONY : unit/test_service_dtc.c.s
 
 unit/test_service_flash.o: unit/test_service_flash.c.o
@@ -654,7 +753,7 @@ unit/test_service_flash.o: unit/test_service_flash.c.o
 
 # target to build an object file
 unit/test_service_flash.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_service_flash.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_service_flash.c.o
 .PHONY : unit/test_service_flash.c.o
 
 unit/test_service_flash.i: unit/test_service_flash.c.i
@@ -662,7 +761,7 @@ unit/test_service_flash.i: unit/test_service_flash.c.i
 
 # target to preprocess a source file
 unit/test_service_flash.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_service_flash.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_service_flash.c.i
 .PHONY : unit/test_service_flash.c.i
 
 unit/test_service_flash.s: unit/test_service_flash.c.s
@@ -670,7 +769,7 @@ unit/test_service_flash.s: unit/test_service_flash.c.s
 
 # target to generate assembly for a file
 unit/test_service_flash.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_service_flash.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/unit/test_service_flash.c.s
 .PHONY : unit/test_service_flash.c.s
 
 unit/test_service_mem.o: unit/test_service_mem.c.o
@@ -678,7 +777,7 @@ unit/test_service_mem.o: unit/test_service_mem.c.o
 
 # target to build an object file
 unit/test_service_mem.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.o
 .PHONY : unit/test_service_mem.c.o
 
 unit/test_service_mem.i: unit/test_service_mem.c.i
@@ -686,7 +785,7 @@ unit/test_service_mem.i: unit/test_service_mem.c.i
 
 # target to preprocess a source file
 unit/test_service_mem.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.i
 .PHONY : unit/test_service_mem.c.i
 
 unit/test_service_mem.s: unit/test_service_mem.c.s
@@ -694,7 +793,7 @@ unit/test_service_mem.s: unit/test_service_mem.c.s
 
 # target to generate assembly for a file
 unit/test_service_mem.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.s
 .PHONY : unit/test_service_mem.c.s
 
 unit/test_timing.o: unit/test_timing.c.o
@@ -702,7 +801,7 @@ unit/test_timing.o: unit/test_timing.c.o
 
 # target to build an object file
 unit/test_timing.c.o:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_timing.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_timing.c.o
 .PHONY : unit/test_timing.c.o
 
 unit/test_timing.i: unit/test_timing.c.i
@@ -710,7 +809,7 @@ unit/test_timing.i: unit/test_timing.c.i
 
 # target to preprocess a source file
 unit/test_timing.c.i:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_timing.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_timing.c.i
 .PHONY : unit/test_timing.c.i
 
 unit/test_timing.s: unit/test_timing.c.s
@@ -718,8 +817,32 @@ unit/test_timing.s: unit/test_timing.c.s
 
 # target to generate assembly for a file
 unit/test_timing.c.s:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_timing.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/unit/test_timing.c.s
 .PHONY : unit/test_timing.c.s
+
+unit/test_transport.o: unit/test_transport.c.o
+.PHONY : unit/test_transport.o
+
+# target to build an object file
+unit/test_transport.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_transport.c.o
+.PHONY : unit/test_transport.c.o
+
+unit/test_transport.i: unit/test_transport.c.i
+.PHONY : unit/test_transport.i
+
+# target to preprocess a source file
+unit/test_transport.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_transport.c.i
+.PHONY : unit/test_transport.c.i
+
+unit/test_transport.s: unit/test_transport.c.s
+.PHONY : unit/test_transport.s
+
+# target to generate assembly for a file
+unit/test_transport.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_transport.c.s
+.PHONY : unit/test_transport.c.s
 
 # Help Target
 help:
@@ -731,6 +854,8 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... test_core"
+	@echo "... test_endian"
+	@echo "... test_fuzz_core"
 	@echo "... test_osal"
 	@echo "... test_service_10"
 	@echo "... test_service_11"
@@ -744,9 +869,16 @@ help:
 	@echo "... test_service_flash"
 	@echo "... test_service_mem"
 	@echo "... test_timing"
+	@echo "... test_transport"
 	@echo "... test_core.o"
 	@echo "... test_core.i"
 	@echo "... test_core.s"
+	@echo "... unit/test_endian.o"
+	@echo "... unit/test_endian.i"
+	@echo "... unit/test_endian.s"
+	@echo "... unit/test_fuzz_core.o"
+	@echo "... unit/test_fuzz_core.i"
+	@echo "... unit/test_fuzz_core.s"
 	@echo "... unit/test_helpers.o"
 	@echo "... unit/test_helpers.i"
 	@echo "... unit/test_helpers.s"
@@ -789,6 +921,9 @@ help:
 	@echo "... unit/test_timing.o"
 	@echo "... unit/test_timing.i"
 	@echo "... unit/test_timing.s"
+	@echo "... unit/test_transport.o"
+	@echo "... unit/test_transport.i"
+	@echo "... unit/test_transport.s"
 .PHONY : help
 
 
@@ -800,6 +935,6 @@ help:
 # No rule that depends on this can have commands that come from listfiles
 # because they might be regenerated.
 cmake_check_build_system:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
+	cd /app/build_quality && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 .PHONY : cmake_check_build_system
 

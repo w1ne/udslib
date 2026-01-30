@@ -4,7 +4,7 @@
 # compile C with /usr/bin/cc
 C_DEFINES = 
 
-C_INCLUDES = -I/home/andrii/Projects/mobile_3000/UDS/libuds/include -I/home/andrii/Projects/mobile_3000/UDS/libuds/src/core -I/home/andrii/Projects/mobile_3000/UDS/libuds/examples/host_sim/../../src/core
+C_INCLUDES = -I/app/include -I/app/src/core -I/app/examples/host_sim/../../src/core
 
 C_FLAGS =  -Wall -Wextra -g -std=gnu99
 

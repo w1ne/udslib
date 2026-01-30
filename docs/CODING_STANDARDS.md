@@ -1,52 +1,52 @@
 # LibUDS Coding Standards
 
-This document defines the coding standards for the LibUDS project. All contributions must adhere to these rules to ensure consistency, readability, and compatibility across diverse embedded platforms.
+This guide defines the coding rules for LibUDS. Follow them to ensure the library remains portable, readable, and consistent.
 
 ## 1. Naming Conventions
 
 ### 1.1 Files
-- Use all lowercase with underscores (e.g., `uds_core.c`, `isotp_handler.h`).
-- Headers should have a unique, lowercase guard: `#ifndef UDS_CORE_H`.
+- Use snake_case (e.g., `uds_core.c`).
+- Use unique, lowercase header guards: `#ifndef UDS_CORE_H`.
 
 ### 1.2 Types
-- Structs, Unions, and Enums must be suffixed with `_t` (e.g., `uds_ctx_t`).
+- Suffix Structs, Unions, and Enums with `_t` (e.g., `uds_ctx_t`).
 - Use `typedef` for all major structures.
 
 ### 1.3 Functions
-- **Public API**: Must be prefixed with `uds_` and follow `snake_case` (e.g., `uds_init`).
-- **Internal/Private**: Must be `static` and prefixed with `uds_internal_` (e.g., `static void uds_internal_process_handler`).
-- **Callback Types**: Suffix with `_fn` or `_cb` (e.g., `uds_tp_send_fn`).
+- **Public API**: Prefix with `uds_` (e.g., `uds_init`).
+- **Internal**: Make them `static` and prefix with `uds_internal_` (e.g., `static void uds_internal_process_handler`).
+- **Callbacks**: Suffix with `_fn` or `_cb` (e.g., `uds_tp_send_fn`).
 
 ### 1.4 Variables
-- Use `snake_case` for all variables.
-- Function parameters should be descriptive (avoid single-letter names except for loop counters like `i`).
-- Member variables in structs do not need prefixes.
+- Use `snake_case`.
+- Use descriptive names for parameters, avoiding single letters (except loop counters).
+- Do not prefix struct members.
 
 ### 1.5 Macros and Constants
-- All uppercase with a `UDS_` prefix (e.g., `UDS_OK`, `UDS_MAX_BUFFER`).
+- Use all uppercase with a `UDS_` prefix (e.g., `UDS_OK`, `UDS_MAX_BUFFER`).
 
 ---
 
 ## 2. Documentation and Comments
 
-### 2.1 Public API Header Documentation
-- Every public function in a `.h` file must have a **Doxygen** block.
-- Must include `@brief`, `@param`, and `@return`.
+### 2.1 Public API Header
+- Document every public function in the `.h` file using a **Doxygen** block.
+- Include `@brief`, `@param`, and `@return`.
 
-### 2.2 Implementation Comments
+### 2.2 Implementation
 - Use `/* ... */` for block comments.
 - Use `//` for short, inline explanations.
-- Do not check in commented-out code.
+- Remove dead code; do not comment it out.
 
 ---
 
-## 3. Formatting Rules
+## 3. Formatting
 
-LibUDS uses a strict **Clang-Format** configuration (based on Google style).
+We enforce formatting via **Clang-Format** (Google style).
 
 - **Indentation**: 4 spaces (no tabs).
 - **Line Width**: 100 characters.
-- **Bracing**: Functions have braces on a new line; Control statements (if/while) keep braces on the same line.
+- **Bracing**: New line for functions; same line for control statements.
 - **Spaces**: No trailing whitespace.
 
 ---
@@ -54,12 +54,12 @@ LibUDS uses a strict **Clang-Format** configuration (based on Google style).
 ## 4. Portability and Safety
 
 ### 4.1 Data Types
-- Use `<stdint.h>` types exclusively (`uint8_t`, `int32_t`, etc.).
+- Use `<stdint.h>` types (`uint8_t`, `int32_t`).
 - Avoid `int`, `long`, or `char` (use `uint8_t` or `char` only for actual strings).
 
 ### 4.2 Dynamic Memory
-- **No `malloc`/`free` in the core library.** All memory must be provided by the caller during initialization.
+- **Do not use `malloc` or `free`.** The caller must provide all memory buffers.
 
 ### 4.3 Error Handling
-- Functions should return `int` status codes (`UDS_OK` or negative error codes).
-- Use assertions sparingly, and only for logic that should be impossible in production.
+- Return `int` status codes (`UDS_OK` or negative error codes).
+- Use assertions only for logic that should never happen in production.
