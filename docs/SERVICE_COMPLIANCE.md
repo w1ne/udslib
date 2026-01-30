@@ -29,6 +29,7 @@ This document tracks the compliance and support level for UDS services.
 - **Service Registry**: Decoupled, table-driven dispatcher.
 - **Verification Priority**: Enforces ISO 14229-1 NRC priorities (Session -> Security -> Safety).
 - **Safety Gates**: Application callbacks block destructive services (Reset, Write, Download) when unsafe.
+- **Asynchronous Processing**: Support for `UDS_PENDING` (NRC 0x78) enables non-blocking integration with slow hardware/flash operations.
 
 ## Future Services
 
