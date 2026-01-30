@@ -24,6 +24,13 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
         ctx->config->tx_buffer[1] = sub;
         uds_send_response(ctx, 2);
     }
+    
+    /* NVM Persistence: Save State on Change */
+    if (ctx->config->fn_nvm_save) {
+        uint8_t state[2] = {ctx->active_session, ctx->security_level};
+        ctx->config->fn_nvm_save(ctx, state, 2);
+    }
+
     return UDS_OK;
 }
 

@@ -19,6 +19,13 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
     } else if (sub == 0x02 && len >= 6) { /* Send Key */
         if (data[2] == 0xDF && data[3] == 0xAE && data[4] == 0xBF && data[5] == 0xF0) {
             ctx->security_level = 1;
+            
+            /* NVM Persistence: Save State */
+            if (ctx->config->fn_nvm_save) {
+                uint8_t state[2] = {ctx->active_session, ctx->security_level};
+                ctx->config->fn_nvm_save(ctx, state, 2);
+            }
+
             ctx->config->tx_buffer[0] = 0x67;
             ctx->config->tx_buffer[1] = 0x02;
             return uds_send_response(ctx, 2);

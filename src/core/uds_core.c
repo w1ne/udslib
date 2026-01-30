@@ -111,6 +111,17 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     ctx->comm_state = 0x00;     /* Enable Rx/Tx */
 
     uds_internal_log(ctx, UDS_LOG_INFO, "UDS Stack Initialized");
+
+    /* NVM Persistence: Load State */
+    if (config->fn_nvm_load) {
+        uint8_t state[2] = {0};
+        if (config->fn_nvm_load(ctx, state, 2) == 2) {
+            ctx->active_session = state[0];
+            ctx->security_level = state[1];
+            uds_internal_log(ctx, UDS_LOG_INFO, "NVM State Loaded");
+        }
+    }
+
     return UDS_OK;
 }
 
