@@ -38,6 +38,7 @@ This library provides a portable, commercial-grade UDS (ISO 14229) protocol stac
 - **Understand the architecture**: [ARCHITECTURE.md](ARCHITECTURE.md)
 - **Integrate with Zephyr**: [ZEPHYR_INTEGRATION.md](ZEPHYR_INTEGRATION.md)
 - **Use as a client**: [CLIENT_API.md](CLIENT_API.md)
+- **Port to OS (RTOS/Bare Metal)**: [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)
 - **Set up testing**: [TESTING_STRATEGY.md](TESTING_STRATEGY.md)
 - **Compare UDS servers**: [UDS_SERVER_OPTIONS.md](UDS_SERVER_OPTIONS.md)
 - **Understand ISO-TP**: [TRANSPORT.md](TRANSPORT.md)
