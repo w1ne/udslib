@@ -22,6 +22,25 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ## 2. Technical Architecture (The "How")
 
+### 🚀 Status: v1.0.0 (Stable)
+
+LibUDS is currently in its first stable release, featuring full ISO 14229-1 compliance for core services, native Zephyr support, and a complete CMocka unit testing suite.
+
+### 🛠️ Quick Start (Simulated)
+
+```bash
+# 1. Build host simulator & tests
+mkdir build && cd build
+cmake ..
+make
+
+# 2. Run unit tests
+ctest --output-on-failure
+
+# 3. Run ECU Simulator
+./examples/host_sim/uds_host_sim
+```
+
 ### Dependency Injection
 LibUDS does not own the hardware. It asks you to provide the hardware via `uds_config_t`.
 
