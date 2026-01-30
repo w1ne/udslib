@@ -49,7 +49,23 @@ void uds_process(uds_ctx_t* ctx) {
     if (ctx->active_session != 0x01) {
         if ((now - ctx->last_msg_time) > 5000) { // 5s S3 Timeout
             ctx->active_session = 0x01;
+            ctx->security_level = 0;
             uds_log(ctx, UDS_LOG_INFO, "S3 Timeout: Reverted to Default Session");
+        }
+    }
+
+    /* P2/P2* Timing: Manage Response Deadlines */
+    if (ctx->p2_msg_pending) {
+        uint32_t timeout = ctx->p2_star_active ? ctx->config->p2_star_ms : ctx->config->p2_ms;
+        
+        if ((now - ctx->p2_timer_start) >= timeout) {
+            /* Deadline exceeded - send 0x78 (Response Pending) */
+            uds_send_nrc(ctx, ctx->pending_sid, 0x78);
+            
+            /* Reset timer and switch to P2* scale */
+            ctx->p2_timer_start = now;
+            ctx->p2_star_active = true;
+            uds_log(ctx, UDS_LOG_DEBUG, "Sent NRC 0x78 - Extended Timeout (P2*) active");
         }
     }
 }
@@ -57,81 +73,84 @@ void uds_process(uds_ctx_t* ctx) {
 static void uds_dispatch_service(uds_ctx_t* ctx, const uint8_t* data, uint16_t len) {
     if (len == 0) return;
     uint8_t sid = data[0];
-    
+    ctx->pending_sid = sid; 
+
     uds_log(ctx, UDS_LOG_DEBUG, "Processing SDU...");
+    
+    /* Mark start of P2 timer */
+    ctx->p2_timer_start = ctx->config->get_time_ms();
+    ctx->p2_msg_pending = false;
+    ctx->p2_star_active = false;
 
     /* Simple Echo / Hardcoded Response for validation */
     if (sid == 0x10 && len >= 2) {
-        // Session Control (Mock)
+        // ... (existing simplified session control)
         uint8_t sub = data[1];
         if (sub == 0x03) { // Extended Session
             ctx->active_session = 0x03;
-            // Prepare Positive Response
             ctx->config->tx_buffer[0] = 0x50;
             ctx->config->tx_buffer[1] = 0x03;
-            ctx->config->tx_buffer[2] = 0x00; // P2 high
-            ctx->config->tx_buffer[3] = 0x32; // P2 low (50ms)
-            ctx->config->tx_buffer[4] = 0x01; // P2* high
-            ctx->config->tx_buffer[5] = 0xF4; // P2* low (5000ms)
-            
-            ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 6);
+            ctx->config->tx_buffer[2] = 0x00; 
+            ctx->config->tx_buffer[3] = 0x32; 
+            ctx->config->tx_buffer[4] = 0x01; 
+            ctx->config->tx_buffer[5] = 0xF4; 
+            uds_send_response(ctx, 6);
             uds_log(ctx, UDS_LOG_INFO, "Session changed to Extended");
         } else {
-            // Default Session
             ctx->active_session = 0x01;
             ctx->config->tx_buffer[0] = 0x50;
             ctx->config->tx_buffer[1] = sub;
-            ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 2);
+            uds_send_response(ctx, 2);
         }
     } else if (sid == 0x3E && len >= 2) {
         // Tester Present
-        ctx->last_msg_time = ctx->config->get_time_ms();
-        uint8_t sub = data[1] & 0x7F; // Suppress bits
-        if (sub == 0x00) {
-            ctx->config->tx_buffer[0] = 0x7E;
-            ctx->config->tx_buffer[1] = 0x00;
-            ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 2);
+        uint8_t sub = data[1];
+        if ((sub & 0x7F) == 0x00) {
+            if (!(sub & 0x80)) { // Suppress Pos Response bit
+                ctx->config->tx_buffer[0] = 0x7E;
+                ctx->config->tx_buffer[1] = sub & 0x7F;
+                uds_send_response(ctx, 2);
+            }
         }
     } else if (sid == 0x22 && len >= 3) {
         // Read Data By Identifier
-        ctx->last_msg_time = ctx->config->get_time_ms();
         uint16_t id = (data[1] << 8) | data[2];
         if (id == 0xF190) { // VIN Identifier
             ctx->config->tx_buffer[0] = 0x62;
             ctx->config->tx_buffer[1] = 0xF1;
             ctx->config->tx_buffer[2] = 0x90;
-            // Fake VIN: "LIBUDS_SIMREL_01"
             memcpy(&ctx->config->tx_buffer[3], "LIBUDS_SIM_001", 14);
-            ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 3 + 14);
+            uds_send_response(ctx, 3 + 14);
         } else {
-            uds_send_nrc(ctx, sid, 0x31); // Request Out Of Range
+            uds_send_nrc(ctx, sid, 0x31);
         }
     } else if (sid == 0x27 && len >= 2) {
         // Security Access
-        ctx->last_msg_time = ctx->config->get_time_ms();
         uint8_t sub = data[1];
         if (sub == 0x01) { // Request Seed
             ctx->config->tx_buffer[0] = 0x67;
             ctx->config->tx_buffer[1] = 0x01;
-            ctx->config->tx_buffer[2] = 0xDE; // Static Seed
+            ctx->config->tx_buffer[2] = 0xDE; 
             ctx->config->tx_buffer[3] = 0xAD;
             ctx->config->tx_buffer[4] = 0xBE;
             ctx->config->tx_buffer[5] = 0xEF;
-            ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 6);
+            uds_send_response(ctx, 6);
         } else if (sub == 0x02 && len >= 6) { // Send Key
-            // Mock Key: Seed + 1 (very secure!)
             if (data[2] == 0xDF && data[3] == 0xAE && data[4] == 0xBF && data[5] == 0xF0) {
                 ctx->security_level = 1;
                 ctx->config->tx_buffer[0] = 0x67;
                 ctx->config->tx_buffer[1] = 0x02;
-                ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 2);
+                uds_send_response(ctx, 2);
             } else {
-                uds_send_nrc(ctx, sid, 0x35); // Invalid Key
+                uds_send_nrc(ctx, sid, 0x35);
             }
         }
+    } else if (sid == 0x31) {
+        /* Mock Routine Control: Mark as pending to test P2/P2* timing logic */
+        ctx->p2_msg_pending = true;
+        uds_log(ctx, UDS_LOG_INFO, "Service 0x31 is PENDING - Waiting for application...");
     } else {
-        // SID Not Supported
-        uds_send_nrc(ctx, sid, 0x11); // Service Not Supported
+        uds_send_nrc(ctx, sid, 0x11);
     }
 }
 
@@ -192,11 +211,17 @@ void uds_input_sdu(uds_ctx_t* ctx, const uint8_t* data, uint16_t len) {
 
 int uds_send_response(uds_ctx_t* ctx, uint16_t len) {
     if (!ctx) return UDS_ERR_NOT_INIT;
+    ctx->p2_msg_pending = false;
     return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
 }
 
 int uds_send_nrc(uds_ctx_t* ctx, uint8_t sid, uint8_t nrc) {
     if (!ctx) return UDS_ERR_NOT_INIT;
+    
+    /* Clear pending flag unless this is the 0x78 (Response Pending) NRC */
+    if (nrc != 0x78) {
+        ctx->p2_msg_pending = false;
+    }
     
     ctx->config->tx_buffer[0] = 0x7F;
     ctx->config->tx_buffer[1] = sid;

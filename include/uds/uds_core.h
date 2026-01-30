@@ -20,6 +20,7 @@ extern "C" {
 #define UDS_ERR_INVALID_ARG    -1
 #define UDS_ERR_BUFFER_TOO_SMALL -2
 #define UDS_ERR_NOT_INIT       -3
+#define UDS_PENDING            1 /**< Service operation is pending (auto-trigger 0x78) */
 
 /**
  * @brief Initialize the UDS Stack

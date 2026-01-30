@@ -47,7 +47,9 @@ int main(void) {
         .tx_buffer_size = sizeof(uds_tx_buf),
         .get_time_ms = uds_get_time_ms_zephyr,
         .fn_tp_send = tp_send_func,
-        .fn_log = uds_log_zephyr
+        .fn_log = uds_log_zephyr,
+        .p2_ms = 50,
+        .p2_star_ms = 5000
     };
 
     if (uds_init(&uds_ctx, &config) != 0) {

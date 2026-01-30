@@ -99,7 +99,9 @@ int main(int argc, char** argv) {
         .rx_buffer = rx_buf,
         .rx_buffer_size = sizeof(rx_buf),
         .tx_buffer = tx_buf,
-        .tx_buffer_size = sizeof(tx_buf)
+        .tx_buffer_size = sizeof(tx_buf),
+        .p2_ms = 50,       /* 50ms P2 timeout */
+        .p2_star_ms = 2000 /* 2000ms P2* timeout */
     };
 
     uds_ctx_t ctx;
@@ -107,9 +109,27 @@ int main(int argc, char** argv) {
 
     printf("Waiting for VCAN packets...\n");
 
+    uint32_t slow_op_start = 0;
+
     while(1) {
+        uint32_t now = get_time_ms();
         uds_process(&ctx);
         uds_tp_isotp_process();
+
+        /* Detect when SID 0x31 becomes pending and start our internal mock "long operation" */
+        if (ctx.p2_msg_pending && ctx.pending_sid == 0x31 && slow_op_start == 0) {
+            slow_op_start = now;
+            printf("[APP] Starting 1.5s operation for SID 0x31...\n");
+        }
+
+        /* After 1.5 seconds, send the positive response */
+        if (slow_op_start > 0 && (now - slow_op_start) >= 1500) {
+            printf("[APP] Operation complete! Sending 0x71 response.\n");
+            ctx.config->tx_buffer[0] = 0x71; // 0x31 + 0x40
+            ctx.config->tx_buffer[1] = 0x01; // Data
+            uds_send_response(&ctx, 2);
+            slow_op_start = 0;
+        }
 
         // Non-blocking UDP Recv
         struct timeval tv = {0, 1000}; // 1ms timeout

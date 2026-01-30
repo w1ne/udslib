@@ -113,7 +113,30 @@ def test_full_sequence():
         # ... logic for MF reassembly ...
         # For now, let's skip MF verification in python and just verify the state changes.
         
-        print("[TEST] Step 5: Verify S3 Timeout (Wait 6 seconds)")
+        # 5. Routine Control (Slow Operation) -> Verify 0x78
+        print("[TEST] Step 5: Verify NRC 0x78 (Response Pending) for SID 0x31")
+        # Send 0x31 request
+        client.send_can(client.tx_id, bytes([0x01, 0x31]))
+        
+        has_78 = False
+        has_pos = False
+        start = time.time()
+        while time.time() - start < 3.0:
+            cid, data = client.recv_can()
+            if cid == client.rx_id:
+                if list(data[:3]) == [0x03, 0x7F, 0x31] and data[3] == 0x78:
+                    print(" -> Received 0x78")
+                    has_78 = True
+                elif list(data[:3]) == [0x02, 0x71, 0x01]:
+                    print(" -> Received 0x71 (Positive)")
+                    has_pos = True
+                    break
+        
+        assert has_78, "Did not receive NRC 0x78"
+        assert has_pos, "Did not receive final positive response"
+        print(" -> PASS")
+
+        print("[TEST] Step 6: Verify S3 Timeout (Wait 6 seconds)")
         time.sleep(6)
         # Session should have reverted to Default. 
         # We can check by requesting seed again (server might forbid it in default, but our mock doesn't yet).

@@ -1,0 +1,17 @@
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(CMOCKA REQUIRED cmocka)
+
+include_directories(${CMOCKA_INCLUDE_DIRS})
+
+macro(add_uds_test name source)
+    add_executable(${name} ${source} unit/test_helpers.c)
+    target_link_libraries(${name} uds ${CMOCKA_LIBRARIES})
+    add_test(NAME ${name} COMMAND ${name})
+endmacro()
+
+add_uds_test(test_core test_core.c)
+add_uds_test(test_service_10 unit/test_service_10.c)
+add_uds_test(test_service_22 unit/test_service_22.c)
+add_uds_test(test_service_27 unit/test_service_27.c)
+add_uds_test(test_service_3E unit/test_service_3E.c)
+add_uds_test(test_timing unit/test_timing.c)

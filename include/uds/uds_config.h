@@ -76,6 +76,10 @@ typedef struct {
     /* --- Transport Interface --- */
     uds_tp_send_fn  fn_tp_send;  /**< Mandatory: Output function for UDS SDUs */
 
+    /* --- Timing Configuration (ISO 14229-1) --- */
+    uint16_t        p2_ms;       /**< Default P2 server timeout (usually 50ms) */
+    uint32_t        p2_star_ms;  /**< P2* server timeout after NRC 0x78 (usually 5000ms) */
+
     /* --- Memory Management (Zero Malloc) --- */
     /* The user must provide static buffers for the stack to use. */
     
@@ -104,7 +108,8 @@ typedef struct uds_ctx {
     /* Timing */
     uint32_t last_msg_time;      /**< Timestamp of last received valid message (for S3 timer) */
     uint32_t p2_timer_start;     /**< Start time for P2 performance tracking */
-    bool     p2_timer_active;    /**< Whether we are currently measuring P2 */
+    bool     p2_msg_pending;     /**< True if a service returned UDS_PENDING */
+    bool     p2_star_active;     /**< True if we have already sent the first 0x78 NRC */
 
     /* Processing */
     bool     response_pending;   /**< True if the application is processing a request asynchronously */
