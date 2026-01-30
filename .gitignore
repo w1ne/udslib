@@ -1,0 +1,25 @@
+# Build artifacts
+build/
+bin/
+obj/
+
+# Zephyr workspace and artifacts
+zephyr-workspace/
+zephyr_server.log
+examples/zephyr_uds_server/build/
+
+# Local Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# IDE settings
+.vscode/
+.idea/
+
+# OS artifacts
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak

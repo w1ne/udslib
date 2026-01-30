@@ -1,0 +1,74 @@
+menuconfig LIBUDS
+	bool "LibUDS - Unified Diagnostic Services Stack"
+	help
+	  Portable UDS (ISO 14229) protocol stack for automotive diagnostics.
+	  Supports both ECU (server) and Tester (client) roles.
+
+if LIBUDS
+
+choice LIBUDS_TRANSPORT
+	prompt "Transport Layer Implementation"
+	default LIBUDS_TRANSPORT_NATIVE if CAN_ISOTP
+	default LIBUDS_TRANSPORT_FALLBACK
+	help
+	  Select the ISO-TP transport layer implementation.
+
+config LIBUDS_TRANSPORT_NATIVE
+	bool "Use Zephyr native ISO-TP sockets"
+	depends on CAN_ISOTP && NET && NET_SOCKETS && NET_SOCKETCAN
+	help
+	  Leverage Zephyr's built-in ISO-TP socket implementation.
+	  Recommended for most use cases. Zero-copy, minimal memory overhead.
+
+config LIBUDS_TRANSPORT_FALLBACK
+	bool "Use LibUDS internal ISO-TP fallback"
+	help
+	  Use the internal, platform-agnostic ISO-TP implementation.
+	  Useful for bare-metal or custom CAN driver integration.
+
+endchoice
+
+config LIBUDS_MAX_SDU_SIZE
+	int "Maximum UDS SDU size (bytes)"
+	default 4095
+	range 256 4095
+	help
+	  Maximum size of a complete UDS message. ISO 14229 allows up to 4095.
+	  Reduce this value for memory-constrained systems.
+
+config LIBUDS_RX_BUFFER_SIZE
+	int "RX buffer size (bytes)"
+	default 4096
+	range 256 4096
+	help
+	  Size of the reception buffer. Must be >= LIBUDS_MAX_SDU_SIZE.
+
+config LIBUDS_TX_BUFFER_SIZE
+	int "TX buffer size (bytes)"
+	default 4096
+	range 256 4096
+	help
+	  Size of the transmission buffer. Must be >= LIBUDS_MAX_SDU_SIZE.
+
+config LIBUDS_LOG_LEVEL
+	int "Log verbosity level"
+	default 3
+	range 0 4
+	help
+	  0 = None, 1 = Error, 2 = Warning, 3 = Info, 4 = Debug
+
+config LIBUDS_S3_TIMEOUT_MS
+	int "S3 Server timeout (ms)"
+	default 5000
+	range 1000 10000
+	help
+	  Time before reverting to Default Session after no messages.
+
+config LIBUDS_P2_TIMEOUT_MS
+	int "P2 Server response timeout (ms)"
+	default 50
+	range 10 500
+	help
+	  Maximum time the server has to respond to a request.
+
+endif # LIBUDS

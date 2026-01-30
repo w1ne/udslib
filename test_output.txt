@@ -1,0 +1,25 @@
+[0;32m╔════════════════════════════════════════════════╗[0m
+[0;32m║  LibUDS Comprehensive Test Suite              ║[0m
+[0;32m╚════════════════════════════════════════════════╝[0m
+
+[0;32m=== Phase 1: Unit Tests ===[0m
+
+[1;33m⚠️  Unit tests not yet implemented, skipping...[0m
+
+[0;32m=== Phase 2: Integration Tests (C) ===[0m
+
+[1;33m[1] Running: C-to-C Integration (host_sim)[0m
+--- Starting C-to-C Integration Test (Port 5005) ---
+SUCCESS: C Client to C Simulator communication verified!
+--- Client Log Output ---
+UDS Client starting (Target: 127.0.0.1:5005)
+[CLIENT] Sending DiagnosticSessionControl (Extended)...
+[CLIENT] Response Received: SID=50, Len=6
+[CLIENT] Data: 50 03 00 32 01 F4
+[CLIENT] Session changed OK
+
+[CLIENT] Sending ReadDataByIdentifier (VIN)...
+[CLIENT] Response Received: SID=62, Len=17
+[CLIENT] Data: 62 F1 90 4C 49 42 55 44 53 5F 53 49 4D 5F 30 30 31
+[CLIENT] Read Data OK
+[0;32m✅ PASSED[0m

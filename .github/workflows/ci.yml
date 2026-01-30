@@ -1,0 +1,84 @@
+name: LibUDS CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Static Analysis Tools
+        run: sudo apt-get install -y cppcheck clang-format
+        
+      - name: Run Clang Format Check
+        run: |
+          find src include examples -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
+          
+      - name: Run Cppcheck
+        run: |
+          cppcheck --enable=all --error-exitcode=1 -I include src/
+
+  build-posix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Build Dependencies
+        run: sudo apt-get install -y build-essential cmake
+        
+      - name: Build and Run Host Simulation
+        run: |
+          mkdir build && cd build
+          cmake ..
+          make
+          ./examples/host_sim/host_sim &
+          sleep 2
+          # Note: Real integration tests would need vcan setup which requires sudo/kernel mods
+          # We will mock the vcan check or use a dedicated action for it
+
+  build-zephyr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install West and Dependencies
+        run: |
+          python3 -m pip install --user -U west
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r scripts/requirements.txt
+          
+      - name: Initialize Zephyr
+        run: |
+          source .venv/bin/activate
+          west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
+          cd zephyr-workspace
+          west update
+          west zephyr-export
+          
+      - name: Build Zephyr Example
+        run: |
+          source .venv/bin/activate
+          export ZEPHYR_BASE=$GITHUB_WORKSPACE/zephyr-workspace/zephyr
+          export ZEPHYR_MODULES=$GITHUB_WORKSPACE
+          cd examples/zephyr_uds_server
+          west build -b native_sim
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    # This job requires a custom runner or specialized action for SocketCAN support
+    # For now, we define the structure.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Integration Tests (Placeholder)
+        run: echo "Integration tests require SocketCAN/vcan environment."
