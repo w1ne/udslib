@@ -53,8 +53,12 @@ int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data,
         return uds_send_nrc(ctx, 0x23, 0x11); /* Service Not Supported */
     }
 
-    if (size > (ctx->config->tx_buffer_size - 1)) {
+    if (size > (uint32_t)(ctx->config->tx_buffer_size - 1)) {
         return uds_send_nrc(ctx, 0x23, 0x31); /* Request Out Of Range */
+    }
+
+    if ((uint64_t)addr + size > 0xFFFFFFFF) {
+        return uds_send_nrc(ctx, 0x23, 0x31); /* Address Overflow */
     }
 
     int res = ctx->config->fn_mem_read(ctx, addr, size, &ctx->config->tx_buffer[1]);
@@ -78,6 +82,10 @@ int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data
 
     if (!parse_addr_len(data, len, format, &addr, &size, &consumed)) {
         return uds_send_nrc(ctx, 0x3D, 0x13);
+    }
+
+    if ((uint64_t)addr + size > 0xFFFFFFFF) {
+        return uds_send_nrc(ctx, 0x3D, 0x31); /* Address Overflow */
     }
 
     if (len != (consumed + size)) {

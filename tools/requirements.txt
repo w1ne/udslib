@@ -1,0 +1,12 @@
+# LibUDS Development Tools
+
+## Python Requirements
+
+```bash
+pip install -r tools/requirements.txt
+```
+
+## Optional (for full ODX support):
+```bash
+pip install odxtools
+```

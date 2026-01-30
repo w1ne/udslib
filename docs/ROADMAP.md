@@ -32,9 +32,9 @@
 - [x] **Memory Services (0x23, 0x3D)**: Read/Write Memory By Address with bounds checking.
 - [x] **Routine Control (0x31)**: Extensible routine execution framework.
 
-## Phase 6: Tooling & Automation (Future)
-- [ ] **ODX-to-C Generator**: Automated generation of DID tables and Service registries from ODX/PDX files.
-- [ ] **Python Test Generator**: Scaffolding integration tests based on the diagnostic database.
+## Phase 6: Tooling & Automation (Complete)
+- [x] **ODX-to-C Generator**: Automated generation of DID tables and Service registries from ODX/PDX files.
+- [x] **Python Test Generator**: Scaffolding integration tests based on the diagnostic database.
 
 ## Long Term Vision
 - **Golden Standard Connectivity**: Plug-and-play testing against any major commercial UDS stack.

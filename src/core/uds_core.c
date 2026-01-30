@@ -175,6 +175,10 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
         return UDS_ERR_NOT_INIT;
     }
 
+    if (ctx->config->fn_mutex_lock) {
+        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
+    }
+
     ctx->pending_sid = sid;
     ctx->client_cb = (void *)callback;
 
@@ -183,7 +187,13 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
         memcpy(&ctx->config->tx_buffer[1], data, len);
     }
 
-    return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len + 1);
+    int result = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len + 1);
+
+    if (ctx->config->fn_mutex_unlock) {
+        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+    }
+
+    return result;
 }
 
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
