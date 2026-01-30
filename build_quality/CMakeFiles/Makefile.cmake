@@ -123,4 +123,10 @@ set(CMAKE_DEPEND_INFO_FILES
   "tests/CMakeFiles/test_endian.dir/DependInfo.cmake"
   "tests/CMakeFiles/test_fuzz_core.dir/DependInfo.cmake"
   "tests/CMakeFiles/test_transport.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_service_negative.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_service_2E.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_safety_gate.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_async.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_nvm_persistence.dir/DependInfo.cmake"
+  "tests/CMakeFiles/test_integration.dir/DependInfo.cmake"
   )

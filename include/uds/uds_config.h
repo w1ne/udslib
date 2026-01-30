@@ -151,6 +151,15 @@ typedef struct {
     /** Optional: ECU Reset callback for SID 0x11 */
     uds_reset_fn fn_reset;
 
+    /** 
+     * @brief Optional: Communication Control callback (SID 0x28) 
+     * @param ctx  UDS Context
+     * @param ctrl_type Control Type (0-3)
+     * @param comm_type Communication Type (Data Byte 2)
+     * @return UDS_OK to accept, or negative NRC to reject (e.g. 0x22).
+     */
+    int (*fn_comm_control)(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type);
+
     /* --- Memory Management (Zero Malloc) --- */
 
     /** Working buffer for reassembling incoming requests */

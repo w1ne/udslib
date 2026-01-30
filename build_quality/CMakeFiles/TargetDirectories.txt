@@ -23,6 +23,12 @@
 /app/build_quality/tests/CMakeFiles/test_endian.dir
 /app/build_quality/tests/CMakeFiles/test_fuzz_core.dir
 /app/build_quality/tests/CMakeFiles/test_transport.dir
+/app/build_quality/tests/CMakeFiles/test_service_negative.dir
+/app/build_quality/tests/CMakeFiles/test_service_2E.dir
+/app/build_quality/tests/CMakeFiles/test_safety_gate.dir
+/app/build_quality/tests/CMakeFiles/test_async.dir
+/app/build_quality/tests/CMakeFiles/test_nvm_persistence.dir
+/app/build_quality/tests/CMakeFiles/test_integration.dir
 /app/build_quality/tests/CMakeFiles/test.dir
 /app/build_quality/tests/CMakeFiles/edit_cache.dir
 /app/build_quality/tests/CMakeFiles/rebuild_cache.dir

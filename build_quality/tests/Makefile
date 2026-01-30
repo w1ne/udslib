@@ -364,6 +364,114 @@ test_transport/fast:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/build
 .PHONY : test_transport/fast
 
+# Convenience name for target.
+tests/CMakeFiles/test_service_negative.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_negative.dir/rule
+.PHONY : tests/CMakeFiles/test_service_negative.dir/rule
+
+# Convenience name for target.
+test_service_negative: tests/CMakeFiles/test_service_negative.dir/rule
+.PHONY : test_service_negative
+
+# fast build rule for target.
+test_service_negative/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/build
+.PHONY : test_service_negative/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_service_2E.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_2E.dir/rule
+.PHONY : tests/CMakeFiles/test_service_2E.dir/rule
+
+# Convenience name for target.
+test_service_2E: tests/CMakeFiles/test_service_2E.dir/rule
+.PHONY : test_service_2E
+
+# fast build rule for target.
+test_service_2E/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/build
+.PHONY : test_service_2E/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_safety_gate.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_safety_gate.dir/rule
+.PHONY : tests/CMakeFiles/test_safety_gate.dir/rule
+
+# Convenience name for target.
+test_safety_gate: tests/CMakeFiles/test_safety_gate.dir/rule
+.PHONY : test_safety_gate
+
+# fast build rule for target.
+test_safety_gate/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/build
+.PHONY : test_safety_gate/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_async.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_async.dir/rule
+.PHONY : tests/CMakeFiles/test_async.dir/rule
+
+# Convenience name for target.
+test_async: tests/CMakeFiles/test_async.dir/rule
+.PHONY : test_async
+
+# fast build rule for target.
+test_async/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/build
+.PHONY : test_async/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_nvm_persistence.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_nvm_persistence.dir/rule
+.PHONY : tests/CMakeFiles/test_nvm_persistence.dir/rule
+
+# Convenience name for target.
+test_nvm_persistence: tests/CMakeFiles/test_nvm_persistence.dir/rule
+.PHONY : test_nvm_persistence
+
+# fast build rule for target.
+test_nvm_persistence/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/build
+.PHONY : test_nvm_persistence/fast
+
+# Convenience name for target.
+tests/CMakeFiles/test_integration.dir/rule:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_integration.dir/rule
+.PHONY : tests/CMakeFiles/test_integration.dir/rule
+
+# Convenience name for target.
+test_integration: tests/CMakeFiles/test_integration.dir/rule
+.PHONY : test_integration
+
+# fast build rule for target.
+test_integration/fast:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/build
+.PHONY : test_integration/fast
+
+integration/test_integration.o: integration/test_integration.c.o
+.PHONY : integration/test_integration.o
+
+# target to build an object file
+integration/test_integration.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/integration/test_integration.c.o
+.PHONY : integration/test_integration.c.o
+
+integration/test_integration.i: integration/test_integration.c.i
+.PHONY : integration/test_integration.i
+
+# target to preprocess a source file
+integration/test_integration.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/integration/test_integration.c.i
+.PHONY : integration/test_integration.c.i
+
+integration/test_integration.s: integration/test_integration.c.s
+.PHONY : integration/test_integration.s
+
+# target to generate assembly for a file
+integration/test_integration.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/integration/test_integration.c.s
+.PHONY : integration/test_integration.c.s
+
 test_core.o: test_core.c.o
 .PHONY : test_core.o
 
@@ -387,6 +495,30 @@ test_core.s: test_core.c.s
 test_core.c.s:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_core.dir/build.make tests/CMakeFiles/test_core.dir/test_core.c.s
 .PHONY : test_core.c.s
+
+unit/test_async.o: unit/test_async.c.o
+.PHONY : unit/test_async.o
+
+# target to build an object file
+unit/test_async.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/unit/test_async.c.o
+.PHONY : unit/test_async.c.o
+
+unit/test_async.i: unit/test_async.c.i
+.PHONY : unit/test_async.i
+
+# target to preprocess a source file
+unit/test_async.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/unit/test_async.c.i
+.PHONY : unit/test_async.c.i
+
+unit/test_async.s: unit/test_async.c.s
+.PHONY : unit/test_async.s
+
+# target to generate assembly for a file
+unit/test_async.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/unit/test_async.c.s
+.PHONY : unit/test_async.c.s
 
 unit/test_endian.o: unit/test_endian.c.o
 .PHONY : unit/test_endian.o
@@ -458,6 +590,12 @@ unit/test_helpers.c.o:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_helpers.c.o
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_helpers.c.o
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/unit/test_helpers.c.o
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/unit/test_helpers.c.o
 .PHONY : unit/test_helpers.c.o
 
 unit/test_helpers.i: unit/test_helpers.c.i
@@ -482,6 +620,12 @@ unit/test_helpers.c.i:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_helpers.c.i
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_helpers.c.i
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/unit/test_helpers.c.i
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/unit/test_helpers.c.i
 .PHONY : unit/test_helpers.c.i
 
 unit/test_helpers.s: unit/test_helpers.c.s
@@ -506,7 +650,37 @@ unit/test_helpers.c.s:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/unit/test_helpers.c.s
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/unit/test_helpers.c.s
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/unit/test_helpers.c.s
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/unit/test_helpers.c.s
 .PHONY : unit/test_helpers.c.s
+
+unit/test_nvm_persistence.o: unit/test_nvm_persistence.c.o
+.PHONY : unit/test_nvm_persistence.o
+
+# target to build an object file
+unit/test_nvm_persistence.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/unit/test_nvm_persistence.c.o
+.PHONY : unit/test_nvm_persistence.c.o
+
+unit/test_nvm_persistence.i: unit/test_nvm_persistence.c.i
+.PHONY : unit/test_nvm_persistence.i
+
+# target to preprocess a source file
+unit/test_nvm_persistence.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/unit/test_nvm_persistence.c.i
+.PHONY : unit/test_nvm_persistence.c.i
+
+unit/test_nvm_persistence.s: unit/test_nvm_persistence.c.s
+.PHONY : unit/test_nvm_persistence.s
+
+# target to generate assembly for a file
+unit/test_nvm_persistence.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/unit/test_nvm_persistence.c.s
+.PHONY : unit/test_nvm_persistence.c.s
 
 unit/test_osal.o: unit/test_osal.c.o
 .PHONY : unit/test_osal.o
@@ -531,6 +705,30 @@ unit/test_osal.s: unit/test_osal.c.s
 unit/test_osal.c.s:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/unit/test_osal.c.s
 .PHONY : unit/test_osal.c.s
+
+unit/test_safety_gate.o: unit/test_safety_gate.c.o
+.PHONY : unit/test_safety_gate.o
+
+# target to build an object file
+unit/test_safety_gate.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/unit/test_safety_gate.c.o
+.PHONY : unit/test_safety_gate.c.o
+
+unit/test_safety_gate.i: unit/test_safety_gate.c.i
+.PHONY : unit/test_safety_gate.i
+
+# target to preprocess a source file
+unit/test_safety_gate.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/unit/test_safety_gate.c.i
+.PHONY : unit/test_safety_gate.c.i
+
+unit/test_safety_gate.s: unit/test_safety_gate.c.s
+.PHONY : unit/test_safety_gate.s
+
+# target to generate assembly for a file
+unit/test_safety_gate.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/unit/test_safety_gate.c.s
+.PHONY : unit/test_safety_gate.c.s
 
 unit/test_service_10.o: unit/test_service_10.c.o
 .PHONY : unit/test_service_10.o
@@ -676,6 +874,30 @@ unit/test_service_29.c.s:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/unit/test_service_29.c.s
 .PHONY : unit/test_service_29.c.s
 
+unit/test_service_2E.o: unit/test_service_2E.c.o
+.PHONY : unit/test_service_2E.o
+
+# target to build an object file
+unit/test_service_2E.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/unit/test_service_2E.c.o
+.PHONY : unit/test_service_2E.c.o
+
+unit/test_service_2E.i: unit/test_service_2E.c.i
+.PHONY : unit/test_service_2E.i
+
+# target to preprocess a source file
+unit/test_service_2E.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/unit/test_service_2E.c.i
+.PHONY : unit/test_service_2E.c.i
+
+unit/test_service_2E.s: unit/test_service_2E.c.s
+.PHONY : unit/test_service_2E.s
+
+# target to generate assembly for a file
+unit/test_service_2E.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/unit/test_service_2E.c.s
+.PHONY : unit/test_service_2E.c.s
+
 unit/test_service_3E.o: unit/test_service_3E.c.o
 .PHONY : unit/test_service_3E.o
 
@@ -796,6 +1018,30 @@ unit/test_service_mem.c.s:
 	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/unit/test_service_mem.c.s
 .PHONY : unit/test_service_mem.c.s
 
+unit/test_service_negative.o: unit/test_service_negative.c.o
+.PHONY : unit/test_service_negative.o
+
+# target to build an object file
+unit/test_service_negative.c.o:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/unit/test_service_negative.c.o
+.PHONY : unit/test_service_negative.c.o
+
+unit/test_service_negative.i: unit/test_service_negative.c.i
+.PHONY : unit/test_service_negative.i
+
+# target to preprocess a source file
+unit/test_service_negative.c.i:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/unit/test_service_negative.c.i
+.PHONY : unit/test_service_negative.c.i
+
+unit/test_service_negative.s: unit/test_service_negative.c.s
+.PHONY : unit/test_service_negative.s
+
+# target to generate assembly for a file
+unit/test_service_negative.c.s:
+	cd /app/build_quality && $(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/unit/test_service_negative.c.s
+.PHONY : unit/test_service_negative.c.s
+
 unit/test_timing.o: unit/test_timing.c.o
 .PHONY : unit/test_timing.o
 
@@ -853,26 +1099,38 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... test"
+	@echo "... test_async"
 	@echo "... test_core"
 	@echo "... test_endian"
 	@echo "... test_fuzz_core"
+	@echo "... test_integration"
+	@echo "... test_nvm_persistence"
 	@echo "... test_osal"
+	@echo "... test_safety_gate"
 	@echo "... test_service_10"
 	@echo "... test_service_11"
 	@echo "... test_service_22"
 	@echo "... test_service_27"
 	@echo "... test_service_28"
 	@echo "... test_service_29"
+	@echo "... test_service_2E"
 	@echo "... test_service_3E"
 	@echo "... test_service_did"
 	@echo "... test_service_dtc"
 	@echo "... test_service_flash"
 	@echo "... test_service_mem"
+	@echo "... test_service_negative"
 	@echo "... test_timing"
 	@echo "... test_transport"
+	@echo "... integration/test_integration.o"
+	@echo "... integration/test_integration.i"
+	@echo "... integration/test_integration.s"
 	@echo "... test_core.o"
 	@echo "... test_core.i"
 	@echo "... test_core.s"
+	@echo "... unit/test_async.o"
+	@echo "... unit/test_async.i"
+	@echo "... unit/test_async.s"
 	@echo "... unit/test_endian.o"
 	@echo "... unit/test_endian.i"
 	@echo "... unit/test_endian.s"
@@ -882,9 +1140,15 @@ help:
 	@echo "... unit/test_helpers.o"
 	@echo "... unit/test_helpers.i"
 	@echo "... unit/test_helpers.s"
+	@echo "... unit/test_nvm_persistence.o"
+	@echo "... unit/test_nvm_persistence.i"
+	@echo "... unit/test_nvm_persistence.s"
 	@echo "... unit/test_osal.o"
 	@echo "... unit/test_osal.i"
 	@echo "... unit/test_osal.s"
+	@echo "... unit/test_safety_gate.o"
+	@echo "... unit/test_safety_gate.i"
+	@echo "... unit/test_safety_gate.s"
 	@echo "... unit/test_service_10.o"
 	@echo "... unit/test_service_10.i"
 	@echo "... unit/test_service_10.s"
@@ -903,6 +1167,9 @@ help:
 	@echo "... unit/test_service_29.o"
 	@echo "... unit/test_service_29.i"
 	@echo "... unit/test_service_29.s"
+	@echo "... unit/test_service_2E.o"
+	@echo "... unit/test_service_2E.i"
+	@echo "... unit/test_service_2E.s"
 	@echo "... unit/test_service_3E.o"
 	@echo "... unit/test_service_3E.i"
 	@echo "... unit/test_service_3E.s"
@@ -918,6 +1185,9 @@ help:
 	@echo "... unit/test_service_mem.o"
 	@echo "... unit/test_service_mem.i"
 	@echo "... unit/test_service_mem.s"
+	@echo "... unit/test_service_negative.o"
+	@echo "... unit/test_service_negative.i"
+	@echo "... unit/test_service_negative.s"
 	@echo "... unit/test_timing.o"
 	@echo "... unit/test_timing.i"
 	@echo "... unit/test_timing.s"

@@ -23,6 +23,7 @@ tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.o: \
  /usr/include/x86_64-linux-gnu/bits/stdint-uintn.h /usr/include/string.h \
  /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
  /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
- /usr/include/strings.h /app/tests/unit/test_helpers.h \
- /app/include/uds/uds_core.h /app/include/uds/uds_config.h \
- /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h
+ /usr/include/strings.h /app/include/uds/uds_core.h \
+ /app/include/uds/uds_config.h \
+ /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+ /app/include/uds/uds_config.h

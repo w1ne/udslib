@@ -43,6 +43,14 @@
 - [x] **Integration Suite**: Full stack lifecycle tests (Dockerized).
 - [x] **Safety**: Gate callback verification.
 
+- [x] **Safety**: Gate callback verification.
+
+## Phase 8: Asynchronous Architecture & Hardening (Planned)
+- [ ] **Async Services**: Support `UDS_PENDING` return code for non-blocking handlers.
+- [ ] **Concurrency**: Multi-threaded validation suite.
+- [ ] **Fuzzing**: LibFuzzer integration for deep packet inspection.
+- [ ] **Service 0x28**: Full Communication Control implementation.
+
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.
 - **Certification**: Preparation for ISO 26262 and ASPICE compliance.
