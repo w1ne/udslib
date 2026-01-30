@@ -66,10 +66,10 @@ tests/CMakeFiles/test_service_28.dir/unit/test_service_28.c.o: ../tests/unit/tes
   /usr/include/x86_64-linux-gnu/bits/types/locale_t.h \
   /usr/include/x86_64-linux-gnu/bits/types/__locale_t.h \
   /usr/include/strings.h \
-  ../tests/unit/test_helpers.h \
   ../include/uds/uds_core.h \
   ../include/uds/uds_config.h \
-  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h
+  /usr/lib/gcc/x86_64-linux-gnu/11/include/stdbool.h \
+  ../include/uds/uds_config.h
 
 
 ../tests/unit/test_service_28.c:

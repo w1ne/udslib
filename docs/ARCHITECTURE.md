@@ -1,21 +1,23 @@
 # LibUDS Architecture
 
-This document describes the design philosophy and structural organization of the LibUDS stack.
+LibUDS separates core diagnostic logic from the input/output layer and the operating system.
 
-## 1. Design Philosophy
+## 1. Design Principles
 
-LibUDS is built on three core pillars:
-1.  **Strict Isolation**: The core logic is isolated from I/O and OS.
-2.  **Zero Resource Ownership**: The library does not allocate memory or create threads.
-3.  **Dependency Injection**: All platform-specific functionality is "injected" at runtime via function pointers.
+Three rules define the library's structure:
 
-## 2. Component Diagram
-LibUDS is split into three main areas:
+1.  **Strict Isolation**: Logic runs independently of I/O and OS specifics.
+2.  **No Resource Ownership**: The library does not allocate memory or create threads.
+3.  **Dependency Injection**: Platform-specific functions are injected at runtime via function pointers.
 
-1.  **Service Registry**: A table-driven dispatcher that decouples core UDS logic from the protocol engine.
-2.  **Core SDU Engine**: Handles protocol parsing and validation (Session, Security, Length).
-3.  **State Manager**: Tracks active sessions, security levels, and protocol timers (S3, P2). Uses optional **NVM Persistence** hooks for recovery.
-4.  **Transport Abstraction**: Spliced layer that either hooks into OS sockets (Zephyr/Linux) or uses the internal ISO-TP fallback.
+## 2. Component Structure
+
+The library divides into four main areas:
+
+1.  **Service Registry**: A table-driven dispatcher that routes requests.
+2.  **Core SDU Engine**: Parses and validates protocol requirements (Session, Security, Length).
+3.  **State Manager**: Tracks sessions, security levels, and timers (S3, P2). It uses optional hooks for NVM persistence.
+4.  **Transport Abstraction**: A layer that connects to OS sockets (Zephyr/Linux) or uses the internal ISO-TP fallback.
 
 ```mermaid
 graph TD
@@ -34,54 +36,56 @@ graph TD
     Core -->|Callback| App
 ```
 
-## 3. Modular Service Architecture
+## 3. Modular Service Registry
 
-LibUDS uses a **Table-Driven Dispatcher** to manage UDS services. This design provides:
-- **Scalability**: Adding a new service (e.g., SID 0x29) only requires a new entry in the service table.
-- **Extensibility**: Applications can register `user_services` in `uds_config_t` to override or extend built-in functionality.
-- **Validation Priorities**: The core engine enforces ISO 14229-1 NRC priorities (Session → Length → Security → Safety) before calling the specific handler.
+A table-driven dispatcher manages UDS services.
 
-## 4. Safety Gates & Industrial Hardware
+- **Scalability**: Adding a service (like SID 0x29) requires adding an entry to the service table.
+- **Extensibility**: Applications register `user_services` in `uds_config_t` to override or extend standard functionality.
+- **Validation**: The core engine enforces ISO 14229-1 NRC priorities (Session → Length → Security → Safety) before calling the handler.
 
-For industrial and automotive safety, LibUDS implements **Safety Gates**. 
-Every potentially destructive service (Reset, Write, Download) is passed to an application-provided `fn_is_safe` callback. 
+## 4. Safety Gates
+
+For industrial and automotive safety, LibUDS implements **Safety Gates**.
+
+Every potentially destructive service (Reset, Write, Download) passes through an application-provided `fn_is_safe` callback.
 
 - If the callback returns `false`, the stack rejects the request with **NRC 0x22 (ConditionsNotCorrect)**.
-- This allows engineers to block diagnostics while the vehicle is moving or the machine is in an unsafe state.
+- This allows engineers to block diagnostics when the machine is in an unsafe state.
 
 ## 5. State Persistence (NVM)
 
-The protocol state (Active Session and Security Level) can be persisted across power cycles using the **NVM Persistence Hooks**. 
-- `fn_nvm_save`: Called when the session or security level changes.
-- `fn_nvm_load`: Called during `uds_init` to restore the last known valid state.
+The protocol state (Active Session and Security Level) persists across power cycles using **NVM Persistence Hooks**.
 
-## 6. The "Spliced Layer" Concept
+- `fn_nvm_save`: Runs when the session or security level changes.
+- `fn_nvm_load`: Runs during `uds_init` to restore the last known valid state.
 
-One of the most complex parts of UDS is the Transport Layer (ISO 15765-2). 
-LibUDS solves this by treating the Transport Layer as a "pluggable module".
+## 6. Spliced Transport Layer
+
+The Transport Layer (ISO 15765-2) operates as a pluggable module.
 
 ### SDU vs PDU
 - **SDU (Service Data Unit)**: A complete UDS message (e.g., `[0x10, 0x03]`).
-- **PDU (Protocol Data Unit)**: An individual CAN frame (e.g., `[0x02, 0x10, 0x03, 0x00...]`).
+- **PDU (Protocol Data Unit)**: A single CAN frame (e.g., `[0x02, 0x10, 0x03, 0x00...]`).
 
-The `libuds` core logic strictly consumes and produces **SDUs**. 
+The `libuds` core logic strictly consumes and produces **SDUs**.
 
-If the underlying OS (like Zephyr or Linux) provides a native ISO-TP stack, LibUDS talks to it directly at the SDU level. This avoids redundant reassembly logic and saves significant RAM/Flash.
+If the underlying OS (like Zephyr or Linux) has a native ISO-TP stack, LibUDS communicates directly at the SDU level. This removes redundant reassembly logic.
 
-If the OS is "dumb" (Bare Metal), LibUDS provides the `uds_tp_isotp.c` fallback which handles reassembly internally, converting the Core's SDUs into raw CAN PDUs.
+If the OS is "dumb" (Bare Metal), LibUDS uses the `uds_tp_isotp.c` fallback to handle reassembly, converting SDUs into raw CAN PDUs.
 
-## 4. Memory Management
+## 7. Memory Management
 
-To ensure MISRA-C compliance and high reliability, LibUDS:
-- **Never calls `malloc()` or `free()`**.
-- Uses caller-provided buffers for RX and TX operations.
-- Uses fixed-size message structures.
+To ensure MISRA-C compliance and reliability:
+- The library **never calls `malloc()` or `free()`**.
+- The caller provides buffers for RX and TX operations.
+- Message structures use fixed sizes.
 
-## 5. Non-Blocking Design (Tickless)
+## 8. Non-Blocking Design
 
-The `uds_process()` function is the heart of the stack. It is designed to be called in a loop but never blocks. It uses the `get_time_ms()` callback to check if internal timers (S3, P2, P2*) have expired. 
+The `uds_process()` function runs the stack. It is designed for a loop and does not block. It uses the `get_time_ms()` callback to check if internal timers (S3, P2, P2*) have expired.
 
-This allows `libuds` to be integrated into any scheduling model:
-- **Super Loop**: Call it once per loop.
-- **RTOS Task**: Call it periodically with `vTaskDelay` or `k_sleep`.
-- **Interrupt Mode**: Call it when a timer hardware triggers.
+This allows `libuds` to fit into different scheduling models:
+- **Super Loop**: Call once per loop.
+- **RTOS Task**: Call periodically with `vTaskDelay` or `k_sleep`.
+- **Interrupt Mode**: Call when a hardware timer triggers.

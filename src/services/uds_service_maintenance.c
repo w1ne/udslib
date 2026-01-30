@@ -25,12 +25,22 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
 int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     uint8_t ctrl_type = data[1] & 0x7F;
+    uint8_t comm_type = (len >= 3) ? data[2] : 0;
+
     if (ctrl_type <= 0x03) {
+        /* Check App Callback */
+        if (ctx->config->fn_comm_control) {
+            int ret = ctx->config->fn_comm_control(ctx, ctrl_type, comm_type);
+            if (ret != UDS_OK) {
+                return uds_send_nrc(ctx, 0x28, (uint8_t)(-ret)); 
+            }
+        }
+
         ctx->comm_state = ctrl_type;
         if (!(data[1] & 0x80)) { /* Suppress Pos Response */
             ctx->config->tx_buffer[0] = 0x68;
             ctx->config->tx_buffer[1] = data[1];
-            uds_send_response(ctx, 2);
+            return uds_send_response(ctx, 2);
         }
         uds_internal_log(ctx, UDS_LOG_INFO, "Communication state changed");
         return UDS_OK;

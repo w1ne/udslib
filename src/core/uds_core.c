@@ -111,6 +111,17 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     ctx->comm_state = 0x00;     /* Enable Rx/Tx */
 
     uds_internal_log(ctx, UDS_LOG_INFO, "UDS Stack Initialized");
+
+    /* NVM Persistence: Load State */
+    if (config->fn_nvm_load) {
+        uint8_t state[2] = {0};
+        if (config->fn_nvm_load(ctx, state, 2) == 2) {
+            ctx->active_session = state[0];
+            ctx->security_level = state[1];
+            uds_internal_log(ctx, UDS_LOG_INFO, "NVM State Loaded");
+        }
+    }
+
     return UDS_OK;
 }
 
@@ -257,7 +268,25 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
             uds_internal_log(ctx, UDS_LOG_INFO, "Safety Gate Check Failed");
         }
         else {
-            service->handler(ctx, data, len);
+            int result = service->handler(ctx, data, len);
+            if (result == UDS_PENDING) {
+                /* Service is async: Send NRC 0x78 (Response Pending) immediately */
+                uds_send_nrc(ctx, sid, 0x78);
+                
+                /* Switch to P2* timing */
+                ctx->p2_msg_pending = true;
+                ctx->p2_star_active = true;
+                ctx->p2_timer_start = ctx->config->get_time_ms();
+                
+                /* Store the SID we are working on so we know what to respond to later */
+                ctx->pending_sid = sid; 
+            }
+            else if (result < 0) {
+                 /* If handler fails with negative, it presumably sent NRC? 
+                    Or should we send general reject? 
+                    Current handlers send NRC. 
+                 */
+            }
         }
     } else {
         uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */

@@ -1,16 +1,16 @@
 # OS Abstraction Layer (OSAL)
 
-LibUDS v1.2.0+ introduces an OS Abstraction Layer (OSAL) to ensure thread-safety when running in Multi-Threaded/RTOS environments (e.g., Zephyr, FreeRTOS, POSIX threads).
+The OS Abstraction Layer (OSAL) ensures thread safety when running in Multi-Threaded or RTOS environments (Zephyr, FreeRTOS, POSIX).
 
 ## Overview
 
-The UDS stack is designed to be **reentrant** and **thread-safe** provided that the application implements the required mutex callbacks. This allows for:
-- Concurrent calls to `uds_process()` (Stack Logic) and `uds_input_sdu()` (Bus Input).
-- Safe manipulation of shared state (Session, Security Level, Timing Timers).
+The UDS stack is **reentrant** and **thread-safe** if the application implements the required mutex callbacks. This allows for:
+- Concurrent calls to `uds_process()` (Logic) and `uds_input_sdu()` (Bus Input).
+- Safe modification of shared state (Session, Security, Timers).
 
 ## Configuration
 
-To enable thread-safety, you must provide `fn_mutex_lock` and `fn_mutex_unlock` in the `uds_config_t` structure during initialization.
+To enable thread safety, provide `fn_mutex_lock` and `fn_mutex_unlock` in `uds_config_t`.
 
 ### Data Structures
 
@@ -25,9 +25,9 @@ typedef struct {
 } uds_config_t;
 ```
 
-## Implementation Guide
+## Integration Examples
 
-### 1. Zephyr RTOS Example
+### 1. Zephyr RTOS
 
 ```c
 #include <zephyr/kernel.h>
@@ -56,7 +56,7 @@ void app_uds_init(void) {
 }
 ```
 
-### 2. POSIX Example (pthread)
+### 2. POSIX (pthread)
 
 ```c
 #include <pthread.h>
@@ -77,9 +77,10 @@ static int posix_unlock(void *h) {
 ## Critical Sections
 
 The stack automatically protects:
-- **Session State**: Transitions between Default/Extended/Programming sessions.
-- **Security State**: Unlocking/Locking security levels.
+- **Session State**: Transitions (Default/Extended/Programming).
+- **Security State**: Lock/Unlock operations.
 - **Timing Logic**: P2 and S3 timer updates.
-- **Service Dispatch**: Processing of incoming requests.
+- **Service Dispatch**: Request processing.
 
-**Note**: The transport layer (ISO-TP) is responsible for its own thread safety if handled separately, but `uds_input_sdu` is the entry point into the core stack and is protected.
+> [!NOTE]
+> `uds_input_sdu` is the protected entry point to the core stack. The ISO-TP transport layer must handle its own thread safety if managed separately.

@@ -16,7 +16,8 @@ cmake .. -DENABLE_COVERAGE=ON -DBUILD_TESTING=ON
 make -j$(nproc)
 
 echo "=== Running Tests for Coverage ==="
-ctest --output-on-failure
+echo "=== Running Tests for Coverage ==="
+ctest --output-on-failure --output-junit test-results.xml
 
 echo "=== Generating LCOV Reports ==="
 lcov --capture --directory . --output-file coverage.info \

@@ -1,4 +1,4 @@
-# Install script for directory: /home/andrii/Projects/mobile_3000/UDS/libuds
+# Install script for directory: /app
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,8 +44,8 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/examples/host_sim/cmake_install.cmake")
-  include("/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/cmake_install.cmake")
+  include("/app/build_quality/examples/host_sim/cmake_install.cmake")
+  include("/app/build_quality/tests/cmake_install.cmake")
 
 endif()
 
@@ -57,5 +57,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/app/build_quality/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

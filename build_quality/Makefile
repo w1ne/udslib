@@ -57,10 +57,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds
+CMAKE_SOURCE_DIR = /app
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality
+CMAKE_BINARY_DIR = /app/build_quality
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -97,9 +97,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles /app/build_quality//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /app/build_quality/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -334,6 +334,123 @@ test_osal/fast:
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/build
 .PHONY : test_osal/fast
 
+#=============================================================================
+# Target rules for targets named test_endian
+
+# Build rule for target.
+test_endian: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_endian
+.PHONY : test_endian
+
+# fast build rule for target.
+test_endian/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_endian.dir/build.make tests/CMakeFiles/test_endian.dir/build
+.PHONY : test_endian/fast
+
+#=============================================================================
+# Target rules for targets named test_fuzz_core
+
+# Build rule for target.
+test_fuzz_core: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_fuzz_core
+.PHONY : test_fuzz_core
+
+# fast build rule for target.
+test_fuzz_core/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_fuzz_core.dir/build.make tests/CMakeFiles/test_fuzz_core.dir/build
+.PHONY : test_fuzz_core/fast
+
+#=============================================================================
+# Target rules for targets named test_transport
+
+# Build rule for target.
+test_transport: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_transport
+.PHONY : test_transport
+
+# fast build rule for target.
+test_transport/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_transport.dir/build.make tests/CMakeFiles/test_transport.dir/build
+.PHONY : test_transport/fast
+
+#=============================================================================
+# Target rules for targets named test_service_negative
+
+# Build rule for target.
+test_service_negative: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_service_negative
+.PHONY : test_service_negative
+
+# fast build rule for target.
+test_service_negative/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_negative.dir/build.make tests/CMakeFiles/test_service_negative.dir/build
+.PHONY : test_service_negative/fast
+
+#=============================================================================
+# Target rules for targets named test_service_2E
+
+# Build rule for target.
+test_service_2E: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_service_2E
+.PHONY : test_service_2E
+
+# fast build rule for target.
+test_service_2E/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_2E.dir/build.make tests/CMakeFiles/test_service_2E.dir/build
+.PHONY : test_service_2E/fast
+
+#=============================================================================
+# Target rules for targets named test_safety_gate
+
+# Build rule for target.
+test_safety_gate: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_safety_gate
+.PHONY : test_safety_gate
+
+# fast build rule for target.
+test_safety_gate/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_safety_gate.dir/build.make tests/CMakeFiles/test_safety_gate.dir/build
+.PHONY : test_safety_gate/fast
+
+#=============================================================================
+# Target rules for targets named test_async
+
+# Build rule for target.
+test_async: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_async
+.PHONY : test_async
+
+# fast build rule for target.
+test_async/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_async.dir/build.make tests/CMakeFiles/test_async.dir/build
+.PHONY : test_async/fast
+
+#=============================================================================
+# Target rules for targets named test_nvm_persistence
+
+# Build rule for target.
+test_nvm_persistence: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_nvm_persistence
+.PHONY : test_nvm_persistence
+
+# fast build rule for target.
+test_nvm_persistence/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_nvm_persistence.dir/build.make tests/CMakeFiles/test_nvm_persistence.dir/build
+.PHONY : test_nvm_persistence/fast
+
+#=============================================================================
+# Target rules for targets named test_integration
+
+# Build rule for target.
+test_integration: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_integration
+.PHONY : test_integration
+
+# fast build rule for target.
+test_integration/fast:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_integration.dir/build.make tests/CMakeFiles/test_integration.dir/build
+.PHONY : test_integration/fast
+
 src/core/uds_core.o: src/core/uds_core.c.o
 .PHONY : src/core/uds_core.o
 
@@ -535,20 +652,29 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... test"
+	@echo "... test_async"
 	@echo "... test_core"
+	@echo "... test_endian"
+	@echo "... test_fuzz_core"
+	@echo "... test_integration"
+	@echo "... test_nvm_persistence"
 	@echo "... test_osal"
+	@echo "... test_safety_gate"
 	@echo "... test_service_10"
 	@echo "... test_service_11"
 	@echo "... test_service_22"
 	@echo "... test_service_27"
 	@echo "... test_service_28"
 	@echo "... test_service_29"
+	@echo "... test_service_2E"
 	@echo "... test_service_3E"
 	@echo "... test_service_did"
 	@echo "... test_service_dtc"
 	@echo "... test_service_flash"
 	@echo "... test_service_mem"
+	@echo "... test_service_negative"
 	@echo "... test_timing"
+	@echo "... test_transport"
 	@echo "... uds"
 	@echo "... uds_host_sim"
 	@echo "... src/core/uds_core.o"

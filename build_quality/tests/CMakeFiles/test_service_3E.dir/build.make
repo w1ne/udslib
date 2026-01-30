@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds
+CMAKE_SOURCE_DIR = /app
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality
+CMAKE_BINARY_DIR = /app/build_quality
 
 # Include any dependencies generated for this target.
 include tests/CMakeFiles/test_service_3E.dir/depend.make
@@ -72,30 +72,30 @@ include tests/CMakeFiles/test_service_3E.dir/flags.make
 tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o: tests/CMakeFiles/test_service_3E.dir/flags.make
 tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o: ../tests/unit/test_service_3E.c
 tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o: tests/CMakeFiles/test_service_3E.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o -MF CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o.d -o CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o -c /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_service_3E.c
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/app/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o"
+	cd /app/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o -MF CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o.d -o CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.o -c /app/tests/unit/test_service_3E.c
 
 tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.i"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_service_3E.c > CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.i
+	cd /app/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /app/tests/unit/test_service_3E.c > CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.i
 
 tests/CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.s"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_service_3E.c -o CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.s
+	cd /app/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /app/tests/unit/test_service_3E.c -o CMakeFiles/test_service_3E.dir/unit/test_service_3E.c.s
 
 tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o: tests/CMakeFiles/test_service_3E.dir/flags.make
 tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o: ../tests/unit/test_helpers.c
 tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o: tests/CMakeFiles/test_service_3E.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o -MF CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o.d -o CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o -c /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_helpers.c
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/app/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o"
+	cd /app/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o -MF CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o.d -o CMakeFiles/test_service_3E.dir/unit/test_helpers.c.o -c /app/tests/unit/test_helpers.c
 
 tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/test_service_3E.dir/unit/test_helpers.c.i"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_helpers.c > CMakeFiles/test_service_3E.dir/unit/test_helpers.c.i
+	cd /app/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /app/tests/unit/test_helpers.c > CMakeFiles/test_service_3E.dir/unit/test_helpers.c.i
 
 tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/test_service_3E.dir/unit/test_helpers.c.s"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/mobile_3000/UDS/libuds/tests/unit/test_helpers.c -o CMakeFiles/test_service_3E.dir/unit/test_helpers.c.s
+	cd /app/build_quality/tests && /usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /app/tests/unit/test_helpers.c -o CMakeFiles/test_service_3E.dir/unit/test_helpers.c.s
 
 # Object files for target test_service_3E
 test_service_3E_OBJECTS = \
@@ -110,18 +110,18 @@ tests/test_service_3E: tests/CMakeFiles/test_service_3E.dir/unit/test_helpers.c.
 tests/test_service_3E: tests/CMakeFiles/test_service_3E.dir/build.make
 tests/test_service_3E: libuds.a
 tests/test_service_3E: tests/CMakeFiles/test_service_3E.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking C executable test_service_3E"
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_service_3E.dir/link.txt --verbose=$(VERBOSE)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/app/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking C executable test_service_3E"
+	cd /app/build_quality/tests && $(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_service_3E.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
 tests/CMakeFiles/test_service_3E.dir/build: tests/test_service_3E
 .PHONY : tests/CMakeFiles/test_service_3E.dir/build
 
 tests/CMakeFiles/test_service_3E.dir/clean:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests && $(CMAKE_COMMAND) -P CMakeFiles/test_service_3E.dir/cmake_clean.cmake
+	cd /app/build_quality/tests && $(CMAKE_COMMAND) -P CMakeFiles/test_service_3E.dir/cmake_clean.cmake
 .PHONY : tests/CMakeFiles/test_service_3E.dir/clean
 
 tests/CMakeFiles/test_service_3E.dir/depend:
-	cd /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/andrii/Projects/mobile_3000/UDS/libuds /home/andrii/Projects/mobile_3000/UDS/libuds/tests /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_3E.dir/DependInfo.cmake --color=$(COLOR)
+	cd /app/build_quality && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /app /app/tests /app/build_quality /app/build_quality/tests /app/build_quality/tests/CMakeFiles/test_service_3E.dir/DependInfo.cmake --color=$(COLOR)
 .PHONY : tests/CMakeFiles/test_service_3E.dir/depend
 

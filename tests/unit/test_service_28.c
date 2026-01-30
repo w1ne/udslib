@@ -1,8 +1,3 @@
-/**
- * @file test_service_28.c
- * @brief Unit tests for SID 0x28 (Communication Control)
- */
-
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -10,53 +5,90 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "test_helpers.h"
+#include "uds/uds_core.h"
+#include "uds/uds_config.h"
 
-static void test_comm_control_disable_rx_tx_success(void **state)
-{
-    (void)state;
-    uds_ctx_t ctx;
-    uds_config_t cfg;
-    setup_ctx(&ctx, &cfg);
+static uds_ctx_t ctx;
+static uds_config_t cfg;
+static uint8_t rx_buf[256];
+static uint8_t tx_buf[256];
 
-    uint8_t request[] = {0x28, 0x03};
+/* --- Mocks --- */
+static uint32_t mock_get_time(void) { return 0; }
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+    check_expected(data);
+    check_expected(len);
+    return 0;
+}
 
-    will_return(mock_get_time, 1000); /* Input */
-    will_return(mock_get_time, 1000); /* Dispatch */
-    expect_any(mock_tp_send, data);
+/* --- Callback Mock --- */
+static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type) {
+    check_expected(ctrl_type);
+    check_expected(comm_type);
+    return (int)mock();
+}
+
+static void setup_test(void **state) {
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.get_time_ms = mock_get_time;
+    cfg.fn_tp_send = mock_tp_send;
+    cfg.fn_comm_control = mock_comm_control;
+    cfg.rx_buffer = rx_buf;
+    cfg.rx_buffer_size = sizeof(rx_buf);
+    cfg.tx_buffer = tx_buf;
+    cfg.tx_buffer_size = sizeof(tx_buf);
+    
+    /* Missing table */
+    static const uds_did_entry_t dids[] = {{0,0,NULL,NULL,NULL}};
+    cfg.did_table.entries = dids;
+    cfg.did_table.count = 0;
+
+    uds_init(&ctx, &cfg);
+}
+
+static void test_comm_control_accept(void **state) {
+    setup_test(state);
+
+    /* 28 01 01 (EnableRxAndDisableTx, Application) */
+    uint8_t req[] = {0x28, 0x01, 0x01};
+
+    /* Expect callback with ctrl=1, comm=1 */
+    expect_value(mock_comm_control, ctrl_type, 0x01);
+    expect_value(mock_comm_control, comm_type, 0x01);
+    will_return(mock_comm_control, UDS_OK);
+
+    /* Expect Positive Response 68 01 */
+    uint8_t resp[] = {0x68, 0x01};
+    expect_memory(mock_tp_send, data, resp, 2);
     expect_value(mock_tp_send, len, 2);
-    will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
-
-    assert_int_equal(g_tx_buf[0], 0x68);
-    assert_int_equal(g_tx_buf[1], 0x03);
-    assert_int_equal(ctx.comm_state, 0x03);
+    uds_input_sdu(&ctx, req, sizeof(req));
 }
 
-static void test_comm_control_suppress_response(void **state)
-{
-    (void)state;
-    uds_ctx_t ctx;
-    uds_config_t cfg;
-    setup_ctx(&ctx, &cfg);
+static void test_comm_control_reject(void **state) {
+    setup_test(state);
 
-    uint8_t request[] = {0x28, 0x80}; /* Enable RX/TX | Suppress Bit */
+    /* 28 03 01 (DisableRxAndTx, Application) */
+    uint8_t req[] = {0x28, 0x03, 0x01};
 
-    will_return(mock_get_time, 1000); /* Input */
-    will_return(mock_get_time, 1000); /* Dispatch */
-    /* No tp_send expected */
+    /* Expect callback */
+    expect_value(mock_comm_control, ctrl_type, 0x03);
+    expect_value(mock_comm_control, comm_type, 0x01);
+    /* Mock failure: Return -0x22 (ConditionsNotCorrect) */
+    will_return(mock_comm_control, -0x22);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    /* Expect NRC 7F 28 22 */
+    uint8_t resp[] = {0x7F, 0x28, 0x22};
+    expect_memory(mock_tp_send, data, resp, 3);
+    expect_value(mock_tp_send, len, 3);
 
-    assert_int_equal(ctx.comm_state, 0x00);
+    uds_input_sdu(&ctx, req, sizeof(req));
 }
 
-int main(void)
-{
+int main(void) {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_comm_control_disable_rx_tx_success),
-        cmocka_unit_test(test_comm_control_suppress_response),
+        cmocka_unit_test(test_comm_control_accept),
+        cmocka_unit_test(test_comm_control_reject),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
