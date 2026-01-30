@@ -45,6 +45,11 @@ int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
  * @param ctx Pointer to the context to initialize.
  * @param cfg Pointer to the configuration to initialize/attach.
  */
+#define BEGIN_UDS_TEST(ctx_ptr, cfg_ptr) \
+    uds_ctx_t ctx_ptr;                    \
+    uds_config_t cfg_ptr;                 \
+    setup_ctx(&ctx_ptr, &cfg_ptr)
+
 void setup_ctx(uds_ctx_t *ctx, uds_config_t *cfg);
 
 #endif /* TEST_HELPERS_H */

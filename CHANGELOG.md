@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Application-Defined Services**: Support for user-registered service handlers via `uds_config_t`.
+- **JUnit Test Reporting**: Automated generation of `report.xml` for CI integration.
+- **Code Coverage Instrumentation**: Added GCOV/LCOV support to CMake and CI.
+- **Test Boilerplate Reduction**: Introduced `BEGIN_UDS_TEST` macro for cleaner unit tests.
+
+### Changed
+- **Service Modularization**: Refactored `uds_core.c` into separate service handlers in `src/services/`.
+- **Table-Driven Dispatcher**: Replaced the central switch with a scalable registry-based dispatcher.
+- **Standardized NRC Validation**: Implemented centralized enforcement of ISO 14229-1 NRC priorities.
+- **Parallel Testing**: Enabled parallel build and test execution in build scripts and CI.
+
 ## [1.1.0] - 2026-01-30
 
 ### Added

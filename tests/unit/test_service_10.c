@@ -8,9 +8,7 @@
 static void test_extended_session_success(void **state)
 {
     (void)state;
-    uds_ctx_t ctx;
-    uds_config_t cfg;
-    setup_ctx(&ctx, &cfg);
+    BEGIN_UDS_TEST(ctx, cfg);
 
     uint8_t request[] = {0x10, 0x03};
 
@@ -30,9 +28,7 @@ static void test_extended_session_success(void **state)
 static void test_default_session_success(void **state)
 {
     (void)state;
-    uds_ctx_t ctx;
-    uds_config_t cfg;
-    setup_ctx(&ctx, &cfg);
+    BEGIN_UDS_TEST(ctx, cfg);
     ctx.active_session = 0x03;
 
     uint8_t request[] = {0x10, 0x01};

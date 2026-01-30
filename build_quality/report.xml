@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="9"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="0"
+	timestamp="2026-01-30T09:49:42"
+	>
+	<testcase name="test_core" classname="test_core" time="0.0141745" status="run">
+		<system-out>[==========] Running 4 test(s).
+[ RUN      ] test_uds_init_success
+[       OK ] test_uds_init_success
+[ RUN      ] test_uds_init_fail
+[       OK ] test_uds_init_fail
+[ RUN      ] test_invalid_sid_nrc
+[       OK ] test_invalid_sid_nrc
+[ RUN      ] test_custom_service_registration
+[       OK ] test_custom_service_registration
+[==========] 4 test(s) run.
+[  PASSED  ] 4 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_10" classname="test_service_10" time="0.0144337" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_extended_session_success
+[       OK ] test_extended_session_success
+[ RUN      ] test_default_session_success
+[       OK ] test_default_session_success
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_22" classname="test_service_22" time="0.012944" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_rdbi_vin_success
+[       OK ] test_rdbi_vin_success
+[ RUN      ] test_rdbi_unsupported_id_nrc
+[       OK ] test_rdbi_unsupported_id_nrc
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_27" classname="test_service_27" time="0.0113388" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_security_access_seed
+[       OK ] test_security_access_seed
+[ RUN      ] test_security_access_key_success
+[       OK ] test_security_access_key_success
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_3E" classname="test_service_3E" time="0.0098241" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_tester_present_zero_sub
+[       OK ] test_tester_present_zero_sub
+[ RUN      ] test_tester_present_suppress_bit
+[       OK ] test_tester_present_suppress_bit
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_11" classname="test_service_11" time="0.00816797" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_ecu_reset_hard_success
+[       OK ] test_ecu_reset_hard_success
+[ RUN      ] test_ecu_reset_invalid_subfunction_nrc
+[       OK ] test_ecu_reset_invalid_subfunction_nrc
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_28" classname="test_service_28" time="0.00672307" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_comm_control_disable_rx_tx_success
+[       OK ] test_comm_control_disable_rx_tx_success
+[ RUN      ] test_comm_control_suppress_response
+[       OK ] test_comm_control_suppress_response
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_service_did" classname="test_service_did" time="0.00516684" status="run">
+		<system-out>[==========] Running 4 test(s).
+[ RUN      ] test_rdbi_single_did_success
+[       OK ] test_rdbi_single_did_success
+[ RUN      ] test_rdbi_callback_success
+[       OK ] test_rdbi_callback_success
+[ RUN      ] test_wdbi_callback_success
+[       OK ] test_wdbi_callback_success
+[ RUN      ] test_rdbi_invalid_did_nrc
+[       OK ] test_rdbi_invalid_did_nrc
+[==========] 4 test(s) run.
+[  PASSED  ] 4 test(s).
+</system-out>
+	</testcase>
+	<testcase name="test_timing" classname="test_timing" time="0.00258426" status="run">
+		<system-out>[==========] Running 2 test(s).
+[ RUN      ] test_p2_timeout_nrc78
+[       OK ] test_p2_timeout_nrc78
+[ RUN      ] test_s3_timeout_reset
+[       OK ] test_s3_timeout_reset
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+</system-out>
+	</testcase>
+</testsuite>

@@ -1,0 +1,209 @@
+Start testing: Jan 30 09:49 CET
+----------------------------------------------------------
+1/9 Testing: test_core
+1/9 Test: test_core
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_core"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_core" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 4 test(s).
+[ RUN      ] test_uds_init_success
+[       OK ] test_uds_init_success
+[ RUN      ] test_uds_init_fail
+[       OK ] test_uds_init_fail
+[ RUN      ] test_invalid_sid_nrc
+[       OK ] test_invalid_sid_nrc
+[ RUN      ] test_custom_service_registration
+[       OK ] test_custom_service_registration
+[==========] 4 test(s) run.
+[  PASSED  ] 4 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_core" end time: Jan 30 09:49 CET
+"test_core" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/9 Testing: test_service_10
+2/9 Test: test_service_10
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_10"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_10" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_extended_session_success
+[       OK ] test_extended_session_success
+[ RUN      ] test_default_session_success
+[       OK ] test_default_session_success
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_10" end time: Jan 30 09:49 CET
+"test_service_10" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/9 Testing: test_service_22
+3/9 Test: test_service_22
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_22"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_22" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_rdbi_vin_success
+[       OK ] test_rdbi_vin_success
+[ RUN      ] test_rdbi_unsupported_id_nrc
+[       OK ] test_rdbi_unsupported_id_nrc
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_22" end time: Jan 30 09:49 CET
+"test_service_22" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/9 Testing: test_service_27
+4/9 Test: test_service_27
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_27"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_27" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_security_access_seed
+[       OK ] test_security_access_seed
+[ RUN      ] test_security_access_key_success
+[       OK ] test_security_access_key_success
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_27" end time: Jan 30 09:49 CET
+"test_service_27" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/9 Testing: test_service_3E
+5/9 Test: test_service_3E
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_3E"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_3E" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_tester_present_zero_sub
+[       OK ] test_tester_present_zero_sub
+[ RUN      ] test_tester_present_suppress_bit
+[       OK ] test_tester_present_suppress_bit
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_3E" end time: Jan 30 09:49 CET
+"test_service_3E" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/9 Testing: test_service_11
+6/9 Test: test_service_11
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_11"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_11" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_ecu_reset_hard_success
+[       OK ] test_ecu_reset_hard_success
+[ RUN      ] test_ecu_reset_invalid_subfunction_nrc
+[       OK ] test_ecu_reset_invalid_subfunction_nrc
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_11" end time: Jan 30 09:49 CET
+"test_service_11" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/9 Testing: test_service_28
+7/9 Test: test_service_28
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_28"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_28" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_comm_control_disable_rx_tx_success
+[       OK ] test_comm_control_disable_rx_tx_success
+[ RUN      ] test_comm_control_suppress_response
+[       OK ] test_comm_control_suppress_response
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_28" end time: Jan 30 09:49 CET
+"test_service_28" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/9 Testing: test_service_did
+8/9 Test: test_service_did
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_service_did"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_service_did" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 4 test(s).
+[ RUN      ] test_rdbi_single_did_success
+[       OK ] test_rdbi_single_did_success
+[ RUN      ] test_rdbi_callback_success
+[       OK ] test_rdbi_callback_success
+[ RUN      ] test_wdbi_callback_success
+[       OK ] test_wdbi_callback_success
+[ RUN      ] test_rdbi_invalid_did_nrc
+[       OK ] test_rdbi_invalid_did_nrc
+[==========] 4 test(s) run.
+[  PASSED  ] 4 test(s).
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_service_did" end time: Jan 30 09:49 CET
+"test_service_did" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/9 Testing: test_timing
+9/9 Test: test_timing
+Command: "/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/test_timing"
+Directory: /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests
+"test_timing" start time: Jan 30 09:49 CET
+Output:
+----------------------------------------------------------
+[==========] Running 2 test(s).
+[ RUN      ] test_p2_timeout_nrc78
+[       OK ] test_p2_timeout_nrc78
+[ RUN      ] test_s3_timeout_reset
+[       OK ] test_s3_timeout_reset
+[==========] 2 test(s) run.
+[  PASSED  ] 2 test(s).
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"test_timing" end time: Jan 30 09:49 CET
+"test_timing" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Jan 30 09:49 CET

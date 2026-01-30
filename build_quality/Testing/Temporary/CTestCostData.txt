@@ -1,0 +1,10 @@
+test_core 1 0.0141745
+test_service_10 1 0.0144337
+test_service_22 1 0.012944
+test_service_27 1 0.0113388
+test_service_3E 1 0.0098241
+test_service_11 1 0.00816797
+test_service_28 1 0.00672307
+test_service_did 1 0.00516684
+test_timing 1 0.00258426
+---

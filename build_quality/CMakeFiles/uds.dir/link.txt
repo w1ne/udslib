@@ -1,0 +1,2 @@
+/usr/bin/ar qc libuds.a CMakeFiles/uds.dir/src/core/uds_core.c.o CMakeFiles/uds.dir/src/services/uds_service_session.c.o CMakeFiles/uds.dir/src/services/uds_service_data.c.o CMakeFiles/uds.dir/src/services/uds_service_security.c.o CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.o CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o
+/usr/bin/ranlib libuds.a

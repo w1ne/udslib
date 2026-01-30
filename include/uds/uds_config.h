@@ -88,6 +88,37 @@ typedef struct {
     uint16_t count;                 /**< Number of entries in the table */
 } uds_did_table_t;
 
+/* --- Service Handler Interface --- */
+
+/**
+ * @brief Service Session Mask
+ */
+#define UDS_SESSION_DEFAULT (1 << 0)
+#define UDS_SESSION_EXTENDED (1 << 1)
+#define UDS_SESSION_PROGRAMMING (1 << 2)
+#define UDS_SESSION_ALL (0xFF)
+
+/**
+ * @brief Service Handler Function Signature
+ *
+ * @param ctx   Pointer to the UDS context.
+ * @param data  Pointer to the request payload (including SID).
+ * @param len   Length of the request payload.
+ * @return      UDS_OK, UDS_PENDING, or negative error code.
+ */
+typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
+
+/**
+ * @brief UDS Service Registry Entry
+ */
+typedef struct {
+    uint8_t sid;             /**< Service ID (e.g., 0x22) */
+    uint16_t min_len;        /**< Minimum required request length */
+    uint8_t session_mask;    /**< Allowed sessions bitmask */
+    uint16_t security_mask;  /**< Minimum security level required (bitmask or level) */
+    uds_service_handler_t handler; /**< Function pointer to handler */
+} uds_service_entry_t;
+
 /* --- Configuration Structure --- */
 
 /**
@@ -135,6 +166,12 @@ typedef struct {
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
     uds_did_table_t did_table;
+
+    /* --- Custom Services --- */
+    /** Optional: Table of application-specific service handlers */
+    const uds_service_entry_t *user_services;
+    /** Number of entries in user_services table */
+    uint16_t user_service_count;
 } uds_config_t;
 
 /* --- Internal Context --- */
