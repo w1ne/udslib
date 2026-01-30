@@ -1,6 +1,6 @@
 /**
- * @file test_service_3E.c
- * @brief Unit tests for SID 0x3E (Tester Present)
+ * @file test_service_28.c
+ * @brief Unit tests for SID 0x28 (Communication Control)
  */
 
 #include <stdarg.h>
@@ -12,14 +12,14 @@
 
 #include "test_helpers.h"
 
-static void test_tester_present_zero_sub(void **state)
+static void test_comm_control_disable_rx_tx_success(void **state)
 {
     (void)state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
 
-    uint8_t request[] = {0x3E, 0x00};
+    uint8_t request[] = {0x28, 0x03};
 
     will_return(mock_get_time, 1000); /* Input */
     will_return(mock_get_time, 1000); /* Dispatch */
@@ -29,31 +29,34 @@ static void test_tester_present_zero_sub(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(g_tx_buf[0], 0x7E);
-    assert_int_equal(g_tx_buf[1], 0x00);
+    assert_int_equal(g_tx_buf[0], 0x68);
+    assert_int_equal(g_tx_buf[1], 0x03);
+    assert_int_equal(ctx.comm_state, 0x03);
 }
 
-static void test_tester_present_suppress_bit(void **state)
+static void test_comm_control_suppress_response(void **state)
 {
     (void)state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
 
-    uint8_t request[] = {0x3E, 0x80}; /* 0x00 | 0x80 (Suppress Pos Response) */
+    uint8_t request[] = {0x28, 0x80}; /* Enable RX/TX | Suppress Bit */
 
     will_return(mock_get_time, 1000); /* Input */
     will_return(mock_get_time, 1000); /* Dispatch */
-    /* No expected tp_send! */
+    /* No tp_send expected */
 
     uds_input_sdu(&ctx, request, sizeof(request));
+
+    assert_int_equal(ctx.comm_state, 0x00);
 }
 
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_tester_present_zero_sub),
-        cmocka_unit_test(test_tester_present_suppress_bit),
+        cmocka_unit_test(test_comm_control_disable_rx_tx_success),
+        cmocka_unit_test(test_comm_control_suppress_response),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

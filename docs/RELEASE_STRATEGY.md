@@ -47,7 +47,11 @@ Every push to `develop` or `main` triggers the automated CI pipeline.
 ## 4. Release Process
 
 1. **Freeze**: Create a `release/x.y.z` branch from `develop`.
-2. **Audit**: Update `CHANGELOG.md` and bump version in `include/uds/uds_version.h`.
+2. **Audit & Documentation**: 
+   - Update `CHANGELOG.md` with all significant changes.
+   - Update `ROADMAP.md` to reflect completed milestones.
+   - Synchronize `SERVICE_COMPLIANCE.md` matrix with the current feature set.
+   - Bump version in `include/uds/uds_version.h`.
 3. **Validate**: CI must pass on the release branch.
 4. **Publish**: 
    - Merge `release/x.y.z` into `main`.

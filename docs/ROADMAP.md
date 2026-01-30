@@ -11,16 +11,17 @@ This roadmap outlines the evolution of LibUDS from a core MVP to a production-re
 - [x] Host Simulation Harness (UDP Virtual CAN)
 - [x] Automated Integration Testing (C & Python)
 
-## Phase 2: Platform & Ecosystem (In Progress)
+## Phase 2: Platform & Ecosystem (Complete)
 - [x] **Zephyr OS Integration**: Module structure, CMake, Kconfig integration.
 - [x] **Zephyr Shared Transport**: Wrapper for native `subsys/canbus/isotp`.
-- [x] **External Validation**: Integrated `driftregion/iso14229` (built) and `py-uds` (installed).
-- [ ] **Unit Testing Hardening**: Implementation of full CMocka test suite.
+- [x] **External Validation**: Integrated `driftregion/iso14229` and `py-uds`.
+- [x] **Unit Testing Hardening**: Full CMocka test suite implementation.
 
-## Phase 3: Industrial Hardening (Planned)
-- [x] **Security Access (SID 0x27)**: Mock implementation in place.
+## Phase 3: Industrial Hardening (In Progress)
+- [x] **Security Access (SID 0x27)**: Mock implementation and verification.
+- [x] **Maintenance Services (SID 0x11, 0x28)**: Formal support and tests.
+- [x] **P2/P2* Timer Logic**: Automatic handling of "Response Pending" (0x78).
 - [ ] **Full ISO-14229-1 Compliance**: NRC priorities and rigid session management.
-- [ ] **P2/P2* Timer Logic**: Automatic handling of "Response Pending" (0x78).
 - [ ] **Read/Write Data (0x22/0x2E)**: High-level table-driven handlers.
 
 ## Phase 4: Advanced Features (Planned)

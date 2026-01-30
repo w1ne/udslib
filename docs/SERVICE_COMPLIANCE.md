@@ -7,9 +7,9 @@ This document tracks the implementation status of UDS services in LibUDS.
 | SID | Service Name | Status | Support Level |
 | :--- | :--- | :--- | :--- |
 | **0x10** | **Diagnostic Session Control** | ✅ Supported | Full (Default, Extended, Programming) |
-| **0x11** | ECU Reset | ❌ Planned | Support pending |
+| **0x11** | ECU Reset | ✅ Supported | Hard, Soft, KeyOffOn subfunctions |
 | **0x27** | **Security Access** | ✅ Supported | Seed/Key Exchange |
-| **0x28** | Communication Control | ❌ Planned | Support pending |
+| **0x28** | Communication Control | ✅ Supported | RX/TX Enable/Disable states |
 | **0x3E** | **Tester Present** | ✅ Supported | Zero-Subfunction & SuppressPosResponse |
 | **0x83** | Access Timing Parameter | ❌ N/A | Not planned for initial release |
 | **0x84** | Secured Data Transmission | ❌ N/A | Not planned for initial release |
@@ -39,6 +39,6 @@ The current core focuses on **Phase 1: Diagnostic & Data Exchange**. This covers
 
 ### Service Handler Roadmap
 
-- **Task 1: Maintenance Services**: Reset (0x11), Communication Control (0x28), DTC Management (0x14, 0x19, 0x85).
+- **Task 1: Maintenance Services**: Reset (0x11), Communication Control (0x28), DTC Management (0x14, 0x19, 0x85). [DONE for 0x11, 0x28]
 - **Task 2: Advanced Data**: Periodic RDBI (0x2A), Scaling (0x24), Dynamic IDs (0x2C).
 - **Task 3: Memory & Security**: Full Upload (0x35), Memory Address services (0x23, 0x3D).
