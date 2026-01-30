@@ -13,11 +13,21 @@
 static const uds_service_entry_t core_services[] = {
     {0x10, 2, UDS_SESSION_ALL, 0, uds_internal_handle_session_control},
     {0x11, 2, UDS_SESSION_ALL, 0, uds_internal_handle_ecu_reset},
+    {0x14, 4, UDS_SESSION_ALL, 0, uds_internal_handle_clear_dtc},
+    {0x19, 2, UDS_SESSION_ALL, 0, uds_internal_handle_read_dtc_info},
     {0x22, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_data_by_id},
+    {0x23, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_memory_by_addr},
     {0x27, 2, UDS_SESSION_ALL, 0, uds_internal_handle_security_access},
     {0x28, 2, UDS_SESSION_ALL, 0, uds_internal_handle_comm_control},
+    {0x29, 2, UDS_SESSION_ALL, 0, uds_internal_handle_authentication},
     {0x2E, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_data_by_id},
+    {0x31, 4, UDS_SESSION_ALL, 0, uds_internal_handle_routine_control},
+    {0x34, 10, UDS_SESSION_ALL, 0, uds_internal_handle_request_download},
+    {0x36, 2, UDS_SESSION_ALL, 0, uds_internal_handle_transfer_data},
+    {0x37, 1, UDS_SESSION_ALL, 0, uds_internal_handle_request_transfer_exit},
+    {0x3D, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_memory_by_addr},
     {0x3E, 2, UDS_SESSION_ALL, 0, uds_internal_handle_tester_present},
+    {0x85, 2, UDS_SESSION_ALL, 0, uds_internal_handle_control_dtc_setting},
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))
@@ -80,67 +90,6 @@ static uint8_t get_session_bit(uint8_t session)
     }
 }
 
-/**
- * @brief Internal Helper: Service Dispatcher.
- */
-static void uds_internal_dispatch_service(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
-{
-    if (len == 0) {
-        return;
-    }
-    uint8_t sid = data[0];
-    ctx->pending_sid = sid;
-
-    uds_internal_log(ctx, UDS_LOG_DEBUG, "Processing SDU...");
-
-    /* Mark start of P2 timer */
-    ctx->p2_timer_start = ctx->config->get_time_ms();
-    ctx->p2_msg_pending = false;
-    ctx->p2_star_active = false;
-
-    /* 1. Find Service */
-    const uds_service_entry_t *service = find_service(ctx, sid);
-    if (!service) {
-        /* Special case for 0x31 mock while it's not fully modularized */
-        if (sid == 0x31) {
-            ctx->p2_msg_pending = true;
-            uds_internal_log(ctx, UDS_LOG_INFO, "Service 0x31 is PENDING - Waiting for app...");
-            return;
-        }
-        uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
-        return;
-    }
-
-    /* 2. Validate Session */
-    uint8_t sess_bit = get_session_bit(ctx->active_session);
-    if (!(service->session_mask & sess_bit)) {
-        uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported in Active Session */
-        return;
-    }
-
-    /* 3. Validate Length */
-    if (len < service->min_len) {
-        uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length */
-        return;
-    }
-
-    /* 4. Validate Security (Simple level check) */
-    if (ctx->security_level < service->security_mask) {
-        uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
-        return;
-    }
-
-    /* 5. Dispatch to Handler */
-    int res = service->handler(ctx, data, len);
-    if (res < 0) {
-        if (res == -1) {
-            uds_send_nrc(ctx, sid, 0x12); /* Subfunction Not Supported */
-        }
-        /* Other negative values assumed to have sent their own NRC or handled already */
-    } else if (res == 1) { /* UDS_PENDING */
-        ctx->p2_msg_pending = true;
-    }
-}
 
 /* --- Public API --- */
 
@@ -171,6 +120,25 @@ void uds_process(uds_ctx_t *ctx)
         return;
     }
 
+
+    if (ctx->config->fn_mutex_lock) {
+        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
+    }
+
+    if (ctx->p2_msg_pending) {
+        /* If we are waiting for the app to finish a routine, do nothing in tick */
+        /* But we still need to check for timeouts if we were doing the timing... 
+           Actually, if p2_msg_pending is true, it means we sent 0x78.
+           We are waiting for the app to call a "job done" function or simple update?
+           For now, assume app handles logic. */
+    }
+    
+    /* ... existing timer logic ... */ 
+    /* Simplified for this diff, just wrapping the function logic effectively */
+    /* Implementation detail: we need to careful not to hold lock during callbacks if callbacks re-enter? 
+       Core LibUDS is usually single threaded logic, so lock protects THE CONTEXT from being accessed by 
+       uds_process (timer task) and uds_input_sdu (CAN RX ISR) at the same time. */
+
     uint32_t now = ctx->config->get_time_ms();
 
     /* S3 Timer: Revert to Default Session if no activity */
@@ -194,6 +162,10 @@ void uds_process(uds_ctx_t *ctx)
             ctx->p2_timer_start = now; /* Reset timer for P2* */
         }
     }
+
+    if (ctx->config->fn_mutex_unlock) {
+        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+    }
 }
 
 int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
@@ -216,12 +188,22 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
 
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
+    if (ctx->config->fn_mutex_lock) {
+        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
+    }
+
     if (!ctx || !data || len == 0) {
+        if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
         return;
     }
 
     /* Update S3 timer tracking */
     ctx->last_msg_time = ctx->config->get_time_ms();
+
+    /* Initialize P2 timing state for new request */
+    ctx->p2_timer_start = ctx->config->get_time_ms();
+    ctx->p2_msg_pending = false;
+    ctx->p2_star_active = false;
 
     uint8_t sid = data[0];
 
@@ -237,12 +219,43 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
                 ctx->client_cb = NULL;
             }
             ctx->pending_sid = 0;
+            if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
             return;
         }
     }
 
-    /* Otherwise, process as a request to us (the server) */
-    uds_internal_dispatch_service(ctx, data, len);
+    /* internal dispatch service */
+    const uds_service_entry_t *service = find_service(ctx, sid);
+    if (service) {
+        /* Check Session */
+        /* Must convert session ID (0x01/0x02/0x03) to component mask (0x01/0x02/0x04) */
+        uint8_t sess_bit = get_session_bit(ctx->active_session);
+        if (!(service->session_mask & sess_bit)) {
+            uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
+        } 
+        /* Check Message Length (ISO 14229-1) */
+        else if (len < service->min_len) {
+            uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length Or Invalid Format */
+        }
+        /* Check Security */
+        else if (service->security_mask > ctx->security_level) {
+            uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
+        }
+        /* Check Safety Gate */
+        else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
+            uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
+            uds_internal_log(ctx, UDS_LOG_INFO, "Safety Gate Check Failed");
+        }
+        else {
+            service->handler(ctx, data, len);
+        }
+    } else {
+        uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
+    }
+
+    if (ctx->config->fn_mutex_unlock) {
+        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+    }
 }
 
 int uds_send_response(uds_ctx_t *ctx, uint16_t len)

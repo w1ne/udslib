@@ -51,6 +51,18 @@ typedef enum {
 } uds_comm_control_type_t;
 
 /**
+ * @brief Authentication Sub-functions (SID 0x29).
+ */
+typedef enum {
+    UDS_AUTH_DEAUTHENTICATE = 0x01,
+    UDS_AUTH_VERIFY_CERT_UNI = 0x02,
+    UDS_AUTH_VERIFY_CERT_BI = 0x03,
+    UDS_AUTH_PROOF_OF_OWNERSHIP = 0x04,
+    UDS_AUTH_TRANSMIT_CERT = 0x05,
+    UDS_AUTH_REQUEST_TOKEN = 0x06,
+} uds_auth_type_t;
+
+/**
  * @brief Client Response Callback
  *
  * @param ctx   Pointer to the UDS context.

@@ -107,6 +107,11 @@ tests/all: tests/CMakeFiles/test_service_11.dir/all
 tests/all: tests/CMakeFiles/test_service_28.dir/all
 tests/all: tests/CMakeFiles/test_service_did.dir/all
 tests/all: tests/CMakeFiles/test_timing.dir/all
+tests/all: tests/CMakeFiles/test_service_29.dir/all
+tests/all: tests/CMakeFiles/test_service_dtc.dir/all
+tests/all: tests/CMakeFiles/test_service_flash.dir/all
+tests/all: tests/CMakeFiles/test_service_mem.dir/all
+tests/all: tests/CMakeFiles/test_osal.dir/all
 .PHONY : tests/all
 
 # Recursive "preinstall" directory target.
@@ -123,6 +128,11 @@ tests/clean: tests/CMakeFiles/test_service_11.dir/clean
 tests/clean: tests/CMakeFiles/test_service_28.dir/clean
 tests/clean: tests/CMakeFiles/test_service_did.dir/clean
 tests/clean: tests/CMakeFiles/test_timing.dir/clean
+tests/clean: tests/CMakeFiles/test_service_29.dir/clean
+tests/clean: tests/CMakeFiles/test_service_dtc.dir/clean
+tests/clean: tests/CMakeFiles/test_service_flash.dir/clean
+tests/clean: tests/CMakeFiles/test_service_mem.dir/clean
+tests/clean: tests/CMakeFiles/test_osal.dir/clean
 .PHONY : tests/clean
 
 #=============================================================================
@@ -132,12 +142,12 @@ tests/clean: tests/CMakeFiles/test_timing.dir/clean
 CMakeFiles/uds.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/uds.dir/build.make CMakeFiles/uds.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=28,29,30,31,32,33,34 "Built target uds"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=43,44,45,46,47,48,49,50,51 "Built target uds"
 .PHONY : CMakeFiles/uds.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/uds.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 7
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 9
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/uds.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : CMakeFiles/uds.dir/rule
@@ -158,12 +168,12 @@ CMakeFiles/uds.dir/clean:
 examples/host_sim/CMakeFiles/uds_host_sim.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/depend
 	$(MAKE) $(MAKESILENT) -f examples/host_sim/CMakeFiles/uds_host_sim.dir/build.make examples/host_sim/CMakeFiles/uds_host_sim.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=35,36 "Built target uds_host_sim"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=52,53 "Built target uds_host_sim"
 .PHONY : examples/host_sim/CMakeFiles/uds_host_sim.dir/all
 
 # Build rule for subdir invocation for target.
 examples/host_sim/CMakeFiles/uds_host_sim.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 9
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 11
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 examples/host_sim/CMakeFiles/uds_host_sim.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : examples/host_sim/CMakeFiles/uds_host_sim.dir/rule
@@ -189,7 +199,7 @@ tests/CMakeFiles/test_core.dir/all: CMakeFiles/uds.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_core.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_core.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_core.dir/rule
@@ -210,12 +220,12 @@ tests/CMakeFiles/test_core.dir/clean:
 tests/CMakeFiles/test_service_10.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_10.dir/build.make tests/CMakeFiles/test_service_10.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=4,5,6 "Built target test_service_10"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=7,8,9 "Built target test_service_10"
 .PHONY : tests/CMakeFiles/test_service_10.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_10.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_10.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_10.dir/rule
@@ -236,12 +246,12 @@ tests/CMakeFiles/test_service_10.dir/clean:
 tests/CMakeFiles/test_service_22.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_22.dir/build.make tests/CMakeFiles/test_service_22.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=10,11,12 "Built target test_service_22"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=13,14,15 "Built target test_service_22"
 .PHONY : tests/CMakeFiles/test_service_22.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_22.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_22.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_22.dir/rule
@@ -262,12 +272,12 @@ tests/CMakeFiles/test_service_22.dir/clean:
 tests/CMakeFiles/test_service_27.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_27.dir/build.make tests/CMakeFiles/test_service_27.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=13,14,15 "Built target test_service_27"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=16,17,18 "Built target test_service_27"
 .PHONY : tests/CMakeFiles/test_service_27.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_27.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_27.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_27.dir/rule
@@ -288,12 +298,12 @@ tests/CMakeFiles/test_service_27.dir/clean:
 tests/CMakeFiles/test_service_3E.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_3E.dir/build.make tests/CMakeFiles/test_service_3E.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=19,20,21 "Built target test_service_3E"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=25,26,27 "Built target test_service_3E"
 .PHONY : tests/CMakeFiles/test_service_3E.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_3E.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_3E.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_3E.dir/rule
@@ -314,12 +324,12 @@ tests/CMakeFiles/test_service_3E.dir/clean:
 tests/CMakeFiles/test_service_11.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_11.dir/build.make tests/CMakeFiles/test_service_11.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=7,8,9 "Built target test_service_11"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=10,11,12 "Built target test_service_11"
 .PHONY : tests/CMakeFiles/test_service_11.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_11.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_11.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_11.dir/rule
@@ -340,12 +350,12 @@ tests/CMakeFiles/test_service_11.dir/clean:
 tests/CMakeFiles/test_service_28.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_28.dir/build.make tests/CMakeFiles/test_service_28.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=16,17,18 "Built target test_service_28"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=19,20,21 "Built target test_service_28"
 .PHONY : tests/CMakeFiles/test_service_28.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_28.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_28.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_28.dir/rule
@@ -366,12 +376,12 @@ tests/CMakeFiles/test_service_28.dir/clean:
 tests/CMakeFiles/test_service_did.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_did.dir/build.make tests/CMakeFiles/test_service_did.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=22,23,24 "Built target test_service_did"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=28,29,30 "Built target test_service_did"
 .PHONY : tests/CMakeFiles/test_service_did.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_service_did.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_did.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_service_did.dir/rule
@@ -392,12 +402,12 @@ tests/CMakeFiles/test_service_did.dir/clean:
 tests/CMakeFiles/test_timing.dir/all: CMakeFiles/uds.dir/all
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/depend
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=25,26,27 "Built target test_timing"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=40,41,42 "Built target test_timing"
 .PHONY : tests/CMakeFiles/test_timing.dir/all
 
 # Build rule for subdir invocation for target.
 tests/CMakeFiles/test_timing.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_timing.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
 .PHONY : tests/CMakeFiles/test_timing.dir/rule
@@ -410,6 +420,136 @@ test_timing: tests/CMakeFiles/test_timing.dir/rule
 tests/CMakeFiles/test_timing.dir/clean:
 	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_timing.dir/build.make tests/CMakeFiles/test_timing.dir/clean
 .PHONY : tests/CMakeFiles/test_timing.dir/clean
+
+#=============================================================================
+# Target rules for target tests/CMakeFiles/test_service_29.dir
+
+# All Build rule for target.
+tests/CMakeFiles/test_service_29.dir/all: CMakeFiles/uds.dir/all
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/depend
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=22,23,24 "Built target test_service_29"
+.PHONY : tests/CMakeFiles/test_service_29.dir/all
+
+# Build rule for subdir invocation for target.
+tests/CMakeFiles/test_service_29.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_29.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+.PHONY : tests/CMakeFiles/test_service_29.dir/rule
+
+# Convenience name for target.
+test_service_29: tests/CMakeFiles/test_service_29.dir/rule
+.PHONY : test_service_29
+
+# clean rule for target.
+tests/CMakeFiles/test_service_29.dir/clean:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_29.dir/build.make tests/CMakeFiles/test_service_29.dir/clean
+.PHONY : tests/CMakeFiles/test_service_29.dir/clean
+
+#=============================================================================
+# Target rules for target tests/CMakeFiles/test_service_dtc.dir
+
+# All Build rule for target.
+tests/CMakeFiles/test_service_dtc.dir/all: CMakeFiles/uds.dir/all
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/depend
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=31,32,33 "Built target test_service_dtc"
+.PHONY : tests/CMakeFiles/test_service_dtc.dir/all
+
+# Build rule for subdir invocation for target.
+tests/CMakeFiles/test_service_dtc.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_dtc.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+.PHONY : tests/CMakeFiles/test_service_dtc.dir/rule
+
+# Convenience name for target.
+test_service_dtc: tests/CMakeFiles/test_service_dtc.dir/rule
+.PHONY : test_service_dtc
+
+# clean rule for target.
+tests/CMakeFiles/test_service_dtc.dir/clean:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_dtc.dir/build.make tests/CMakeFiles/test_service_dtc.dir/clean
+.PHONY : tests/CMakeFiles/test_service_dtc.dir/clean
+
+#=============================================================================
+# Target rules for target tests/CMakeFiles/test_service_flash.dir
+
+# All Build rule for target.
+tests/CMakeFiles/test_service_flash.dir/all: CMakeFiles/uds.dir/all
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/depend
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=34,35,36 "Built target test_service_flash"
+.PHONY : tests/CMakeFiles/test_service_flash.dir/all
+
+# Build rule for subdir invocation for target.
+tests/CMakeFiles/test_service_flash.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_flash.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+.PHONY : tests/CMakeFiles/test_service_flash.dir/rule
+
+# Convenience name for target.
+test_service_flash: tests/CMakeFiles/test_service_flash.dir/rule
+.PHONY : test_service_flash
+
+# clean rule for target.
+tests/CMakeFiles/test_service_flash.dir/clean:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_flash.dir/build.make tests/CMakeFiles/test_service_flash.dir/clean
+.PHONY : tests/CMakeFiles/test_service_flash.dir/clean
+
+#=============================================================================
+# Target rules for target tests/CMakeFiles/test_service_mem.dir
+
+# All Build rule for target.
+tests/CMakeFiles/test_service_mem.dir/all: CMakeFiles/uds.dir/all
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/depend
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=37,38,39 "Built target test_service_mem"
+.PHONY : tests/CMakeFiles/test_service_mem.dir/all
+
+# Build rule for subdir invocation for target.
+tests/CMakeFiles/test_service_mem.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_service_mem.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+.PHONY : tests/CMakeFiles/test_service_mem.dir/rule
+
+# Convenience name for target.
+test_service_mem: tests/CMakeFiles/test_service_mem.dir/rule
+.PHONY : test_service_mem
+
+# clean rule for target.
+tests/CMakeFiles/test_service_mem.dir/clean:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_service_mem.dir/build.make tests/CMakeFiles/test_service_mem.dir/clean
+.PHONY : tests/CMakeFiles/test_service_mem.dir/clean
+
+#=============================================================================
+# Target rules for target tests/CMakeFiles/test_osal.dir
+
+# All Build rule for target.
+tests/CMakeFiles/test_osal.dir/all: CMakeFiles/uds.dir/all
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/depend
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=4,5,6 "Built target test_osal"
+.PHONY : tests/CMakeFiles/test_osal.dir/all
+
+# Build rule for subdir invocation for target.
+tests/CMakeFiles/test_osal.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tests/CMakeFiles/test_osal.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles 0
+.PHONY : tests/CMakeFiles/test_osal.dir/rule
+
+# Convenience name for target.
+test_osal: tests/CMakeFiles/test_osal.dir/rule
+.PHONY : test_osal
+
+# clean rule for target.
+tests/CMakeFiles/test_osal.dir/clean:
+	$(MAKE) $(MAKESILENT) -f tests/CMakeFiles/test_osal.dir/build.make tests/CMakeFiles/test_osal.dir/clean
+.PHONY : tests/CMakeFiles/test_osal.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

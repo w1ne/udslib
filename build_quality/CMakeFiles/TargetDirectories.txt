@@ -15,6 +15,11 @@
 /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_28.dir
 /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_did.dir
 /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_timing.dir
+/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_29.dir
+/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_dtc.dir
+/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_flash.dir
+/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_service_mem.dir
+/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test_osal.dir
 /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/test.dir
 /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/edit_cache.dir
 /home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/tests/CMakeFiles/rebuild_cache.dir

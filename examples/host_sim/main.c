@@ -64,6 +64,30 @@ static struct sockaddr_in g_client_addr;
 static socklen_t g_client_len = sizeof(g_client_addr);
 
 /**
+/* Mock Memory (1KB) */
+static uint8_t mock_memory[1024];
+
+static int fn_mem_read(uds_ctx_t *ctx, uint32_t addr, uint32_t size, uint8_t *out_buf)
+{
+    (void)ctx;
+    if (addr + size > sizeof(mock_memory)) {
+        return -0x31; /* RequestOutOfRange */
+    }
+    memcpy(out_buf, &mock_memory[addr], size);
+    return 0;
+}
+
+static int fn_mem_write(uds_ctx_t *ctx, uint32_t addr, uint32_t size, const uint8_t *data)
+{
+    (void)ctx;
+    if (addr + size > sizeof(mock_memory)) {
+        return -0x31; /* RequestOutOfRange */
+    }
+    memcpy(&mock_memory[addr], data, size);
+    return 0;
+}
+
+/**
  * @brief Example event logger callback.
  *
  * @param level Log severity level.
@@ -129,7 +153,64 @@ static void mock_reset(uds_ctx_t *ctx, uint8_t type)
     (void)ctx;
     const char *type_str = (type == UDS_RESET_HARD) ? "HARD" : "SOFT";
     printf("[APP] ECU RESET TRIGGERED: Type %s (0x%02X)\n", type_str, type);
-    printf("[APP] Simulated reboot in 3... 2... 1...\n");
+}
+
+static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len) {
+    (void)ctx; (void)max_len;
+    printf("[APP] DTC READ: Subfunction 0x%02X\n", subfn);
+    if (subfn == 0x01) { /* count of DTCs matching status mask */
+        out_buf[0] = 0x01; /* availability mask */
+        out_buf[1] = 0x01; /* status availability */
+        out_buf[2] = 0x00; /* count MSB */
+        out_buf[3] = 0x02; /* count LSB (2 DTCs) */
+        return 4;
+    }
+    return -0x31;
+}
+
+static int mock_dtc_clear(struct uds_ctx *ctx, uint32_t group) {
+    (void)ctx;
+    printf("[APP] DTC CLEAR: Group 0x%06X\n", group);
+    return UDS_OK;
+}
+
+static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len) {
+    (void)ctx; (void)data; (void)len; (void)max_len;
+    printf("[APP] AUTH: Subfunction 0x%02X\n", subfn);
+    if (subfn == 0x01) return 0; /* deAuthenticate success */
+    if (subfn == 0x02) { /* verifyCertificateUnidirectional */
+        out_buf[0] = 0x01; /* Evaluation Status: Valid */
+        return 1;
+    }
+    return -0x22;
+}
+
+static int mock_routine_control(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len) {
+    (void)ctx; (void)data; (void)len; (void)max_len;
+    printf("[APP] ROUTINE CONTROL: Type 0x%02X ID 0x%04X\n", type, id);
+    if (id == 0xFF00) { /* Erase Memory */
+        out_buf[0] = 0x00; /* Success */
+        return 1;
+    }
+    return -0x31;
+}
+
+static int mock_request_download(struct uds_ctx *ctx, uint32_t addr, uint32_t size) {
+    (void)ctx;
+    printf("[APP] REQUEST DOWNLOAD: Addr 0x%08X Size 0x%08X\n", addr, size);
+    return UDS_OK;
+}
+
+static int mock_transfer_data(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data, uint16_t len) {
+    (void)ctx; (void)data; (void)len;
+    printf("[APP] TRANSFER DATA: Seq 0x%02X Len %u\n", sequence, len);
+    return UDS_OK;
+}
+
+static int mock_transfer_exit(struct uds_ctx *ctx) {
+    (void)ctx;
+    printf("[APP] TRANSFER EXIT\n");
+    return UDS_OK;
 }
 
 /**
@@ -160,18 +241,30 @@ int main(int argc, char **argv)
     uds_tp_isotp_init(mock_can_send, 0x7E8, 0x7E0);
 
     /* Configure UDS Stack */
-    uds_config_t cfg = {.ecu_address = 0x10,
-                        .get_time_ms = get_time_ms,
-                        .fn_log = log_event,
-                        .fn_tp_send = uds_isotp_send,
-                        .fn_reset = mock_reset,
-                        .did_table = g_ecu_did_table,
-                        .rx_buffer = g_rx_buf,
-                        .rx_buffer_size = sizeof(g_rx_buf),
-                        .tx_buffer = g_tx_buf,
-                        .tx_buffer_size = sizeof(g_tx_buf),
-                        .p2_ms = 50,
-                        .p2_star_ms = 2000};
+    uds_config_t cfg = {
+        .ecu_address = 0x10,
+        .get_time_ms = get_time_ms,
+        .fn_log = log_event,
+        .fn_tp_send = uds_isotp_send,
+        .fn_reset = mock_reset,
+        .fn_dtc_read = mock_dtc_read,
+        .fn_dtc_clear = mock_dtc_clear,
+        .fn_auth = mock_auth,
+        .fn_routine_control = mock_routine_control,
+        .fn_request_download = mock_request_download,
+        .fn_transfer_data = mock_transfer_data,
+        .fn_transfer_exit = mock_transfer_exit,
+        .fn_mem_read = fn_mem_read,
+        .fn_mem_write = fn_mem_write,
+        
+        .did_table = g_ecu_did_table,
+        .rx_buffer = g_rx_buf,
+        .rx_buffer_size = sizeof(g_rx_buf),
+        .tx_buffer = g_tx_buf,
+        .tx_buffer_size = sizeof(g_tx_buf),
+        .p2_ms = 50,
+        .p2_star_ms = 2000
+    };
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);

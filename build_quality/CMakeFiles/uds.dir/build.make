@@ -139,10 +139,38 @@ CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.s"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_maintenance.c -o CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.s
 
+CMakeFiles/uds.dir/src/services/uds_service_flash.c.o: CMakeFiles/uds.dir/flags.make
+CMakeFiles/uds.dir/src/services/uds_service_flash.c.o: ../src/services/uds_service_flash.c
+CMakeFiles/uds.dir/src/services/uds_service_flash.c.o: CMakeFiles/uds.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/uds.dir/src/services/uds_service_flash.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/uds.dir/src/services/uds_service_flash.c.o -MF CMakeFiles/uds.dir/src/services/uds_service_flash.c.o.d -o CMakeFiles/uds.dir/src/services/uds_service_flash.c.o -c /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_flash.c
+
+CMakeFiles/uds.dir/src/services/uds_service_flash.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/uds.dir/src/services/uds_service_flash.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_flash.c > CMakeFiles/uds.dir/src/services/uds_service_flash.c.i
+
+CMakeFiles/uds.dir/src/services/uds_service_flash.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/uds.dir/src/services/uds_service_flash.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_flash.c -o CMakeFiles/uds.dir/src/services/uds_service_flash.c.s
+
+CMakeFiles/uds.dir/src/services/uds_service_mem.c.o: CMakeFiles/uds.dir/flags.make
+CMakeFiles/uds.dir/src/services/uds_service_mem.c.o: ../src/services/uds_service_mem.c
+CMakeFiles/uds.dir/src/services/uds_service_mem.c.o: CMakeFiles/uds.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/uds.dir/src/services/uds_service_mem.c.o"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/uds.dir/src/services/uds_service_mem.c.o -MF CMakeFiles/uds.dir/src/services/uds_service_mem.c.o.d -o CMakeFiles/uds.dir/src/services/uds_service_mem.c.o -c /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_mem.c
+
+CMakeFiles/uds.dir/src/services/uds_service_mem.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing C source to CMakeFiles/uds.dir/src/services/uds_service_mem.c.i"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_mem.c > CMakeFiles/uds.dir/src/services/uds_service_mem.c.i
+
+CMakeFiles/uds.dir/src/services/uds_service_mem.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling C source to assembly CMakeFiles/uds.dir/src/services/uds_service_mem.c.s"
+	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /home/andrii/Projects/mobile_3000/UDS/libuds/src/services/uds_service_mem.c -o CMakeFiles/uds.dir/src/services/uds_service_mem.c.s
+
 CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o: CMakeFiles/uds.dir/flags.make
 CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o: ../src/transport/uds_tp_isotp.c
 CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o: CMakeFiles/uds.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o"
 	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o -MF CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o.d -o CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o -c /home/andrii/Projects/mobile_3000/UDS/libuds/src/transport/uds_tp_isotp.c
 
 CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.i: cmake_force
@@ -160,6 +188,8 @@ uds_OBJECTS = \
 "CMakeFiles/uds.dir/src/services/uds_service_data.c.o" \
 "CMakeFiles/uds.dir/src/services/uds_service_security.c.o" \
 "CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.o" \
+"CMakeFiles/uds.dir/src/services/uds_service_flash.c.o" \
+"CMakeFiles/uds.dir/src/services/uds_service_mem.c.o" \
 "CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o"
 
 # External object files for target uds
@@ -170,10 +200,12 @@ libuds.a: CMakeFiles/uds.dir/src/services/uds_service_session.c.o
 libuds.a: CMakeFiles/uds.dir/src/services/uds_service_data.c.o
 libuds.a: CMakeFiles/uds.dir/src/services/uds_service_security.c.o
 libuds.a: CMakeFiles/uds.dir/src/services/uds_service_maintenance.c.o
+libuds.a: CMakeFiles/uds.dir/src/services/uds_service_flash.c.o
+libuds.a: CMakeFiles/uds.dir/src/services/uds_service_mem.c.o
 libuds.a: CMakeFiles/uds.dir/src/transport/uds_tp_isotp.c.o
 libuds.a: CMakeFiles/uds.dir/build.make
 libuds.a: CMakeFiles/uds.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking C static library libuds.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/andrii/Projects/mobile_3000/UDS/libuds/build_quality/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Linking C static library libuds.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/uds.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/uds.dir/link.txt --verbose=$(VERBOSE)
 
