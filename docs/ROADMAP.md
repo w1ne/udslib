@@ -43,13 +43,19 @@
 - [x] **Integration Suite**: Full stack lifecycle tests (Dockerized).
 - [x] **Safety**: Gate callback verification.
 
-- [x] **Safety**: Gate callback verification.
-
-## Phase 8: Asynchronous Architecture & Hardening (In Progress)
+## Phase 8: Asynchronous Architecture & Hardening (Complete)
 - [x] **Async Services**: Support `UDS_PENDING` return code for non-blocking handlers.
+- [x] **Service 0x28**: Enhanced Communication Control with app callbacks.
 - [ ] **Concurrency**: Multi-threaded validation suite.
 - [ ] **Fuzzing**: LibFuzzer integration for deep packet inspection.
-- [x] **Service 0x28**: Full Communication Control implementation.
+
+## Phase 9: Industrial Robustness & Compliance (Planned)
+- [ ] **ISO-TP (ISO 15765-2)**: STmin & Block Size (BS) enforcement timers.
+- [ ] **ISO-TP (ISO 15765-2)**: Wait Frame (FS=WT) & Overflow handling.
+- [ ] **Core (ISO 14229-1)**: Align NRC priorities with Figure 10 (Subfunction check priority).
+- [ ] **Concurrency**: Explicit request blocking during `UDS_PENDING` operations.
+- [ ] **Security (0x27)**: CSRNG hook for secure, non-deterministic seeds.
+- [ ] **Architecture**: Buffer scaling (support for multi-KB SDUs for flashing).
 
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.
