@@ -74,7 +74,8 @@ libuds/
 
 | Component | Status |
 |:----------|:-------|
-| Core UDS Stack (15 Services) | ✅ Complete (v1.3.0) |
+| Core UDS Stack (15 Services) | ✅ Complete (v1.4.0) |
+| Asynchronous Processing (NRC 0x78) | ✅ Complete |
 | OS Abstraction Layer (OSAL) | ✅ Complete |
 | Memory Services (0x23/0x3D) | ✅ Complete |
 | Flash Engine (0x31/34/36/37) | ✅ Complete |
