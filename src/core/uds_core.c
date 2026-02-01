@@ -299,8 +299,16 @@ void uds_process(uds_ctx_t *ctx)
 int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
                        uds_response_cb callback)
 {
-    if (!ctx || !ctx->config) {
+    if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
         return UDS_ERR_NOT_INIT;
+    }
+
+    if (len > 0 && !data) {
+        return UDS_ERR_INVALID_ARG;
+    }
+
+    if (len + 1 > ctx->config->tx_buffer_size) {
+        return UDS_ERR_BUFFER_TOO_SMALL;
     }
 
     if (ctx->config->fn_mutex_lock) {
@@ -380,8 +388,12 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 
 int uds_send_response(uds_ctx_t *ctx, uint16_t len)
 {
-    if (!ctx || !ctx->config) {
+    if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
         return UDS_ERR_NOT_INIT;
+    }
+
+    if (len > ctx->config->tx_buffer_size) {
+        return UDS_ERR_BUFFER_TOO_SMALL;
     }
 
     ctx->p2_msg_pending = false;
@@ -396,8 +408,12 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len)
 
 int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
 {
-    if (!ctx || !ctx->config) {
+    if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
         return UDS_ERR_NOT_INIT;
+    }
+
+    if (ctx->config->tx_buffer_size < 3) {
+        return UDS_ERR_BUFFER_TOO_SMALL;
     }
 
     /* NRC 0x78 does not clear the pending flag. 
