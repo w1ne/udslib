@@ -151,6 +151,9 @@ void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *
 
     switch (pci) {
         case ISOTP_PCI_SF: {
+            /* Abort any active multi-frame on new Single Frame */
+            g_isotp_ctx.state = ISOTP_IDLE;
+
             uint8_t sdu_len = data[0] & 0x0F;
             if (sdu_len == 0 || sdu_len > 7) {
                 return;
@@ -160,6 +163,9 @@ void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *
         }
 
         case ISOTP_PCI_FF: {
+            /* Abort any active multi-frame on new First Frame */
+            g_isotp_ctx.state = ISOTP_IDLE;
+
             uint16_t sdu_len = ((data[0] & 0x0F) << 8) | data[1];
             if (sdu_len < 8) {
                 return; /* Multi-frame must be > 7 bytes */

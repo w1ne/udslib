@@ -22,9 +22,15 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ## 2. Technical Architecture (The "How")
 
-### 🚀 Status: v1.5.0 (Production Ready)
+### 🚀 Status: v1.7.0-pro (Ultimate Production Ready)
 
 LibUDS is a fully hardened, **ISO 14229-1:2020 Compliant** protocol stack for safety-critical systems. 
+
+**Pro Package & Tooling:**
+- **Wireshark Dissector**: Real-time human-readable decoding of UDS SDUs (`extras/wireshark/libuds.lua`).
+- **Python Test Harness**: Comprehensive `ctypes` wrapper for automated validation and CI integration (`extras/python/pylibuds.py`).
+- **Technical White Paper**: "The Architecture of Safety"—an engineering-first guide for decision makers (`docs/WHITE_PAPER.md`).
+- **Zephyr Integration**: Native integration guide for the automotive world's fastest growing RTOS (`docs/integration/ZEPHYR.md`).
 
 **Comprehensive Service Support:**
 - **Diagnostics & Lifecycle**: Session Control (0x10), ECU Reset (0x11), Tester Present (0x3E), Security Access (0x27), Authentication (0x29).
@@ -32,10 +38,10 @@ LibUDS is a fully hardened, **ISO 14229-1:2020 Compliant** protocol stack for sa
 - **DTC & Maintenance**: Clear DTC (0x14), Read DTC Info (0x19), Control DTC Setting (0x85), Communication Control (0x28).
 - **Flash Engine (OTA)**: Request Download (0x34), Transfer Data (0x36), Transfer Exit (0x37), Routine Control (0x31).
 
-**Core Hardening:**
+**Core Hardening (MISRA-C Aligned):**
 - **Strict Compliance**: Mandatory NRC priority enforcement and centralized response suppression.
 - **Safety First**: Integrated "Safety Gate" logic (`fn_is_safe`) to prevent destructive operations in unsafe states.
-- **High Reliability**: Verified by an expanded suite of 31 unit and integration tests (100% success rate).
+- **Sequence Audit**: Strict Block Sequence Counter tracking (SID 0x36) and transport-layer concurrency protection.
 - **Async Native**: Support for `UDS_PENDING` (NRC 0x78) for non-blocking flash and NVM operations.
 
 ### 2. Quick Start

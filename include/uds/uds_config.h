@@ -389,6 +389,9 @@ typedef struct uds_ctx {
     uint16_t p2_ms;
     /** Current P2* server timeout */
     uint32_t p2_star_ms;
+
+    /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
+    uint8_t flash_sequence;
 } uds_ctx_t;
 
 #ifdef __cplusplus

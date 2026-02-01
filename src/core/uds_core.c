@@ -67,21 +67,25 @@ const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id)
 
 bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr, uint32_t *size)
 {
-    uint8_t addr_len = format & 0x0F;
-    uint8_t size_len = (format >> 4) & 0x0F;
+    uint8_t addr_len = (uint8_t)(format & 0x0Fu);
+    uint8_t size_len = (uint8_t)((format >> 4u) & 0x0Fu);
 
-    if (len < (addr_len + size_len)) {
+    if ((addr_len == 0u) || (addr_len > 4u) || (size_len == 0u) || (size_len > 4u)) {
         return false;
     }
 
-    *addr = 0;
-    for (int i = 0; i < addr_len; i++) {
-        *addr = (*addr << 8) | data[i];
+    if (len < (uint16_t)((uint16_t)addr_len + (uint16_t)size_len)) {
+        return false;
     }
 
-    *size = 0;
-    for (int i = 0; i < size_len; i++) {
-        *size = (*size << 8) | data[addr_len + i];
+    *addr = 0u;
+    for (uint8_t i = 0u; i < addr_len; i++) {
+        *addr = (uint32_t)((uint32_t)*addr << 8u) | (uint32_t)data[i];
+    }
+
+    *size = 0u;
+    for (uint8_t i = 0u; i < size_len; i++) {
+        *size = (uint32_t)((uint32_t)*size << 8u) | (uint32_t)data[(uint16_t)addr_len + (uint16_t)i];
     }
 
     return true;
@@ -111,14 +115,14 @@ static const uds_service_entry_t *find_service(uds_ctx_t *ctx, uint8_t sid)
 static uint8_t get_session_bit(uint8_t session)
 {
     switch (session) {
-    case 0x01:
+    case 0x01u:
         return UDS_SESSION_DEFAULT;
-    case 0x02:
+    case 0x02u:
         return UDS_SESSION_PROGRAMMING;
-    case 0x03:
+    case 0x03u:
         return UDS_SESSION_EXTENDED;
     default:
-        return 0;
+        return (uint8_t)0;
     }
 }
 
@@ -130,8 +134,10 @@ static bool is_session_supported(uds_ctx_t *ctx, const uds_service_entry_t *serv
 }
 
 static bool is_subfunction_supported(const uds_service_entry_t *service, uint8_t sub) {
-    if (!service->sub_mask) return true;
-    return (service->sub_mask[sub >> 3] & (1 << (sub & 0x7))) != 0;
+    if (service->sub_mask == NULL) { return true; }
+    uint8_t index = (uint8_t)(sub >> 3);
+    uint8_t bit = (uint8_t)(1u << (sub & 0x7u));
+    return (service->sub_mask[index] & bit) != 0;
 }
 
 static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 

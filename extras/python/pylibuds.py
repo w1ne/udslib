@@ -54,6 +54,7 @@ UdsCtx._fields_ = [
     ("suppress_pos_resp", bool_t),
     ("p2_ms", uint16_t),
     ("p2_star_ms", uint32_t),
+    ("flash_sequence", uint8_t),
 ]
 
 # --- API Function Prototypes ---

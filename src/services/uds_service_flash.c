@@ -14,7 +14,7 @@ int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 
     uint8_t type = data[1];
-    uint16_t id = (data[2] << 8) | data[3];
+    uint16_t id = (uint16_t)((uint16_t)data[2] << 8) | (uint16_t)data[3];
 
     if (!ctx->config->fn_routine_control) {
         return uds_send_nrc(ctx, 0x31, 0x22); /* Conditions Not Correct */
@@ -60,6 +60,9 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
         return uds_send_nrc(ctx, 0x34, (uint8_t)(-res));
     }
 
+    /* ISO 14229-1: Reset sequence counter for new transfer */
+    ctx->flash_sequence = 0;
+
     ctx->config->tx_buffer[0] = 0x74;
     ctx->config->tx_buffer[1] = 0x20; /* Length format identifier (4 bytes for maxNumberOfBlockLength) */
     ctx->config->tx_buffer[2] = 0x00; /* Placeholder max block length */
@@ -80,10 +83,26 @@ int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     }
 
     uint8_t sequence = data[1];
+
+    /* ISO 14229-1: Server shall track and verify sequence counter */
+    if (ctx->flash_sequence == 0) {
+        /* First block must be 0x01 */
+        if (sequence != 0x01) {
+            return uds_send_nrc(ctx, 0x36, 0x24); /* Request Sequence Error */
+        }
+    } else {
+        uint8_t expected = (ctx->flash_sequence == 0xFF) ? 0x00 : (ctx->flash_sequence + 1);
+        if (sequence != expected) {
+            return uds_send_nrc(ctx, 0x36, 0x24);
+        }
+    }
+
     int res = ctx->config->fn_transfer_data(ctx, sequence, &data[2], len - 2);
     if (res < 0) {
         return uds_send_nrc(ctx, 0x36, (uint8_t)(-res));
     }
+
+    ctx->flash_sequence = sequence;
 
     ctx->config->tx_buffer[0] = 0x76;
     ctx->config->tx_buffer[1] = sequence;
