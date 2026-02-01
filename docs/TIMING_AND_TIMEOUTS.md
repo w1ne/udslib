@@ -55,3 +55,5 @@ if (job_done) {
 | `p2_ms` | 50ms | Time to first response / NRC 0x78 |
 | `p2_star_ms` | 5000ms | Interval between subsequent NRC 0x78 |
 | `s3_server` | 5000ms | Session timeout due to inactivity |
+| `STmin` | 0ms | Separation time between ISO-TP CFs |
+| `Block Size`| 8 | ISO-TP flow control block size |

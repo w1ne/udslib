@@ -103,11 +103,11 @@ static void test_write_memory_success(void **state) {
     /* 0x3D, Format=0x12, Addr=0x0200, Size=0x02, Data=0xCC,0xDD */
     uint8_t req[] = {0x3D, 0x12, 0x02, 0x00, 0x02, 0xCC, 0xDD};
 
-    /* Expect 0x7D + Format (0x12) */
-    uint8_t resp[] = {0x7D, 0x12};
+    /* Expect 0x7D + Format (0x12) + Echoed Addr (02 00) + Size (02) */
+    uint8_t resp[] = {0x7D, 0x12, 0x02, 0x00, 0x02};
     
-    expect_value(mock_can_send, len, 2);
-    expect_memory(mock_can_send, data, resp, 2);
+    expect_value(mock_can_send, len, 5);
+    expect_memory(mock_can_send, data, resp, 5);
 
     uds_input_sdu(&ctx, req, 7);
 

@@ -276,7 +276,7 @@ int main(int argc, char **argv)
     while (1) {
         uint32_t now = get_time_ms();
         uds_process(&ctx);
-        uds_tp_isotp_process();
+        uds_tp_isotp_process(now);
 
         /* Mock "Long Running" Async Operation for SID 0x31 */
         if (ctx.p2_msg_pending && ctx.pending_sid == 0x31 && slow_op_start == 0) {

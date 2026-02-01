@@ -132,7 +132,7 @@ can_add_rx_filter(can_dev, can_rx_callback, NULL, &filter);
 /* 5. Main loop must call */
 while (1) {
     uds_process(&ctx);
-    uds_tp_isotp_process(); // For multi-frame CF transmission
+    uds_tp_isotp_process(k_uptime_get_32()); // For multi-frame CF transmission
     k_sleep(K_MSEC(1));
 }
 ```
@@ -312,7 +312,7 @@ LibUDS is designed for single-threaded or cooperative multitasking:
 void uds_task(void *p1, void *p2, void *p3) {
     while (1) {
         uds_process(&ctx);         // Check timers, handle state machine
-        uds_tp_isotp_process();    // (If using fallback) Send pending CFs
+        uds_tp_isotp_process(now);    // (If using fallback) Send pending CFs
         k_sleep(K_MSEC(1));        // Yield to other tasks
     }
 }

@@ -38,8 +38,16 @@ int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uin
 
 int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    /* Basic 0x34 implementation: Expecting 1 byte format, 4 byte addr, 4 byte size = 10 bytes */
-    if (len < 10) {
+    /* ISO 14229-1: 0x34 [dataFormatIdentifier] [addressAndLengthFormatIdentifier] [address...] [size...] */
+    if (len < 4) {
+        return uds_send_nrc(ctx, 0x34, 0x13);
+    }
+
+    uint8_t data_format = data[1];
+    uint8_t addr_len_format = data[2];
+    uint32_t addr, size;
+
+    if (!uds_internal_parse_addr_len(&data[3], len - 3, addr_len_format, &addr, &size)) {
         return uds_send_nrc(ctx, 0x34, 0x13);
     }
 
@@ -47,19 +55,18 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
         return uds_send_nrc(ctx, 0x34, 0x22);
     }
 
-    uint32_t addr = (data[3] << 24) | (data[4] << 16) | (data[5] << 8) | data[6];
-    uint32_t size = (data[7] << 24) | (data[8] << 16) | (data[9] << 8) | data[10];
-
     int res = ctx->config->fn_request_download(ctx, addr, size);
     if (res < 0) {
         return uds_send_nrc(ctx, 0x34, (uint8_t)(-res));
     }
 
     ctx->config->tx_buffer[0] = 0x74;
-    ctx->config->tx_buffer[1] = 0x20; /* Length format identifier (maxNumberOfBlockLength) */
-    ctx->config->tx_buffer[2] = 0x04; /* Placeholder max block length */
+    ctx->config->tx_buffer[1] = 0x20; /* Length format identifier (4 bytes for maxNumberOfBlockLength) */
+    ctx->config->tx_buffer[2] = 0x00; /* Placeholder max block length */
     ctx->config->tx_buffer[3] = 0x00;
-    return uds_send_response(ctx, 4);
+    ctx->config->tx_buffer[4] = 0x04;
+    ctx->config->tx_buffer[5] = 0x00;
+    return uds_send_response(ctx, 6);
 }
 
 int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)

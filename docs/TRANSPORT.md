@@ -29,6 +29,13 @@ The fallback implementation handles standard ISO-TP flows:
 - **CF (Consecutive Frame)**: Reassembles payload.
 - **TX Flow Control**: When sending large SDUs, the stack sends FF and waits for the peer's FC before streaming CFs.
 
-## 4. Virtual CAN (Host Simulation)
+## 4. Hardening & Flow Control
+
+LibUDS implements standard ISO-TP hardening features to ensure robust communication:
+- **STmin (Separation Time)**: Enforces minimum time between consecutive frames (CF) to prevent overwhelming the receiver.
+- **Block Size (BS)**: Manages data flow by requiring Flow Control (FC) frames after a specified number of CFs.
+- **Dynamic Timing**: STmin and Block Size parameters are dynamically extracted from peer Flow Control frames during transmission.
+
+## 5. Virtual CAN (Host Simulation)
 
 For PC-based verification, we encapsulate CAN frames in UDP packets. This allows full stack execution without physical hardware.

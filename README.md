@@ -22,13 +22,13 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ## 2. Technical Architecture (The "How")
 
-### 🚀 Status: v1.3.0 (Industrial Hardening & Safety)
+### 🚀 Status: v1.5.0 (Full ISO 14229-1 Compliance)
 
-LibUDS v1.3.0 introduces deep architectural support for **Safety Gates**, **Asynchronous Dispatching**, and **State Persistence**.
-- **Safety Gates**: Mandatory application check (`fn_is_safe`) before destructive services (Reset, Flash, Write).
-- **Service Modularization**: Fully decoupled service handlers in `src/services/` with a scalable registry.
-- **NVM Persistence**: Native hooks to save/restore session and security state across resets.
-- **Enhanced Testing**: 100% CMocka coverage, parallel execution, and automated JUnit/LCOV reporting.
+LibUDS v1.5.0 reaches the milestone of **Full ISO 14229-1 Compliance Alignment**, verified by an expanded 31-test automated suite.
+- **Protocol Hardening**: Unified core dispatcher with strict NRC priority enforcement and centralized response suppression.
+- **Hardened Services**: Protection against buffer overflows in multi-DID reads (0x22) and validated communication types (0x28).
+- **ISO Alignment**: Response echoing for Write Memory (0x3D) and flexible parsing for Request Download (0x34).
+- **Verified Stability**: 31 unit and integration tests passing with 100% success rate on CI.
 
 ### 2. Quick Start
 
@@ -197,15 +197,15 @@ Official releases are available on [GitHub Releases](https://github.com/youruser
 
 Each release includes:
 - **📋 Changelog**: Detailed list of changes, additions, and fixes
-- **✅ Test Results**: Complete test suite validation (16 unit tests)
+- **✅ Test Results**: Complete test suite validation (31 unit/integration tests)
 - **📦 Build Artifacts**: Pre-compiled host simulator and test binaries
 - **📚 Documentation**: Updated API docs and guides
 - **🎯 Service List**: All implemented UDS services with SID reference
 
 To create a new release, simply push a version tag:
 ```bash
-git tag -a v1.3.0 -m "Release version 1.3.0"
-git push origin v1.3.0
+git tag -a v1.5.0 -m "Release version 1.5.0"
+git push origin v1.5.0
 ```
 
 The GitHub Actions workflow will automatically build, test, and publish the release with formatted documentation.

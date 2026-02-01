@@ -17,6 +17,10 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
         const uds_did_entry_t *entry = uds_internal_find_did(ctx, did);
 
         if (entry) {
+            if (tx_len + entry->size > ctx->config->tx_buffer_size) {
+                 return uds_send_nrc(ctx, 0x22, 0x14); /* Response Too Long */
+            }
+
             ctx->config->tx_buffer[tx_len++] = (did >> 8) & 0xFF;
             ctx->config->tx_buffer[tx_len++] = did & 0xFF;
 
@@ -25,8 +29,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
                 if (res >= 0) {
                     tx_len += entry->size;
                 } else {
-                    any_error = true;
-                    break;
+                    return uds_send_nrc(ctx, 0x22, (uint8_t)(-res));
                 }
             } else if (entry->storage) {
                 memcpy(&ctx->config->tx_buffer[tx_len], entry->storage, entry->size);

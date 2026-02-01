@@ -70,6 +70,12 @@ typedef int (*uds_did_read_fn)(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, 
 typedef int (*uds_did_write_fn)(struct uds_ctx *ctx, uint16_t did, const uint8_t *data, uint16_t len);
 
 /**
+ * @brief Security Access Callbacks (SID 0x27)
+ */
+typedef int (*uds_security_seed_fn)(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len);
+typedef int (*uds_security_key_fn)(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len);
+
+/**
  * @brief DID Registry Entry
  */
 typedef struct {
@@ -117,6 +123,7 @@ typedef struct {
     uint8_t session_mask;    /**< Allowed sessions bitmask */
     uint16_t security_mask;  /**< Minimum security level required (bitmask or level) */
     uds_service_handler_t handler; /**< Function pointer to handler */
+    const uint8_t *sub_mask; /**< Optional bitmask of supported 7-bit subfunctions (16 bytes) */
 } uds_service_entry_t;
 
 /* --- Configuration Structure --- */
@@ -159,6 +166,11 @@ typedef struct {
      * @return UDS_OK to accept, or negative NRC to reject (e.g. 0x22).
      */
     int (*fn_comm_control)(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type);
+
+    /** Optional: Security Access Seed Provider (SID 0x27) */
+    uds_security_seed_fn fn_security_seed;
+    /** Optional: Security Access Key Verifier (SID 0x27) */
+    uds_security_key_fn fn_security_key;
 
     /* --- Memory Management (Zero Malloc) --- */
 
@@ -354,6 +366,15 @@ typedef struct uds_ctx {
 
     /** Communication control state for SID 0x28 (uds_comm_control_type_t) */
     uint8_t comm_state;
+
+    /** ISO 14229-1: Centralized Suppression of Positive Response (bit 7 of sub-function) */
+    bool suppress_pos_resp;
+
+    /* --- Dynamic Timing Parameters --- */
+    /** Current P2 server timeout */
+    uint16_t p2_ms;
+    /** Current P2* server timeout */
+    uint32_t p2_star_ms;
 } uds_ctx_t;
 
 #ifdef __cplusplus

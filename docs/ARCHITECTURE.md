@@ -42,7 +42,7 @@ A table-driven dispatcher manages UDS services.
 
 - **Scalability**: Adding a service (like SID 0x29) requires adding an entry to the service table.
 - **Extensibility**: Applications register `user_services` in `uds_config_t` to override or extend standard functionality.
-- **Validation**: The core engine enforces ISO 14229-1 NRC priorities (Session → Length → Security → Safety) before calling the handler.
+- **Validation**: The core engine enforces ISO 14229-1 NRC priorities (Session → Subfunction → Length → Security → Safety) before calling the handler.
 
 ## 4. Safety Gates
 

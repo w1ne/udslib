@@ -88,12 +88,37 @@ int uds_isotp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
     }
 }
 
-void uds_tp_isotp_process(void)
+void uds_tp_isotp_process(uint32_t time_ms)
 {
     if (g_isotp_ctx.state == ISOTP_TX_SENDING_CF) {
         uint16_t remaining = g_isotp_ctx.msg_len - g_isotp_ctx.bytes_processed;
         if (remaining == 0) {
             g_isotp_ctx.state = ISOTP_IDLE;
+            return;
+        }
+
+        /* Check STmin (Separation Time) */
+        uint32_t elapsed = time_ms - g_isotp_ctx.timer_st;
+        uint32_t required_st = g_isotp_ctx.st_min;
+
+        /* Decode ISO-TP STmin: 
+           0x00 - 0x7F: 0ms - 127ms
+           0xF1 - 0xF9: 100us - 900us (we'll treat as 1ms for now as we have ms resolution)
+        */
+        if (required_st >= 0xF1 && required_st <= 0xF9) {
+            required_st = 1; 
+        } else if (required_st > 0x7F) {
+            required_st = 0; /* Reserved or invalid */
+        }
+
+        if (elapsed < required_st) {
+            return; /* Wait for STmin */
+        }
+
+        /* Check Block Size (BS) */
+        if (g_isotp_ctx.block_size > 0 && g_isotp_ctx.bs_counter >= g_isotp_ctx.block_size) {
+            g_isotp_ctx.state = ISOTP_TX_WAIT_FC;
+            g_isotp_ctx.bs_counter = 0;
             return;
         }
 
@@ -105,6 +130,8 @@ void uds_tp_isotp_process(void)
         if (uds_internal_tp_send_frame(&g_isotp_ctx, frame, 8) == 0) {
             g_isotp_ctx.bytes_processed += to_copy;
             g_isotp_ctx.sn = (g_isotp_ctx.sn + 1) & 0x0F;
+            g_isotp_ctx.bs_counter++;
+            g_isotp_ctx.timer_st = time_ms; /* Reset ST timer */
 
             if (g_isotp_ctx.bytes_processed >= g_isotp_ctx.msg_len) {
                 g_isotp_ctx.state = ISOTP_IDLE;

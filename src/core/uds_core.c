@@ -8,26 +8,34 @@
 #include "uds/uds_core.h"
 #include "uds_internal.h"
 
-/* --- Core Service Table --- */
+/* --- Subfunction Masks (16 bytes = 128 bits for 0x00-0x7F) --- */
+static const uint8_t mask_sub_10[] = {0x0E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 1, 2, 3 */
+static const uint8_t mask_sub_11[] = {0x0E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 1, 2, 3 */
+static const uint8_t mask_sub_19[] = {0x57, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 01, 02, 04, 06, 0A */
+static const uint8_t mask_sub_27[] = {0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; /* 1..127 */
+static const uint8_t mask_sub_28[] = {0x3F, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 0, 1, 2, 3, 4, 5 */
+static const uint8_t mask_sub_31[] = {0x0E, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 1, 2, 3 */
+static const uint8_t mask_sub_3E[] = {0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 0 */
+static const uint8_t mask_sub_85[] = {0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* 1, 2 */
 
 static const uds_service_entry_t core_services[] = {
-    {0x10, 2, UDS_SESSION_ALL, 0, uds_internal_handle_session_control},
-    {0x11, 2, UDS_SESSION_ALL, 0, uds_internal_handle_ecu_reset},
-    {0x14, 4, UDS_SESSION_ALL, 0, uds_internal_handle_clear_dtc},
-    {0x19, 2, UDS_SESSION_ALL, 0, uds_internal_handle_read_dtc_info},
-    {0x22, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_data_by_id},
-    {0x23, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_memory_by_addr},
-    {0x27, 2, UDS_SESSION_ALL, 0, uds_internal_handle_security_access},
-    {0x28, 2, UDS_SESSION_ALL, 0, uds_internal_handle_comm_control},
-    {0x29, 2, UDS_SESSION_ALL, 0, uds_internal_handle_authentication},
-    {0x2E, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_data_by_id},
-    {0x31, 4, UDS_SESSION_ALL, 0, uds_internal_handle_routine_control},
-    {0x34, 10, UDS_SESSION_ALL, 0, uds_internal_handle_request_download},
-    {0x36, 2, UDS_SESSION_ALL, 0, uds_internal_handle_transfer_data},
-    {0x37, 1, UDS_SESSION_ALL, 0, uds_internal_handle_request_transfer_exit},
-    {0x3D, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_memory_by_addr},
-    {0x3E, 2, UDS_SESSION_ALL, 0, uds_internal_handle_tester_present},
-    {0x85, 2, UDS_SESSION_ALL, 0, uds_internal_handle_control_dtc_setting},
+    {0x10, 2, UDS_SESSION_ALL, 0, uds_internal_handle_session_control, mask_sub_10},
+    {0x11, 2, UDS_SESSION_ALL, 0, uds_internal_handle_ecu_reset, mask_sub_11},
+    {0x14, 4, UDS_SESSION_ALL, 0, uds_internal_handle_clear_dtc, NULL},
+    {0x19, 2, UDS_SESSION_ALL, 0, uds_internal_handle_read_dtc_info, mask_sub_19}, /* Sub handled in handler due to complex payload */
+    {0x22, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_data_by_id, NULL},
+    {0x23, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_memory_by_addr, NULL},
+    {0x27, 2, UDS_SESSION_ALL, 0, uds_internal_handle_security_access, mask_sub_27},
+    {0x28, 2, UDS_SESSION_ALL, 0, uds_internal_handle_comm_control, mask_sub_28},
+    {0x29, 2, UDS_SESSION_ALL, 0, uds_internal_handle_authentication, NULL},
+    {0x2E, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_data_by_id, NULL},
+    {0x31, 4, UDS_SESSION_ALL, 0, uds_internal_handle_routine_control, mask_sub_31},
+    {0x34, 4, UDS_SESSION_ALL, 0, uds_internal_handle_request_download, NULL},
+    {0x36, 2, UDS_SESSION_ALL, 0, uds_internal_handle_transfer_data, NULL},
+    {0x37, 1, UDS_SESSION_ALL, 0, uds_internal_handle_request_transfer_exit, NULL},
+    {0x3D, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_memory_by_addr, NULL},
+    {0x3E, 2, UDS_SESSION_ALL, 0, uds_internal_handle_tester_present, mask_sub_3E},
+    {0x85, 2, UDS_SESSION_ALL, 0, uds_internal_handle_control_dtc_setting, mask_sub_85},
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))
@@ -53,6 +61,28 @@ const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id)
         }
     }
     return NULL;
+}
+
+bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr, uint32_t *size)
+{
+    uint8_t addr_len = format & 0x0F;
+    uint8_t size_len = (format >> 4) & 0x0F;
+
+    if (len < (addr_len + size_len)) {
+        return false;
+    }
+
+    *addr = 0;
+    for (int i = 0; i < addr_len; i++) {
+        *addr = (*addr << 8) | data[i];
+    }
+
+    *size = 0;
+    for (int i = 0; i < size_len; i++) {
+        *size = (*size << 8) | data[addr_len + i];
+    }
+
+    return true;
 }
 
 static const uds_service_entry_t *find_service(uds_ctx_t *ctx, uint8_t sid)
@@ -109,6 +139,11 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     ctx->active_session = 0x01; /* Default Session */
     ctx->security_level = 0;    /* Locked */
     ctx->comm_state = 0x00;     /* Enable Rx/Tx */
+    ctx->suppress_pos_resp = false;
+
+    /* Enforce Timing Safety (ISO 14229-1 requires reasonable timeouts) */
+    ctx->p2_ms = (config->p2_ms > 0) ? config->p2_ms : 50;
+    ctx->p2_star_ms = (config->p2_star_ms > 0) ? config->p2_star_ms : 5000;
 
     uds_internal_log(ctx, UDS_LOG_INFO, "UDS Stack Initialized");
 
@@ -164,7 +199,7 @@ void uds_process(uds_ctx_t *ctx)
     /* P2/P2* Timing: Manage Response Deadlines */
     if (ctx->p2_msg_pending) {
         uint32_t elapsed = now - ctx->p2_timer_start;
-        uint32_t limit = ctx->p2_star_active ? ctx->config->p2_star_ms : ctx->config->p2_ms;
+        uint32_t limit = ctx->p2_star_active ? ctx->p2_star_ms : ctx->p2_ms;
 
         if (elapsed >= limit) {
             /* Send NRC 0x78 (Response Pending) */
@@ -220,13 +255,34 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 
     /* Update S3 timer tracking */
     ctx->last_msg_time = ctx->config->get_time_ms();
-
+    uint8_t sid = data[0];
+ 
+    /* Check for Concurrent Request (Busy) */
+    if (ctx->p2_msg_pending) {
+        /* ISO 14229-1: If a new request is received while the server is still processing a previous one, 
+           it should respond with NRC 0x21 (Busy). 
+           Exception: TesterPresent (0x3E) SHOULD be processed or ignored without Busy if suppressed.
+        */
+        if (sid == 0x3E) {
+            /* Handle or ignore 0x3E without resetting timing of current operation */
+            if (len >= 2 && (data[1] & 0x80)) {
+                /* suppressed TesterPresent -> just update S3 */
+                if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+                return;
+            }
+            /* If not suppressed, we still reject for now to keep state simple, 
+               but 0x21 is appropriate for concurrent requests. */
+        }
+        
+        uds_send_nrc(ctx, sid, 0x21); /* Busy Repeat Request */
+        if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+        return;
+    }
+ 
     /* Initialize P2 timing state for new request */
     ctx->p2_timer_start = ctx->config->get_time_ms();
     ctx->p2_msg_pending = false;
     ctx->p2_star_active = false;
-
-    uint8_t sid = data[0];
 
     /* Check if this is a response to our previous request */
     if (ctx->pending_sid != 0) {
@@ -247,49 +303,67 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 
     /* internal dispatch service */
     const uds_service_entry_t *service = find_service(ctx, sid);
-    if (service) {
-        /* Check Session */
-        /* Must convert session ID (0x01/0x02/0x03) to component mask (0x01/0x02/0x04) */
-        uint8_t sess_bit = get_session_bit(ctx->active_session);
-        if (!(service->session_mask & sess_bit)) {
-            uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
-        } 
-        /* Check Message Length (ISO 14229-1) */
-        else if (len < service->min_len) {
-            uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length Or Invalid Format */
-        }
-        /* Check Security */
-        else if (service->security_mask > ctx->security_level) {
-            uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
-        }
-        /* Check Safety Gate */
-        else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
-            uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
-            uds_internal_log(ctx, UDS_LOG_INFO, "Safety Gate Check Failed");
-        }
-        else {
-            int result = service->handler(ctx, data, len);
-            if (result == UDS_PENDING) {
-                /* Service is async: Send NRC 0x78 (Response Pending) immediately */
-                uds_send_nrc(ctx, sid, 0x78);
-                
-                /* Switch to P2* timing */
-                ctx->p2_msg_pending = true;
-                ctx->p2_star_active = true;
-                ctx->p2_timer_start = ctx->config->get_time_ms();
-                
-                /* Store the SID we are working on so we know what to respond to later */
-                ctx->pending_sid = sid; 
-            }
-            else if (result < 0) {
-                 /* If handler fails with negative, it presumably sent NRC? 
-                    Or should we send general reject? 
-                    Current handlers send NRC. 
-                 */
-            }
-        }
-    } else {
+    if (!service) {
         uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
+        if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+        return;
+    }
+
+    /* Check Session */
+    uint8_t sess_bit = get_session_bit(ctx->active_session);
+    if (!(service->session_mask & sess_bit)) {
+        uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
+    }
+    /* Check Subfunction Support (ISO 14229-1 Priority) */
+    else if (service->sub_mask && len >= 2) {
+        uint8_t sub = data[1] & 0x7F;
+        bool supported = (service->sub_mask[sub >> 3]) & (1 << (sub & 0x07));
+        if (!supported) {
+            uds_send_nrc(ctx, sid, 0x12); /* Subfunction Not Supported */
+        } else {
+            ctx->suppress_pos_resp = (data[1] & 0x80) != 0;
+
+            /* Check Security */
+            if (service->security_mask > ctx->security_level) {
+                uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
+            }
+            /* Check Safety Gate */
+            else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
+                uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
+            }
+            else {
+                int res = service->handler(ctx, data, len);
+                if (res == UDS_PENDING) {
+                    uds_send_nrc(ctx, sid, 0x78);
+                    ctx->p2_msg_pending = true;
+                    ctx->p2_star_active = true;
+                    ctx->p2_timer_start = ctx->config->get_time_ms();
+                    ctx->pending_sid = sid; 
+                }
+            }
+        }
+    }
+    /* Check Message Length (ISO 14229-1) */
+    else if (len < service->min_len) {
+        uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length Or Invalid Format */
+    }
+    /* Check Security (For services without subfunction) */
+    else if (service->security_mask > ctx->security_level) {
+        uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
+    }
+    /* Check Safety Gate (For services without subfunction) */
+    else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
+        uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
+    }
+    else {
+        int res = service->handler(ctx, data, len);
+        if (res == UDS_PENDING) {
+            uds_send_nrc(ctx, sid, 0x78);
+            ctx->p2_msg_pending = true;
+            ctx->p2_star_active = true;
+            ctx->p2_timer_start = ctx->config->get_time_ms();
+            ctx->pending_sid = sid; 
+        }
     }
 
     if (ctx->config->fn_mutex_unlock) {
@@ -304,6 +378,12 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len)
     }
 
     ctx->p2_msg_pending = false;
+    
+    if (ctx->suppress_pos_resp) {
+        ctx->suppress_pos_resp = false;
+        return UDS_OK;
+    }
+
     return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
 }
 
@@ -313,11 +393,13 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
         return UDS_ERR_NOT_INIT;
     }
 
-    /* NRC 0x78 does not clear the pending flag, others do */
-    if (nrc != 0x78) {
+    /* NRC 0x78 does not clear the pending flag. 
+       Others only clear if they refer to the actual pending SID. */
+    if (nrc != 0x78 && sid == ctx->pending_sid) {
         ctx->p2_msg_pending = false;
     }
 
+    /* NRCs are NEVER suppressed by bit 7 */
     ctx->config->tx_buffer[0] = 0x7F;
     ctx->config->tx_buffer[1] = sid;
     ctx->config->tx_buffer[2] = nrc;

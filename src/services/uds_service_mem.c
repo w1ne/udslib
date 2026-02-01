@@ -6,35 +6,6 @@
 #include "uds_internal.h"
 #include <string.h>
 
-/**
- * @brief Helper to parse Address and Length based on format byte
- */
-static bool parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr, uint32_t *size, uint16_t *consumed)
-{
-    uint8_t addr_len = format & 0x0F;
-    uint8_t size_len = (format >> 4) & 0x0F;
-
-    if (len < (2 + addr_len + size_len)) {
-        return false;
-    }
-
-    *addr = 0;
-    for (int i = 0; i < addr_len; i++) {
-        *addr = (*addr << 8) | data[2 + i];
-    }
-
-    *size = 0;
-    for (int i = 0; i < size_len; i++) {
-        *size = (*size << 8) | data[2 + addr_len + i];
-    }
-
-    if (consumed) {
-        *consumed = 2 + addr_len + size_len;
-    }
-
-    return true;
-}
-
 int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 3) {
@@ -43,9 +14,8 @@ int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data,
 
     uint8_t format = data[1];
     uint32_t addr, size;
-    uint16_t consumed;
 
-    if (!parse_addr_len(data, len, format, &addr, &size, &consumed)) {
+    if (!uds_internal_parse_addr_len(&data[2], len - 2, format, &addr, &size)) {
         return uds_send_nrc(ctx, 0x23, 0x13);
     }
 
@@ -78,14 +48,12 @@ int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data
 
     uint8_t format = data[1];
     uint32_t addr, size;
-    uint16_t consumed;
+    uint8_t addr_len = format & 0x0F;
+    uint8_t size_len = (format >> 4) & 0x0F;
+    uint16_t consumed = 2 + addr_len + size_len;
 
-    if (!parse_addr_len(data, len, format, &addr, &size, &consumed)) {
+    if (!uds_internal_parse_addr_len(&data[2], len - 2, format, &addr, &size)) {
         return uds_send_nrc(ctx, 0x3D, 0x13);
-    }
-
-    if ((uint64_t)addr + size > 0xFFFFFFFF) {
-        return uds_send_nrc(ctx, 0x3D, 0x31); /* Address Overflow */
     }
 
     if (len != (consumed + size)) {
@@ -103,6 +71,11 @@ int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data
 
     ctx->config->tx_buffer[0] = 0x7D;
     ctx->config->tx_buffer[1] = format;
-    /* Optional: copy address and size back if required by spec, but usually just echo format */
-    return uds_send_response(ctx, 2);
+    
+    /* ISO 14229-1: Server shall echo the address and size if successfully written */
+    for (int i = 0; i < (addr_len + size_len); i++) {
+        ctx->config->tx_buffer[2 + i] = data[2 + i];
+    }
+    
+    return uds_send_response(ctx, 2 + addr_len + size_len);
 }

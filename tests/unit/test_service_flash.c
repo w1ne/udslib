@@ -79,7 +79,7 @@ static void test_request_download_success(void **state) {
     will_return(mock_get_time, 1000); 
     will_return(mock_get_time, 1000); 
     expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 4); /* 0x74 20 04 00 */
+    expect_value(mock_tp_send, len, 6); /* 0x74 20 00 00 04 00 */
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req, 11);
