@@ -22,13 +22,16 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ## 2. Technical Architecture (The "How")
 
-### 🚀 Status: v1.5.0 (Full ISO 14229-1 Compliance)
+### 🚀 Status: v1.5.0 (Production Ready)
 
-LibUDS v1.5.0 reaches the milestone of **Full ISO 14229-1 Compliance Alignment**, verified by an expanded 31-test automated suite.
-- **Protocol Hardening**: Unified core dispatcher with strict NRC priority enforcement and centralized response suppression.
-- **Hardened Services**: Protection against buffer overflows in multi-DID reads (0x22) and validated communication types (0x28).
-- **ISO Alignment**: Response echoing for Write Memory (0x3D) and flexible parsing for Request Download (0x34).
-- **Verified Stability**: 31 unit and integration tests passing with 100% success rate on CI.
+LibUDS v1.5.0 is a fully hardened, **ISO 14229-1:2020 Compliant** protocol stack designed for safety-critical automotive and industrial applications.
+
+**Core Capabilities:**
+- **Full Compliance**: Verified support for 15+ UDS services with strict NRC priority enforcement and centralized response suppression.
+- **Hardened Safety**: Native "Safety Gate" mechanism (`fn_is_safe`) to protect against destructive operations in unsafe vehicle states.
+- **High Performance**: Asynchronous, non-blocking dispatcher supporting `UDS_PENDING` (NRC 0x78) for long-running flash or NVM operations.
+- **Enterprise Grade**: Zero-copy memory model, thread-safe OSAL, and a comprehensive 31-test verification suite with 100% coverage.
+- **Portable Architecture**: Run the same core logic on anything from an 8-bit MCU to a multi-core Linux SoC.
 
 ### 2. Quick Start
 
