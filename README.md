@@ -24,14 +24,19 @@ LibUDS is an **Application Layer Pure-Play**. It is architected to be:
 
 ### 🚀 Status: v1.5.0 (Production Ready)
 
-LibUDS v1.5.0 is a fully hardened, **ISO 14229-1:2020 Compliant** protocol stack designed for safety-critical automotive and industrial applications.
+LibUDS is a fully hardened, **ISO 14229-1:2020 Compliant** protocol stack for safety-critical systems. 
 
-**Core Capabilities:**
-- **Full Compliance**: Verified support for 15+ UDS services with strict NRC priority enforcement and centralized response suppression.
-- **Hardened Safety**: Native "Safety Gate" mechanism (`fn_is_safe`) to protect against destructive operations in unsafe vehicle states.
-- **High Performance**: Asynchronous, non-blocking dispatcher supporting `UDS_PENDING` (NRC 0x78) for long-running flash or NVM operations.
-- **Enterprise Grade**: Zero-copy memory model, thread-safe OSAL, and a comprehensive 31-test verification suite with 100% coverage.
-- **Portable Architecture**: Run the same core logic on anything from an 8-bit MCU to a multi-core Linux SoC.
+**Comprehensive Service Support:**
+- **Diagnostics & Lifecycle**: Session Control (0x10), ECU Reset (0x11), Tester Present (0x3E), Security Access (0x27), Authentication (0x29).
+- **Data & Memory**: Read/Write DID (0x22, 0x2E), Read/Write Memory By Address (0x23, 0x3D).
+- **DTC & Maintenance**: Clear DTC (0x14), Read DTC Info (0x19), Control DTC Setting (0x85), Communication Control (0x28).
+- **Flash Engine (OTA)**: Request Download (0x34), Transfer Data (0x36), Transfer Exit (0x37), Routine Control (0x31).
+
+**Core Hardening:**
+- **Strict Compliance**: Mandatory NRC priority enforcement and centralized response suppression.
+- **Safety First**: Integrated "Safety Gate" logic (`fn_is_safe`) to prevent destructive operations in unsafe states.
+- **High Reliability**: Verified by an expanded suite of 31 unit and integration tests (100% success rate).
+- **Async Native**: Support for `UDS_PENDING` (NRC 0x78) for non-blocking flash and NVM operations.
 
 ### 2. Quick Start
 
