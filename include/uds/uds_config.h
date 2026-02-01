@@ -184,6 +184,20 @@ typedef struct {
     /** Size of tx_buffer. Determines Max Response Size */
     uint16_t tx_buffer_size;
 
+    /* --- Enterprise Hardening --- */
+    /** 
+     * @brief Enable strict ISO 14229-1 compliance checks.
+     * When true, the stack will perform more aggressive validation of 
+     * timing parameters and request payload ranges.
+     */
+    bool strict_compliance;
+
+    /** 
+     * @brief Global log level filter for the stack.
+     * Logs below this level will be suppressed before the callback is called.
+     */
+    uint8_t log_level;
+
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
     uds_did_table_t did_table;

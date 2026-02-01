@@ -29,6 +29,8 @@ set(LIBUDS_SOURCES
     src/transport/uds_tp_isotp.c
 )
 add_library(uds STATIC ${LIBUDS_SOURCES})
+add_library(uds_shared SHARED ${LIBUDS_SOURCES})
+set_target_properties(uds_shared PROPERTIES OUTPUT_NAME uds)
 
 # Examples
 add_subdirectory(examples/host_sim)

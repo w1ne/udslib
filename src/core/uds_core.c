@@ -45,7 +45,9 @@ static const uds_service_entry_t core_services[] = {
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg)
 {
     if (ctx && ctx->config && ctx->config->fn_log) {
-        ctx->config->fn_log(level, msg);
+        if (level <= ctx->config->log_level) {
+            ctx->config->fn_log(level, msg);
+        }
     }
 }
 
@@ -120,6 +122,80 @@ static uint8_t get_session_bit(uint8_t session)
     }
 }
 
+/* --- Validation Helpers --- */
+
+static bool is_session_supported(uds_ctx_t *ctx, const uds_service_entry_t *service) {
+    uint8_t sess_bit = get_session_bit(ctx->active_session);
+    return (service->session_mask & sess_bit) != 0;
+}
+
+static bool is_subfunction_supported(const uds_service_entry_t *service, uint8_t sub) {
+    if (!service->sub_mask) return true;
+    return (service->sub_mask[sub >> 3] & (1 << (sub & 0x7))) != 0;
+}
+
+static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
+                          const uint8_t *data, uint16_t len) {
+    int res = service->handler(ctx, data, len);
+    if (res == UDS_PENDING) {
+        uds_send_nrc(ctx, data[0], 0x78);
+        ctx->p2_msg_pending = true;
+        ctx->p2_star_active = true;
+        ctx->p2_timer_start = ctx->config->get_time_ms();
+        ctx->pending_sid = data[0]; 
+    }
+    return res;
+}
+
+static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len) {
+    uint8_t sid = data[0];
+    const uds_service_entry_t *service = find_service(ctx, sid);
+
+    if (!service) {
+        uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
+        return;
+    }
+
+    /* ISO 14229-1 Priority: Session -> Subfunction -> Length -> Security -> Safety */
+
+    if (!is_session_supported(ctx, service)) {
+        uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
+        return;
+    }
+
+    bool has_sub = (service->sub_mask != NULL);
+    uint8_t sub = (len >= 2) ? (data[1] & 0x7F) : 0;
+
+    if (has_sub) {
+        if (len < 2) {
+            uds_send_nrc(ctx, sid, 0x13); /* Length error for subfunction services */
+            return;
+        }
+        if (!is_subfunction_supported(service, sub)) {
+            uds_send_nrc(ctx, sid, 0x12); /* Subfunction Not Supported */
+            return;
+        }
+        ctx->suppress_pos_resp = (data[1] & 0x80) != 0;
+    }
+
+    if (len < service->min_len) {
+        uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length Or Invalid Format */
+        return;
+    }
+
+    if (service->security_mask > ctx->security_level) {
+        uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
+        return;
+    }
+
+    if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
+        uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
+        return;
+    }
+
+    execute_handler(ctx, service, data, len);
+}
+
 
 /* --- Public API --- */
 
@@ -144,6 +220,12 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     /* Enforce Timing Safety (ISO 14229-1 requires reasonable timeouts) */
     ctx->p2_ms = (config->p2_ms > 0) ? config->p2_ms : 50;
     ctx->p2_star_ms = (config->p2_star_ms > 0) ? config->p2_star_ms : 5000;
+
+    if (config->strict_compliance) {
+        if (ctx->p2_ms < 20) ctx->p2_ms = 20;
+        if (ctx->p2_star_ms < 1000) ctx->p2_star_ms = 1000;
+        uds_internal_log(ctx, UDS_LOG_INFO, "Strict Compliance: Enforcing minimum P2/P2* durations");
+    }
 
     uds_internal_log(ctx, UDS_LOG_INFO, "UDS Stack Initialized");
 
@@ -253,42 +335,25 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         return;
     }
 
-    /* Update S3 timer tracking */
-    ctx->last_msg_time = ctx->config->get_time_ms();
     uint8_t sid = data[0];
- 
-    /* Check for Concurrent Request (Busy) */
+    ctx->last_msg_time = ctx->config->get_time_ms();
+
+    /* 1. Concurrent Request Check (Busy) */
     if (ctx->p2_msg_pending) {
-        /* ISO 14229-1: If a new request is received while the server is still processing a previous one, 
-           it should respond with NRC 0x21 (Busy). 
-           Exception: TesterPresent (0x3E) SHOULD be processed or ignored without Busy if suppressed.
-        */
-        if (sid == 0x3E) {
-            /* Handle or ignore 0x3E without resetting timing of current operation */
-            if (len >= 2 && (data[1] & 0x80)) {
-                /* suppressed TesterPresent -> just update S3 */
-                if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-                return;
-            }
-            /* If not suppressed, we still reject for now to keep state simple, 
-               but 0x21 is appropriate for concurrent requests. */
+        if (sid == 0x3E && len >= 2 && (data[1] & 0x80)) {
+            /* Suppressed TesterPresent: Just update S3, don't interrupt */
+            if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+            return;
         }
-        
         uds_send_nrc(ctx, sid, 0x21); /* Busy Repeat Request */
         if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
         return;
     }
- 
-    /* Initialize P2 timing state for new request */
-    ctx->p2_timer_start = ctx->config->get_time_ms();
-    ctx->p2_msg_pending = false;
-    ctx->p2_star_active = false;
 
-    /* Check if this is a response to our previous request */
+    /* 2. Response to our previous request? (Client Mode) */
     if (ctx->pending_sid != 0) {
         bool is_pos = (sid == (ctx->pending_sid | 0x40));
         bool is_neg = (sid == 0x7F && len >= 2 && data[1] == ctx->pending_sid);
-
         if (is_pos || is_neg) {
             if (ctx->client_cb) {
                 uds_response_cb cb = (uds_response_cb)ctx->client_cb;
@@ -301,70 +366,12 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         }
     }
 
-    /* internal dispatch service */
-    const uds_service_entry_t *service = find_service(ctx, sid);
-    if (!service) {
-        uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
-        if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-        return;
-    }
+    /* 3. Start Timing & Dispatch */
+    ctx->p2_timer_start = ctx->config->get_time_ms();
+    ctx->p2_msg_pending = false;
+    ctx->p2_star_active = false;
 
-    /* Check Session */
-    uint8_t sess_bit = get_session_bit(ctx->active_session);
-    if (!(service->session_mask & sess_bit)) {
-        uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
-    }
-    /* Check Subfunction Support (ISO 14229-1 Priority) */
-    else if (service->sub_mask && len >= 2) {
-        uint8_t sub = data[1] & 0x7F;
-        bool supported = (service->sub_mask[sub >> 3]) & (1 << (sub & 0x07));
-        if (!supported) {
-            uds_send_nrc(ctx, sid, 0x12); /* Subfunction Not Supported */
-        } else {
-            ctx->suppress_pos_resp = (data[1] & 0x80) != 0;
-
-            /* Check Security */
-            if (service->security_mask > ctx->security_level) {
-                uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
-            }
-            /* Check Safety Gate */
-            else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
-                uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
-            }
-            else {
-                int res = service->handler(ctx, data, len);
-                if (res == UDS_PENDING) {
-                    uds_send_nrc(ctx, sid, 0x78);
-                    ctx->p2_msg_pending = true;
-                    ctx->p2_star_active = true;
-                    ctx->p2_timer_start = ctx->config->get_time_ms();
-                    ctx->pending_sid = sid; 
-                }
-            }
-        }
-    }
-    /* Check Message Length (ISO 14229-1) */
-    else if (len < service->min_len) {
-        uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length Or Invalid Format */
-    }
-    /* Check Security (For services without subfunction) */
-    else if (service->security_mask > ctx->security_level) {
-        uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
-    }
-    /* Check Safety Gate (For services without subfunction) */
-    else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
-        uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
-    }
-    else {
-        int res = service->handler(ctx, data, len);
-        if (res == UDS_PENDING) {
-            uds_send_nrc(ctx, sid, 0x78);
-            ctx->p2_msg_pending = true;
-            ctx->p2_star_active = true;
-            ctx->p2_timer_start = ctx->config->get_time_ms();
-            ctx->pending_sid = sid; 
-        }
-    }
+    handle_request(ctx, data, len);
 
     if (ctx->config->fn_mutex_unlock) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
