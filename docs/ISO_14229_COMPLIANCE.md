@@ -8,6 +8,12 @@
 LibUDS currently correctly implements **17 out of 26** standard UDS services (65% coverage). 
 A comprehensive 9-phase audit identified **20 critical compliance deviations** in the implemented services that require immediate remediation.
 
+## Verification Log
+
+| Date | Standard | Verified Items | Status |
+|---|---|---|---|
+| 2026-02-02 | ISO 14229-1:2013 | C-01, C-02, C-06, C-19 | **CONFIRMED** |
+
 ---
 
 ## 2. Critical Compliance Failures (Prioritized)
@@ -32,8 +38,8 @@ A comprehensive 9-phase audit identified **20 critical compliance deviations** i
 | **C-16** | **0x85 DTC** | Ignores `groupOfDTC`. | *Must respect filtering if group is provided.* |
 | **C-17** | **Core** | Async Race Condition. | *New requests must be rejected (0x21) if server is busy.* |
 | **C-18** | **0x22/0x2E** | No DID Security/Session. | *DIDs require granular access control (Annex C).* |
-| **C-19** | **0x10 Session** | **[NEW]** Hardcoded P2 Timings. | *Response must match configured P2/P2\* values.* |
-| **C-20** | **0x3D Memory** | **[NEW]** Truncated Response. | *Must echo Address and Size parameters.* |
+| **C-19** | **0x10 Session** | Hardcoded P2 Timings. | *Response must match configured P2/P2\* values.* |
+| **C-20** | **0x3D Memory** | Truncated Response. | *Must echo Address and Size parameters.* |
 
 ---
 
@@ -57,6 +63,6 @@ A comprehensive 9-phase audit identified **20 critical compliance deviations** i
 | 0x34 | RequestDownload | 🟠 WARN | Fix C-08, C-15. |
 | 0x36 | TransferData | 🟠 WARN | Fix C-13, C-15. |
 | 0x37 | RequestTransferExit | ✅ PASS | |
-| 0x3D | WriteMemoryByAddress | � FAIL | Fix C-09, C-20. |
+| 0x3D | WriteMemoryByAddress |  FAIL | Fix C-09, C-20. |
 | 0x3E | TesterPresent | ✅ PASS | |
 | 0x85 | ControlDTCSetting | 🟠 WARN | Fix C-16. |
