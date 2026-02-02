@@ -21,24 +21,27 @@ jobs:
             -v $GITHUB_WORKSPACE:/app \
             -u $(id -u):$(id -g) \
             libuds-test-env \
-            bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --inconclusive --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+            bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=unmatchedSuppression --inconclusive --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
 
   build-posix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and Test
+      - name: Build and Test in Docker
         run: |
-          mkdir build && cd build
-          cmake ..
-          make
-          ctest --output-on-failure
+          ./scripts/docker_run.sh bash -c "mkdir -p build_quality && cd build_quality && cmake .. && make && ctest --output-on-failure"
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: build_quality/report.xml
 
   coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate Coverage
+      - name: Generate Coverage in Docker
         run: |
           ./scripts/docker_run.sh ./scripts/generate_coverage.sh
       - name: Upload Coverage
