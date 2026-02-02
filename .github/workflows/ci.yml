@@ -21,7 +21,7 @@ jobs:
             -v $GITHUB_WORKSPACE:/app \
             -u $(id -u):$(id -g) \
             libuds-test-env \
-            bash -c "cppcheck --enable=all --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+            bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --inconclusive --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
 
   build-posix:
     runs-on: ubuntu-latest
@@ -96,9 +96,9 @@ jobs:
         if: steps.cache-zephyr.outputs.cache-hit != 'true'
         run: |
           source .venv/bin/activate
-          west init -m https://github.com/zephyrproject-rtos/zephyr --mr main --depth 1 zephyr-workspace
+          west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
           cd zephyr-workspace
-          west update --narrow --depth 1
+          west update --narrow -o=--depth=1
           west zephyr-export
           
       - name: Install Zephyr Python Dependencies
@@ -116,9 +116,54 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    # This job requires a custom runner or specialized action for SocketCAN support
-    # For now, we define the structure.
+    needs: build-posix
     steps:
       - uses: actions/checkout@v4
-      - name: Run Integration Tests (Placeholder)
-        run: echo "Integration tests require SocketCAN/vcan environment."
+
+      - name: Build Docker Image
+        run: docker build -t libuds-test-env -f Dockerfile .
+
+      - name: Build Integration Artifacts
+        run: |
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/app \
+            -u $(id -u):$(id -g) \
+            libuds-test-env \
+            bash -c "set -euo pipefail
+              cmake -S . -B build -DBUILD_TESTING=ON
+              cmake --build build --target uds_host_sim test_integration
+              make -C examples/client_demo"
+
+      - name: Run C Integration Test (ctest)
+        run: |
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/app \
+            -u $(id -u):$(id -g) \
+            libuds-test-env \
+            bash -c "cd build && ctest -R test_integration --output-on-failure"
+
+      - name: Run Host Simulator Loopback
+        run: |
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/app \
+            -u $(id -u):$(id -g) \
+            libuds-test-env \
+            bash -c "./run_integration_test.sh"
+
+      - name: Run Python Integration Suite
+        run: |
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/app \
+            -u $(id -u):$(id -g) \
+            libuds-test-env \
+            bash -c "python3 tests/integration/test_uds.py"
+
+      - name: Archive Integration Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-logs
+          path: |
+            build/Testing
+            sim_c.log
+            client_c.log
