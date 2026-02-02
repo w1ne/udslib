@@ -27,8 +27,8 @@ static void test_dtc_read_suppression(void **state) {
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_read = mock_dtc_read;
 
-    /* 0x99 = 0x19 | 0x80 (Suppress) */
-    uint8_t request[] = {0x19, 0x81};
+    /* 0x99 = 0x19 | 0x80 (Suppress). Sub 0x01 requires a mask (3 bytes total). */
+    uint8_t request[] = {0x19, 0x81, 0xFF};
 
     will_return(mock_get_time, 1000); 
     will_return(mock_get_time, 1000); 

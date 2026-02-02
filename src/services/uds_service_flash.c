@@ -51,6 +51,13 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
     uint8_t addr_len_format = data[2];
     uint32_t addr, size;
 
+    /* C-08: ALFID Validation (AddressAndLengthFormatIdentifier) */
+    uint8_t addr_len = (uint8_t) (addr_len_format & 0x0Fu);
+    uint8_t size_len = (uint8_t) ((addr_len_format >> 4u) & 0x0Fu);
+    if (addr_len == 0u || size_len == 0u || addr_len > 4u || size_len > 4u) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_DOWNLOAD, UDS_NRC_REQUEST_OUT_OF_RANGE);
+    }
+
     if (!uds_internal_parse_addr_len(&data[3], (uint16_t) (len - 3u), addr_len_format, &addr,
                                      &size)) {
         return uds_send_nrc(ctx, UDS_SID_REQUEST_DOWNLOAD, UDS_NRC_INCORRECT_LENGTH);

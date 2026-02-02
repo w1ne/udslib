@@ -7,14 +7,31 @@
 
 int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    uint8_t sub = (uint8_t) (data[1] & 0x7Fu);
+    if (len < 2u) {
+        return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    uint32_t now = ctx->config->get_time_ms();
+
+    /* C-14: Security Delay Timer Check */
+    if (ctx->security_delay_end != 0u) {
+        if (now < ctx->security_delay_end) {
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_REQUIRED_TIME_DELAY);
+        }
+        /* Delay expired, reset counter if we want, but ISO says just allow next attempt */
+        ctx->security_delay_end = 0u;
+    }
+
+    uint8_t sub_raw = data[1];
+    uint8_t sub = (uint8_t) (sub_raw & 0x7Fu);
+
     if ((sub % 2u) != 0u) { /* Request Seed (Odd subfunctions: 0x01, 0x03...) */
         if (ctx->config->fn_security_seed == NULL) {
             return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_CONDITIONS_NOT_CORRECT);
         }
 
         ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_SECURITY_ACCESS + UDS_RESPONSE_OFFSET);
-        ctx->config->tx_buffer[1] = data[1];
+        ctx->config->tx_buffer[1] = sub_raw;
 
         int seed_len = ctx->config->fn_security_seed(ctx, (uint8_t) (((uint16_t) sub + 1u) / 2u),
                                                      &ctx->config->tx_buffer[2],
@@ -33,6 +50,8 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
         int res = ctx->config->fn_security_key(ctx, (uint8_t) (sub / 2u), NULL, &data[2],
                                                (uint16_t) (len - 2u));
         if (res == 0) {
+            /* Success! Reset attempts */
+            ctx->security_attempts = 0u;
             ctx->security_level = (uint8_t) (sub / 2u);
 
             /* NVM Persistence: Save State */
@@ -42,11 +61,23 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
             }
 
             ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_SECURITY_ACCESS + UDS_RESPONSE_OFFSET);
-            ctx->config->tx_buffer[1] = data[1];
+            ctx->config->tx_buffer[1] = sub_raw;
             return uds_send_response(ctx, 2u);
         }
         else {
-            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, (uint8_t) - (int32_t) res);
+            /* C-15: Attempt Management */
+            ctx->security_attempts++;
+            uint8_t max_att = ctx->config->security_max_attempts ? ctx->config->security_max_attempts : 3u;
+            
+            if (ctx->security_attempts >= max_att) {
+                uint32_t delay = ctx->config->security_delay_ms ? ctx->config->security_delay_ms : 10000u;
+                ctx->security_delay_end = now + delay;
+                return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_EXCEEDED_ATTEMPTS);
+            }
+            
+            /* Return NRC provided by key handler, or 0x35 (InvalidKey) */
+            uint8_t nrc = (res < 0) ? (uint8_t) - (int32_t) res : UDS_NRC_INVALID_KEY;
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, nrc);
         }
     }
 }

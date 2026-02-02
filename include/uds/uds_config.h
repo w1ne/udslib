@@ -85,6 +85,8 @@ typedef struct
 {
     uint16_t id;            /**< Data Identifier (e.g., 0xF190) */
     uint16_t size;          /**< Expected data size in bytes */
+    uint8_t session_mask;   /**< Allowed sessions bitmask (0=All) */
+    uint16_t security_mask; /**< Required security level (0=None) */
     uds_did_read_fn read;   /**< Optional: Dynamic read callback */
     uds_did_write_fn write; /**< Optional: Dynamic write callback */
     void *storage;          /**< Optional: Direct data storage pointer */
@@ -204,6 +206,15 @@ typedef struct
      * Logs below this level will be suppressed before the callback is called.
      */
     uint8_t log_level;
+
+    /* --- Security Hardening (C-14, C-15) --- */
+    /** Time delay after failed security attempts (ms). Default: 10000ms */
+    uint32_t security_delay_ms;
+    /** Max failed attempts before triggering delay. Default: 3 */
+    uint8_t security_max_attempts;
+
+    /** ISO 14229-1: Max allowed NRC 0x78 (ResponsePending) repetitions. 0=Infinite (C-07) */
+    uint16_t rcrrp_limit;
 
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
@@ -409,6 +420,15 @@ typedef struct uds_ctx
 
     /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
     uint8_t flash_sequence;
+
+    /* --- Security State (C-14, C-15) --- */
+    /** Timestamp when security delay expires */
+    uint32_t security_delay_end;
+    /** Counter for failed security attempts */
+    uint8_t security_attempts;
+
+    /** ISO 14229-1: Counter for NRC 0x78 repetitions (C-07) */
+    uint16_t rcrrp_count;
 } uds_ctx_t;
 
 #ifdef __cplusplus

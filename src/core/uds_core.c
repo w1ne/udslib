@@ -245,6 +245,18 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     ctx->comm_state = 0x00u;                      /* Enable Rx/Tx */
     ctx->suppress_pos_resp = false;
 
+    /* Security Hardening (C-14, C-15) */
+    ctx->security_attempts = 0u;
+    ctx->security_delay_end = 0u;
+    if (ctx->config->security_delay_ms == 0u) {
+        ((uds_config_t *) ctx->config)->security_delay_ms = 10000u; /* 10 seconds */
+    }
+    if (ctx->config->security_max_attempts == 0u) {
+        ((uds_config_t *) ctx->config)->security_max_attempts = 3u;
+    }
+
+    ctx->rcrrp_count = 0u;
+
     /* Enforce Timing Safety (ISO 14229-1 requires reasonable timeouts) */
     ctx->p2_ms = (config->p2_ms > 0u) ? config->p2_ms : 50u;
     ctx->p2_star_ms = (config->p2_star_ms > 0u) ? config->p2_star_ms : 5000u;
@@ -303,8 +315,16 @@ void uds_process(uds_ctx_t *ctx)
         uint32_t limit = ctx->p2_star_active ? ctx->p2_star_ms : ctx->p2_ms;
 
         if (elapsed >= limit) {
+            /* C-07: RCRRP Limit Check */
+            if (ctx->config->rcrrp_limit > 0u && ctx->rcrrp_count >= ctx->config->rcrrp_limit) {
+                uds_send_nrc(ctx, ctx->pending_sid, UDS_NRC_CONDITIONS_NOT_CORRECT);
+                ctx->rcrrp_count = 0u;
+                return;
+            }
+
             /* Send NRC 0x78 (Response Pending) */
             uds_send_nrc(ctx, ctx->pending_sid, UDS_NRC_RESPONSE_PENDING);
+            ctx->rcrrp_count++;
             ctx->p2_star_active = true;
             ctx->p2_timer_start = now; /* Reset timer for P2* */
         }
@@ -410,6 +430,7 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     ctx->p2_timer_start = ctx->config->get_time_ms();
     ctx->p2_msg_pending = false;
     ctx->p2_star_active = false;
+    ctx->rcrrp_count = 0u;
 
     handle_request(ctx, data, len);
 
@@ -432,9 +453,11 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len)
 
     if (ctx->suppress_pos_resp) {
         ctx->suppress_pos_resp = false;
+        ctx->rcrrp_count = 0u;
         return UDS_OK;
     }
 
+    ctx->rcrrp_count = 0u;
     return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
 }
 

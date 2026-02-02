@@ -79,9 +79,9 @@ static void test_did_overflow(void **state) {
     
     /* Setup 3 DIDs of 100 bytes each. Tx buffer is 256. 3*100 + 3*2 (IDs) + 1 (SID) = 307 > 256 */
     static const uds_did_entry_t dids[] = {
-        {0x1234, 100, mock_did_large_read, NULL, NULL},
-        {0x5678, 100, mock_did_large_read, NULL, NULL},
-        {0x9ABC, 100, mock_did_large_read, NULL, NULL},
+        {0x1234, 100, UDS_SESSION_ALL, 0, mock_did_large_read, NULL, NULL},
+        {0x5678, 100, UDS_SESSION_ALL, 0, mock_did_large_read, NULL, NULL},
+        {0x9ABC, 100, UDS_SESSION_ALL, 0, mock_did_large_read, NULL, NULL},
     };
     static const uds_did_table_t table = {dids, 3};
     cfg.did_table = table;
@@ -105,7 +105,7 @@ static void test_did_specific_nrc(void **state) {
     (void)state;
     
     static const uds_did_entry_t dids[] = {
-        {0x1234, 10, mock_did_error_read, NULL, NULL},
+        {0x1234, 10, UDS_SESSION_ALL, 0, mock_did_error_read, NULL, NULL},
     };
     static const uds_did_table_t table = {dids, 1};
     cfg.did_table = table;

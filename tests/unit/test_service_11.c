@@ -71,11 +71,34 @@ static void test_ecu_reset_invalid_subfunction_nrc(void **state)
     assert_int_equal(g_reset_called, 0);
 }
 
+static void test_ecu_reset_suppress_pos_resp(void **state)
+{
+    (void)state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_reset = mock_reset_cb;
+    g_reset_called = 0;
+
+    /* 0x11 0x81 -> Hard Reset (0x01) + SuppressPosResp (0x80) */
+    uint8_t request[] = {0x11, 0x81};
+
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    /* NO expect_any(mock_tp_send, data) here because it must be suppressed */
+
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    assert_int_equal(g_reset_called, 1);
+    assert_int_equal(g_last_reset_type, 0x01);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_ecu_reset_hard_success),
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
+        cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

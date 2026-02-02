@@ -23,8 +23,8 @@ static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, 
 }
 
 static const uds_did_entry_t g_test_dids[] = {
-    {0xF00D, 4, NULL, NULL, g_storage_did}, /* Storage DID */
-    {0x1234, 2, NULL, mock_did_write_fn, NULL}, /* Callback DID */
+    {0xF00D, 4, UDS_SESSION_ALL, 0, NULL, NULL, g_storage_did}, /* Storage DID */
+    {0x1234, 2, UDS_SESSION_ALL, 0, NULL, mock_did_write_fn, NULL}, /* Callback DID */
 };
 
 static const uds_did_table_t g_test_table = {
@@ -93,13 +93,14 @@ static void test_wdbi_unknown_did(void **state) {
     uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
-/* 4. Test Invalid Length (NRC 0x31 per current implementation) */
+/* 4. Test Invalid Length (NRC 0x13) */
 static void test_wdbi_invalid_length(void **state) {
+    (void)state;
     /* DID F00D expects 4 bytes data. Send 3. Total len = 3(SID+DID) + 3 = 6. Expected 7. */
     uint8_t req[] = {0x2E, 0xF0, 0x0D, 0xAA, 0xBB, 0xCC};
     
-    /* Expect NRC 7F 2E 31 */
-    uint8_t expected[] = {0x7F, 0x2E, 0x31};
+    /* Expect NRC 7F 2E 13 (Incorrect Length) */
+    uint8_t expected[] = {0x7F, 0x2E, 0x13};
     
     expect_memory(mock_tp_send, data, expected, 3);
     expect_value(mock_tp_send, len, 3);
@@ -108,13 +109,14 @@ static void test_wdbi_invalid_length(void **state) {
     uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
-/* 5. Test Write Failure (Callback returns -1) (NRC 0x31) */
+/* 5. Test Write Failure (Callback returns -1) (NRC 0x22) */
 static void test_wdbi_write_fail(void **state) {
+    (void)state;
     /* DID 1234 fails if data[0] == 0xFF */
     uint8_t req[] = {0x2E, 0x12, 0x34, 0xFF, 0x00};
     
-    /* Expect NRC 7F 2E 31 */
-    uint8_t expected[] = {0x7F, 0x2E, 0x31};
+    /* Expect NRC 7F 2E 22 (Conditions Not Correct) */
+    uint8_t expected[] = {0x7F, 0x2E, 0x22};
     
     expect_memory(mock_tp_send, data, expected, 3);
     expect_value(mock_tp_send, len, 3);

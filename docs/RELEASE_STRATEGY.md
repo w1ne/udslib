@@ -31,6 +31,7 @@ Pushes to `develop` or `main` trigger the CI pipeline.
 1. **Quality Gate**:
    - Linting (`clang-format`).
    - Static Analysis (`cppcheck`).
+   - MISRA-C Audit (`scripts/check_misra.sh`).
 2. **Build**:
    - POSIX (GCC/Clang).
    - Zephyr (`native_sim`).

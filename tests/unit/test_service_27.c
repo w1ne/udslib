@@ -25,8 +25,11 @@ static void test_security_access_seed(void **state)
 
     uint8_t request[] = {0x27, 0x01};
 
+    /* 3 calls to get_time_ms: 2 in uds_input_sdu, 1 in handler */
     will_return(mock_get_time, 1000); 
     will_return(mock_get_time, 1000); 
+    will_return(mock_get_time, 1000); 
+
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 6); /* 0x67 01 + Seed(4) */
     will_return(mock_tp_send, 0);
@@ -48,6 +51,8 @@ static void test_security_access_key_success(void **state)
 
     will_return(mock_get_time, 2000); 
     will_return(mock_get_time, 2000); 
+    will_return(mock_get_time, 2000); 
+
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 2); /* 0x67 02 */
     will_return(mock_tp_send, 0);
@@ -59,11 +64,55 @@ static void test_security_access_key_success(void **state)
     assert_int_equal(g_tx_buf[1], 0x02);
 }
 
+static void test_security_access_delay_timer(void **state)
+{
+    (void)state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_key = mock_security_key;
+    cfg.security_max_attempts = 1;
+    cfg.security_delay_ms = 1000;
+
+    uint8_t request_fail[] = {0x27, 0x02, 0x00, 0x00, 0x00, 0x00};
+    uint8_t request_ok[] = {0x27, 0x02, 0xDF, 0xAE, 0xBF, 0xF0};
+
+    /* 1. Fail first attempt */
+    will_return(mock_get_time, 1000); 
+    will_return(mock_get_time, 1000); 
+    will_return(mock_get_time, 1000); 
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 27 36 (Exceeded attempts) */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, request_fail, sizeof(request_fail));
+    assert_int_equal(g_tx_buf[2], 0x36);
+    assert_int_equal(ctx.security_delay_end, 2000);
+
+    /* 2. Try again before delay expires */
+    will_return(mock_get_time, 1500); 
+    will_return(mock_get_time, 1500); 
+    will_return(mock_get_time, 1500); 
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 27 37 (Required delay) */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, request_ok, sizeof(request_ok));
+    assert_int_equal(g_tx_buf[2], 0x37);
+
+    /* 3. Try again after delay expires */
+    will_return(mock_get_time, 2500); 
+    will_return(mock_get_time, 2500); 
+    will_return(mock_get_time, 2500); 
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2); /* 0x67 02 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, request_ok, sizeof(request_ok));
+    assert_int_equal(g_tx_buf[0], 0x67);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_security_access_seed),
         cmocka_unit_test(test_security_access_key_success),
+        cmocka_unit_test(test_security_access_delay_timer),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

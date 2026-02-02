@@ -87,29 +87,29 @@
   - 0x72: General Programming Failure
   - 0x92-0x99: Voltage/temperature condition NRCs
 
-- [ ] **Security Enhancements**: Improve 0x27 robustness.
+- [x] **Security Enhancements**: Improve 0x27 robustness.
   - Multiple security levels (0x01-0x7F) support
   - Attempt counter and lockout mechanism
   - Delay timer after failed attempts
 
-- [ ] **Protocol Hardening (Compliance Fixes)**:
-  - **C-01/C-02**: Fix Session 0x10 state machine (invalid sessions, Programming session)
-  - **C-03**: Fix 0x11 Reset to support SuppressBit
-  - **C-04/C-05**: Fix Core Dispatcher (Security vs Length priority, missing NRCs)
-  - **C-06**: Fix Security Reset on session transition
-  - **C-07**: Implement RCRRP limit for NRC 0x78
-  - **C-08/C-09**: Fix Memory Services (0x34 len, 0x23/0x3D ALFID check)
-  - **C-10**: Fix 0x19 API (add DTCStatusMask support)
-  - **C-11**: Fix 0x28 Min Length (reject len < 3)
-  - **C-12**: Fix 0x22 Buffer Overflow (add bounds check)
-  - **C-13**: Fix 0x36 Sequence Check (verify rollover)
-  - **C-14**: Fix 0x27 Delay Timer (implement lockout)
-  - **C-15**: Implement Addressing Mode checks (Functional vs Physical)
-  - **C-16**: Fix 0x85 Group Filtering (parse optional data)
-  - **C-17**: Fix Async Race Condition (busy handling)
-  - **C-18**: Implement usage Granularity for DIDs (Security/Session per DID)
-  - **C-19**: Fix 0x10 Timing Response (use config values)
-  - **C-20**: Fix 0x3D Response Echo (echo Addr/Size)
+- [x] **Protocol Hardening (Compliance Fixes)**:
+  - [x] **C-01/C-02**: Fix Session 0x10 state machine (invalid sessions, Programming session)
+  - [x] **C-03**: Fix 0x11 Reset to support SuppressBit
+  - [x] **C-04/C-05**: Fix Core Dispatcher (Security vs Length priority, missing NRCs)
+  - [x] **C-06**: Fix Security Reset on session transition
+  - [x] **C-07**: Implement RCRRP limit for NRC 0x78
+  - [x] **C-08/C-09**: Fix Memory Services (0x34 len, 0x23/0x3D ALFID check)
+  - [x] **C-10**: Fix 0x19 API (add DTCStatusMask support)
+  - [x] **C-11**: Fix 0x28 Min Length (reject len < 3)
+  - [x] **C-12**: Fix 0x22 Buffer Overflow (add bounds check)
+  - [x] **C-13**: Fix 0x36 Sequence Check (verify rollover)
+  - [x] **C-14**: Fix 0x27 Delay Timer (implement lockout)
+  - [x] **C-15**: Implement Addressing Mode checks (Functional vs Physical)
+  - [x] **C-16**: Fix 0x85 Group Filtering (parse optional data)
+  - [x] **C-17**: Fix Async Race Condition (busy handling)
+  - [x] **C-18**: Implement usage Granularity for DIDs (Security/Session per DID)
+  - [x] **C-19**: Fix 0x10 Timing Response (use config values)
+  - [x] **C-20**: Fix 0x3D Response Echo (echo Addr/Size)
 
 ## Phase 11: Medium-Priority Service Expansion
 **Target**: Achieve 90%+ service coverage with advanced diagnostic capabilities.

@@ -20,6 +20,7 @@ static uint8_t g_network_buf[4096];
 static uint16_t g_network_len = 0;
 
 static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+    (void)ctx;
     if (len > sizeof(g_network_buf)) return -1;
     memcpy(g_network_buf, data, len);
     g_network_len = len;
@@ -31,6 +32,7 @@ static uint32_t mock_get_time(void) { return g_time_ms; }
 
 /* Mock Helpers */
 static int mock_did_write(struct uds_ctx *ctx, uint16_t did, const uint8_t *data, uint16_t len) {
+    (void)ctx; (void)did; (void)data; (void)len;
     return 0; /* Success */
 }
 
@@ -41,18 +43,19 @@ static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_
 }
 
 static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len) {
-    (void)ctx; (void)level; (void)seed; (void)key_len;
+    (void)ctx; (void)level; (void)seed; (void)key; (void)key_len;
     return 0; /* Just return success for integration test simplicity */
 }
 
 static const uds_did_entry_t g_dids[] = {
-    {0xF190, 17, NULL, NULL, (void*)"VIN12345678901234"}, /* VIN */
-    {0x0100, 4, NULL, mock_did_write, NULL},
+    {0xF190, 17, UDS_SESSION_ALL, 0, NULL, NULL, (void*)"VIN12345678901234"}, /* VIN */
+    {0x0100, 4, UDS_SESSION_ALL, 0, NULL, mock_did_write, NULL},
 };
 
 static const uds_did_table_t g_did_table = { g_dids, 2 };
 
 static int setup(void **state) {
+    (void)state;
     memset(&g_ctx, 0, sizeof(g_ctx));
     memset(&g_cfg, 0, sizeof(g_cfg));
     
@@ -71,6 +74,7 @@ static int setup(void **state) {
 }
 
 static int teardown(void **state) {
+    (void)state;
     return 0;
 }
 
@@ -89,6 +93,7 @@ static void verify_response(const uint8_t *expected, uint16_t len) {
 
 /* Full Lifecycle Test */
 static void test_full_lifecycle(void **state) {
+    (void)state;
     /* 1. Default Session Check */
     /* Read VIN (F190) */
     uint8_t req_vin[] = {0x22, 0xF1, 0x90};

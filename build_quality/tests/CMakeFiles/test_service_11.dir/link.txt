@@ -1,1 +1,0 @@
-/usr/bin/cc  -Wall -Wextra -g CMakeFiles/test_service_11.dir/unit/test_service_11.c.o CMakeFiles/test_service_11.dir/unit/test_helpers.c.o -o test_service_11  ../libuds.a -lcmocka 
