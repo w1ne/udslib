@@ -78,21 +78,34 @@ jobs:
         with:
           python-version: '3.10'
           
+      - name: Cache Zephyr Workspace
+        id: cache-zephyr
+        uses: actions/cache@v4
+        with:
+          path: zephyr-workspace
+          key: ${{ runner.os }}-zephyr-4.3.99-${{ hashFiles('scripts/requirements.txt') }}
+
       - name: Install West and Dependencies
         run: |
-          python3 -m pip install --user -U west
+          python3 -m pip install --user -U west jsonschema
           python3 -m venv .venv
           source .venv/bin/activate
           pip install -r scripts/requirements.txt
           
       - name: Initialize Zephyr
+        if: steps.cache-zephyr.outputs.cache-hit != 'true'
         run: |
           source .venv/bin/activate
-          west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
+          west init -m https://github.com/zephyrproject-rtos/zephyr --mr main --depth 1 zephyr-workspace
           cd zephyr-workspace
-          west update
+          west update --narrow --depth 1
           west zephyr-export
           
+      - name: Install Zephyr Python Dependencies
+        run: |
+          source .venv/bin/activate
+          pip install -r zephyr-workspace/zephyr/scripts/requirements.txt
+
       - name: Build Zephyr Example
         run: |
           source .venv/bin/activate
