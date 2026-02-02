@@ -64,7 +64,7 @@ static void test_service_not_supported(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
 /* 2. Test NRC 0x13 (IncorrectMessageLength) */
@@ -79,7 +79,7 @@ static void test_invalid_length(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
 /* 3. Test NRC 0x7F (ServiceNotSupportedInActiveSession) */
@@ -98,7 +98,7 @@ static void test_session_violation(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
 /* 4. Test NRC 0x33 (SecurityAccessDenied) */
@@ -115,7 +115,7 @@ static void test_security_violation(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
 int main(void) {

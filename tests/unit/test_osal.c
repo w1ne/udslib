@@ -61,7 +61,7 @@ static void test_osal_locking(void **state) {
     
     /* 1. Input SDU should lock and unlock */
     uint8_t req[] = {0x3E, 0x00};
-    uds_input_sdu(uds_input_sdu(&ctx, req, 2)ctx, req, 2, 0);
+    uds_input_sdu(&ctx, req, 2);
     
     assert_int_equal(g_lock_count, 1);
     assert_int_equal(g_mutex_val, 0); /* Should be back to 0 */

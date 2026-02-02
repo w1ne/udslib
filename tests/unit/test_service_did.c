@@ -63,7 +63,7 @@ static void test_rdbi_single_did_success(void **state)
     expect_value(mock_tp_send, len, 11); /* 0x62 + F1 90 + 8 bytes */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
+    uds_input_sdu(&ctx, request, sizeof(request));
 
     assert_int_equal(g_tx_buf[0], 0x62);
     assert_int_equal(g_tx_buf[1], 0xF1);
@@ -87,7 +87,7 @@ static void test_rdbi_callback_success(void **state)
     expect_value(mock_tp_send, len, 4);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
+    uds_input_sdu(&ctx, request, sizeof(request));
 
     assert_int_equal(g_tx_buf[0], 0x62);
     assert_int_equal(g_tx_buf[3], 0xAA);
@@ -110,7 +110,7 @@ static void test_wdbi_callback_success(void **state)
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
+    uds_input_sdu(&ctx, request, sizeof(request));
 
     assert_int_equal(g_tx_buf[0], 0x6E);
     assert_string_equal(g_str, "NEW");
@@ -132,7 +132,7 @@ static void test_rdbi_invalid_did_nrc(void **state)
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
+    uds_input_sdu(&ctx, request, sizeof(request));
 
     assert_int_equal(g_tx_buf[0], 0x7F);
     assert_int_equal(g_tx_buf[1], 0x22);

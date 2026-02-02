@@ -82,7 +82,7 @@ static void test_read_memory_success(void **state) {
     expect_value(mock_can_send, len, 3);
     expect_memory(mock_can_send, data, resp, 3);
 
-    uds_input_sdu(uds_input_sdu(&ctx, req, 5)ctx, req, 5, 0);
+    uds_input_sdu(&ctx, req, 5);
 }
 
 static void test_read_memory_out_of_range(void **state) {
@@ -95,7 +95,7 @@ static void test_read_memory_out_of_range(void **state) {
     expect_value(mock_can_send, len, 3);
     expect_memory(mock_can_send, data, resp, 3);
     
-    uds_input_sdu(uds_input_sdu(&ctx, req, 5)ctx, req, 5, 0);
+    uds_input_sdu(&ctx, req, 5);
 }
 
 static void test_write_memory_success(void **state) {
@@ -109,7 +109,7 @@ static void test_write_memory_success(void **state) {
     expect_value(mock_can_send, len, 5);
     expect_memory(mock_can_send, data, resp, 5);
 
-    uds_input_sdu(uds_input_sdu(&ctx, req, 7)ctx, req, 7, 0);
+    uds_input_sdu(&ctx, req, 7);
 
     assert_int_equal(g_memory[0x200], 0xCC);
     assert_int_equal(g_memory[0x201], 0xDD);
@@ -125,7 +125,7 @@ static void test_write_memory_bad_length(void **state) {
     expect_value(mock_can_send, len, 3);
     expect_memory(mock_can_send, data, resp, 3);
 
-    uds_input_sdu(uds_input_sdu(&ctx, req, 6)ctx, req, 6, 0);
+    uds_input_sdu(&ctx, req, 6);
 }
 
 int main(void) {

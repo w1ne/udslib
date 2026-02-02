@@ -18,8 +18,7 @@ int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len) {
 }
 
 /* Mock Input SDU (callback for received data) */
-void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_net_addr_t addr_type) {
-
+void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
     check_expected_ptr(data);
     check_expected(len);
 }

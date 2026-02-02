@@ -27,7 +27,7 @@ static void test_tester_present_zero_sub(void **state)
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
+    uds_input_sdu(&ctx, request, sizeof(request));
 
     assert_int_equal(g_tx_buf[0], 0x7E);
     assert_int_equal(g_tx_buf[1], 0x00);
@@ -46,7 +46,7 @@ static void test_tester_present_suppress_bit(void **state)
     will_return(mock_get_time, 1000); /* Dispatch */
     /* No expected tp_send! */
 
-    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
+    uds_input_sdu(&ctx, request, sizeof(request));
 }
 
 int main(void)

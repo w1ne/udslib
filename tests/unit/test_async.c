@@ -72,7 +72,7 @@ static void test_async_workflow(void **state) {
     expect_memory(mock_tp_send, data, exp_nrc78, 3);
     expect_value(mock_tp_send, len, 3);
 
-    uds_input_sdu(uds_input_sdu(&ctx, req, sizeof(req)ctx, req, sizeof(req, 0));
+    uds_input_sdu(&ctx, req, sizeof(req));
 
     /* Check State: response_pending should be tracked internally (p2_msg_pending) */
     /* Assert internal state if possible, but struct is opaque/internal. 

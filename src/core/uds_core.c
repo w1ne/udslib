@@ -19,25 +19,23 @@ static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
 
 static const uds_service_entry_t core_services[] = {
-static const uds_service_entry_t core_services[] = {
-    {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_session_control, mask_sub_10},
-    {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_ecu_reset, mask_sub_11},
-    {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_clear_dtc, NULL},
-    {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_read_dtc_info, mask_sub_19},
-    {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_read_data_by_id, NULL},
-    {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_read_memory_by_addr, NULL},
-    {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_security_access, mask_sub_27},
-    {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_comm_control, mask_sub_28},
-    {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_authentication, NULL},
-    {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_write_data_by_id, NULL},
-    {UDS_SID_ROUTINE_CONTROL, 4u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_routine_control, mask_sub_31},
-    {UDS_SID_REQUEST_DOWNLOAD, 4u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_request_download, NULL},
-    {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_transfer_data, NULL},
-    {UDS_SID_TRANSFER_EXIT, 1u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_request_transfer_exit, NULL},
-    {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_write_memory_by_addr, NULL},
-    {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_tester_present, mask_sub_3E},
-    {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, UDS_ADDR_ALL_REQ, uds_internal_handle_control_dtc_setting, mask_sub_85},
-};
+    {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control, mask_sub_10},
+    {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_ecu_reset, mask_sub_11},
+    {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_clear_dtc, NULL},
+    {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_dtc_info, mask_sub_19},
+    {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_data_by_id, NULL},
+    {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_memory_by_addr, NULL},
+    {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_security_access, mask_sub_27},
+    {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28},
+    {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_authentication, NULL},
+    {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_data_by_id, NULL},
+    {UDS_SID_ROUTINE_CONTROL, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_routine_control, mask_sub_31},
+    {UDS_SID_REQUEST_DOWNLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_download, NULL},
+    {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_transfer_data, NULL},
+    {UDS_SID_TRANSFER_EXIT, 1u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_transfer_exit, NULL},
+    {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_memory_by_addr, NULL},
+    {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_tester_present, mask_sub_3E},
+    {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_control_dtc_setting, mask_sub_85},
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))
@@ -155,32 +153,19 @@ static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service,
     return res;
 }
 
-static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_net_addr_t addr_type) {
+static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len) {
     uint8_t sid = data[0];
     const uds_service_entry_t *service = find_service(ctx, sid);
 
     if (!service) {
-        if (addr_type == UDS_NET_ADDR_PHYSICAL) {
-            uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPPORTED); /* Service Not Supported */
-        }
+        uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPPORTED); /* Service Not Supported */
         return;
     }
 
     /* ISO 14229-1 Priority: Session -> Subfunction -> Length -> Security -> Safety */
 
     if (!is_session_supported(ctx, service)) {
-        if (addr_type == UDS_NET_ADDR_PHYSICAL) {
-            uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPP_IN_SESS); /* Service Not Supported In Active Session */
-        }
-        return;
-    }
-
-    /* Check Addressing Mode */
-    uint8_t addr_bit = (addr_type == UDS_NET_ADDR_PHYSICAL) ? UDS_ADDR_PHYSICAL_REQ : UDS_ADDR_FUNCTIONAL_REQ;
-    if (!(service->addressing_mask & addr_bit)) {
-        if (addr_type == UDS_NET_ADDR_PHYSICAL) {
-            uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPPORTED); /* Service Not Supported on this address */
-        }
+        uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPP_IN_SESS); /* Service Not Supported In Active Session */
         return;
     }
 
@@ -343,7 +328,7 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
     return result;
 }
 
-void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_net_addr_t addr_type)
+void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (ctx->config->fn_mutex_lock != NULL) {
         ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
@@ -389,9 +374,8 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_net_ad
     ctx->p2_timer_start = ctx->config->get_time_ms();
     ctx->p2_msg_pending = false;
     ctx->p2_star_active = false;
-    ctx->p2_star_count = 0;
 
-    handle_request(ctx, data, len, addr_type);
+    handle_request(ctx, data, len);
 
     if (ctx->config->fn_mutex_unlock != NULL) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
@@ -432,19 +416,6 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
        Others only clear if they refer to the actual pending SID. */
     if (nrc != UDS_NRC_RESPONSE_PENDING && sid == ctx->pending_sid) {
         ctx->p2_msg_pending = false;
-    } else {
-        /* C-07: RCRRP Limit Check (Default 20) */
-        if (++ctx->p2_star_count > 20) {
-            ctx->p2_msg_pending = false; 
-            /* Abort this operation. Return error? 
-               We should send GeneralReject (0x10) or specific error instead of 0x78?
-               Actually we can't send NRC now because we are inside send_nrc.
-               We just return error and let the stack crash/reset?
-               Better: Send NRC 0x10 (General Reject) to indicate failure?
-            */
-            uds_internal_log(ctx, UDS_LOG_ERROR, "RCRRP Limit Exceeded");
-            return UDS_ERR_INVALID_ARG;
-        }
     }
 
     /* NRCs are NEVER suppressed by bit 7 */

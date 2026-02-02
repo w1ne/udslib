@@ -43,11 +43,12 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
         return uds_send_nrc(ctx, UDS_SID_REQUEST_DOWNLOAD, UDS_NRC_INCORRECT_LENGTH);
     }
 
+    /* uint8_t data_format = data[1]; */
     uint8_t addr_len_format = data[2];
     uint32_t addr, size;
 
     if (!uds_internal_parse_addr_len(&data[3], (uint16_t)(len - 3u), addr_len_format, &addr, &size)) {
-        return uds_send_nrc(ctx, UDS_SID_REQUEST_DOWNLOAD, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_DOWNLOAD, UDS_NRC_INCORRECT_LENGTH);
     }
 
     if (ctx->config->fn_request_download == NULL) {
@@ -63,13 +64,12 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
     ctx->flash_sequence = 0u;
 
     ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_REQUEST_DOWNLOAD + UDS_RESPONSE_OFFSET);
-    ctx->config->tx_buffer[1] = 0x20u; /* Length format identifier (2 bytes for maxNumberOfBlockLength) */
-    
-    /* Max Block Length is our RX buffer size */
-    ctx->config->tx_buffer[2] = (uint8_t)((ctx->config->rx_buffer_size >> 8u) & 0xFFu);
-    ctx->config->tx_buffer[3] = (uint8_t)(ctx->config->rx_buffer_size & 0xFFu);
-    
-    return uds_send_response(ctx, 4u);
+    ctx->config->tx_buffer[1] = 0x20u; /* Length format identifier (4 bytes for maxNumberOfBlockLength) */
+    ctx->config->tx_buffer[2] = 0x00u; /* Placeholder max block length */
+    ctx->config->tx_buffer[3] = 0x00u;
+    ctx->config->tx_buffer[4] = 0x04u;
+    ctx->config->tx_buffer[5] = 0x00u;
+    return uds_send_response(ctx, 6u);
 }
 
 int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
@@ -108,7 +108,6 @@ int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     ctx->config->tx_buffer[1] = sequence;
     return uds_send_response(ctx, 2u);
 }
-
 
 int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {

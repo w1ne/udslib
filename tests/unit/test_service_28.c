@@ -62,7 +62,7 @@ static void test_comm_control_accept(void **state) {
     expect_memory(mock_tp_send, data, resp, 2);
     expect_value(mock_tp_send, len, 2);
 
-    uds_input_sdu(uds_input_sdu(&ctx, req, sizeof(req)ctx, req, sizeof(req, 0));
+    uds_input_sdu(&ctx, req, sizeof(req));
 }
 
 static void test_comm_control_reject(void **state) {
@@ -82,7 +82,7 @@ static void test_comm_control_reject(void **state) {
     expect_memory(mock_tp_send, data, resp, 3);
     expect_value(mock_tp_send, len, 3);
 
-    uds_input_sdu(uds_input_sdu(&ctx, req, sizeof(req)ctx, req, sizeof(req, 0));
+    uds_input_sdu(&ctx, req, sizeof(req));
 }
 
 int main(void) {

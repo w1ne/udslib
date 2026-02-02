@@ -67,7 +67,7 @@ static void test_safety_check_fails(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
 /* 2. Test Safe Condition (Success) */
@@ -118,7 +118,7 @@ static void test_pass(void **state) {
     expect_value(mock_tp_send, len, 1);
     will_return(mock_tp_send, 0);
     
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
 int main(void) {

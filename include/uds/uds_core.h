@@ -102,12 +102,11 @@ void uds_process(uds_ctx_t *ctx);
  * Feeds a fully assembled UDS message into the stack. This is the entry point
  * for incoming CAN/ISO-TP messages.
  *
- * @param ctx       Pointer to the initialized context.
- * @param data      Pointer to the buffer containing the SDU.
- * @param len       Length of the data in bytes.
- * @param addr_type Address type (Physical or Functional).
+ * @param ctx  Pointer to the initialized context.
+ * @param data Pointer to the buffer containing the SDU.
+ * @param len  Length of the data in bytes.
  */
-void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_net_addr_t addr_type);
+void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /**
  * @brief Send a UDS Request as a Client.

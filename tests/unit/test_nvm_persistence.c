@@ -92,7 +92,7 @@ static void test_nvm_save_on_session(void **state) {
     expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
     
-    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
+    uds_input_sdu(&g_ctx, req, sizeof(req));
     
     /* Verify NVM updated */
     assert_int_equal(g_nvm_storage[0], 0x03);
@@ -110,7 +110,7 @@ static void test_nvm_save_on_security(void **state) {
     expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
     
-    uds_input_sdu(uds_input_sdu(&g_ctx, req_seed, sizeof(req_seed)g_ctx, req_seed, sizeof(req_seed, 0));
+    uds_input_sdu(&g_ctx, req_seed, sizeof(req_seed));
     
     /* Step 2: Send Key (0x27 0x02 + Key) */
     /* Key is DF AE BF F0 */
@@ -121,7 +121,7 @@ static void test_nvm_save_on_security(void **state) {
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
     
-    uds_input_sdu(uds_input_sdu(&g_ctx, req_key, sizeof(req_key)g_ctx, req_key, sizeof(req_key, 0));
+    uds_input_sdu(&g_ctx, req_key, sizeof(req_key));
     
     /* Verify NVM updated (Security Unlocked = 1) */
     assert_int_equal(g_nvm_storage[1], 0x01);
