@@ -31,7 +31,8 @@ extern "C" {
 /**
  * @brief ISO-TP Internal State Machine.
  */
-typedef enum {
+typedef enum
+{
     ISOTP_IDLE = 0,
 
     /* --- Reception States --- */
@@ -45,10 +46,11 @@ typedef enum {
 /**
  * @brief CAN Frame Structure (Platform Agnostic).
  */
-typedef struct {
-    uint32_t id;      /**< CAN Identifier (Standard or Extended) */
-    uint8_t len;      /**< Data Length Code (DLC) */
-    uint8_t data[8];  /**< Payload data (8 bytes max for Classical CAN) */
+typedef struct
+{
+    uint32_t id;     /**< CAN Identifier (Standard or Extended) */
+    uint8_t len;     /**< Data Length Code (DLC) */
+    uint8_t data[8]; /**< Payload data (8 bytes max for Classical CAN) */
 } uds_can_frame_t;
 
 /**
@@ -64,7 +66,8 @@ typedef int (*uds_can_send_fn)(uint32_t id, const uint8_t *data, uint8_t len);
 /**
  * @brief ISO-TP Runtime Context.
  */
-typedef struct {
+typedef struct
+{
     uds_can_send_fn can_send; /**< Output function for CAN frames */
 
     /* --- Configuration --- */
@@ -74,11 +77,11 @@ typedef struct {
     uint8_t st_min;     /**< STmin: Minimum separation time between frames */
 
     /* --- State --- */
-    uds_isotp_state_t state;    /**< Current state machine position */
-    uint16_t msg_len;           /**< Total length of current message SDU */
-    uint16_t bytes_processed;  /**< Number of SDU bytes handled so far */
-    uint8_t sn;                 /**< Current Sequence Number (0-15) */
-    uint8_t bs_counter;         /**< Counter tracking blocks sent/received */
+    uds_isotp_state_t state;  /**< Current state machine position */
+    uint16_t msg_len;         /**< Total length of current message SDU */
+    uint16_t bytes_processed; /**< Number of SDU bytes handled so far */
+    uint8_t sn;               /**< Current Sequence Number (0-15) */
+    uint8_t bs_counter;       /**< Counter tracking blocks sent/received */
 
     /* --- Timers --- */
     uint32_t timer_n_cr; /**< Timeout N_Cr (Reception) */

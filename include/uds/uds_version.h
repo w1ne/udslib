@@ -23,7 +23,8 @@ extern "C" {
 #define UDS_VERSION_STR "1.8.0"
 
 /** Version as a single integer for comparison (MMmmpp format) */
-#define UDS_VERSION_INT ((UDS_VERSION_MAJOR * 10000) + (UDS_VERSION_MINOR * 100) + UDS_VERSION_PATCH)
+#define UDS_VERSION_INT \
+    ((UDS_VERSION_MAJOR * 10000) + (UDS_VERSION_MINOR * 100) + UDS_VERSION_PATCH)
 
 #ifdef __cplusplus
 }

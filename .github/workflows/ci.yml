@@ -21,7 +21,7 @@ jobs:
             -v $GITHUB_WORKSPACE:/app \
             -u $(id -u):$(id -g) \
             libuds-test-env \
-            bash -c "cppcheck --enable=all --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+            bash -c "cppcheck --enable=all --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
 
   build-posix:
     runs-on: ubuntu-latest
