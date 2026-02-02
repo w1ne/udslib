@@ -32,9 +32,9 @@ Update the version macros in `include/uds/uds_version.h`.
 
 ### 4. Quality Verification
 // turbo
-Run the quality check script to ensure all tests pass and formatting is correct.
+Run the quality check script inside the Docker container to ensure all tests pass and MISRA compliance is verified in a clean environment.
 ```bash
-./scripts/check_quality.sh
+./scripts/docker_run.sh
 ```
 
 ### 5. Finalize Release

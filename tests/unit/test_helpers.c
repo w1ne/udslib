@@ -10,16 +10,16 @@ uint8_t g_rx_buf[1024];
 
 uint32_t mock_get_time(void)
 {
-    return (uint32_t)mock();
+    return (uint32_t) mock();
 }
 
 int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
+    (void) ctx;
     check_expected_ptr(data);
     check_expected(len);
     memcpy(g_tx_buf, data, len);
-    return (int)mock();
+    return (int) mock();
 }
 
 void setup_ctx(uds_ctx_t *ctx, uds_config_t *cfg)

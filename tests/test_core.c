@@ -20,16 +20,16 @@ static uint8_t g_rx_buf[1024];
 
 static uint32_t mock_get_time(void)
 {
-    return (uint32_t)mock();
+    return (uint32_t) mock();
 }
 
 static int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
+    (void) ctx;
     check_expected_ptr(data);
     check_expected(len);
     memcpy(g_tx_buf, data, len);
-    return (int)mock();
+    return (int) mock();
 }
 
 /* --- Test Setup --- */
@@ -51,7 +51,7 @@ static void setup_ctx(uds_ctx_t *ctx, uds_config_t *cfg)
 
 static void test_uds_init_success(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uint8_t tx_buf[1024];
     uds_config_t cfg = {.get_time_ms = mock_get_time,
@@ -65,7 +65,7 @@ static void test_uds_init_success(void **state)
 
 static void test_uds_init_fail(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     assert_int_equal(uds_init(NULL, NULL), UDS_ERR_INVALID_ARG);
     assert_int_equal(uds_init(&ctx, NULL), UDS_ERR_INVALID_ARG);
@@ -73,7 +73,7 @@ static void test_uds_init_fail(void **state)
 
 static void test_invalid_sid_nrc(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -96,18 +96,18 @@ static void test_invalid_sid_nrc(void **state)
 
 static int custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    (void)data;
-    (void)len;
+    (void) data;
+    (void) len;
     ctx->config->tx_buffer[0] = 0xAA;
     return uds_send_response(ctx, 1);
 }
 
 static void test_custom_service_registration(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uint8_t tx_buf[10];
-    uds_service_entry_t user_services[] = {{0x66, 1, UDS_SESSION_ALL, 0, custom_handler}};
+    uds_service_entry_t user_services[] = {{0x66, 1, UDS_SESSION_ALL, 0, custom_handler, NULL}};
     uds_config_t cfg = {.get_time_ms = mock_get_time,
                         .fn_tp_send = mock_tp_send,
                         .rx_buffer = g_rx_buf,
@@ -133,21 +133,21 @@ static void test_custom_service_registration(void **state)
 
 static bool mock_safety_check(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
-    (void)data;
-    (void)len;
+    (void) ctx;
+    (void) data;
+    (void) len;
     return (sid != 0x11); /* Block ECU Reset (0x11) for safety */
 }
 
 static void test_safety_gate_rejection(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
     cfg.fn_is_safe = mock_safety_check;
 
-    uint8_t req[] = {0x11, 0x01}; /* ECU Reset Request */
+    uint8_t req[] = {0x11, 0x01};     /* ECU Reset Request */
     will_return(mock_get_time, 1000); /* input_sdu */
     will_return(mock_get_time, 1000); /* dispatcher */
     expect_any(mock_tp_send, data);

@@ -38,6 +38,7 @@ add_uds_test(test_nvm_persistence unit/test_nvm_persistence.c)
 add_uds_test(test_compliance_suppress unit/test_compliance_suppress.c)
 add_uds_test(test_service_10_prog unit/test_service_10_prog.c)
 add_uds_test(test_service_34_flex unit/test_service_34_flex.c)
+add_uds_test(test_rcrrp_limit unit/test_rcrrp_limit.c)
 add_uds_test(test_compliance_pass2 unit/test_compliance_pass2.c)
 
 # Manual definition for pass3 to allow custom mocks (avoiding test_helpers.c link)

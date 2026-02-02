@@ -21,8 +21,7 @@ ctest --output-on-failure --output-junit test-results.xml
 
 echo "=== Generating LCOV Reports ==="
 lcov --capture --directory . --output-file coverage.info \
-     --base-directory "$PROJECT_ROOT" \
-     --no-external
+     --base-directory "$PROJECT_ROOT"
 
 # Filter out test files and helper files from coverage
 lcov --remove coverage.info "$PROJECT_ROOT/tests/*" "$PROJECT_ROOT/examples/*" -o coverage_filtered.info

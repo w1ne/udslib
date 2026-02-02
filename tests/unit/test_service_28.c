@@ -14,21 +14,30 @@ static uint8_t rx_buf[256];
 static uint8_t tx_buf[256];
 
 /* --- Mocks --- */
-static uint32_t mock_get_time(void) { return 0; }
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+static uint32_t mock_get_time(void)
+{
+    return 0;
+}
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
     check_expected(data);
     check_expected(len);
     return 0;
 }
 
 /* --- Callback Mock --- */
-static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type) {
+static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type)
+{
+    (void) ctx;
     check_expected(ctrl_type);
     check_expected(comm_type);
-    return (int)mock();
+    return (int) mock();
 }
 
-static void setup_test(void **state) {
+static void setup_test(void **state)
+{
+    (void) state;
     memset(&cfg, 0, sizeof(cfg));
     cfg.get_time_ms = mock_get_time;
     cfg.fn_tp_send = mock_tp_send;
@@ -37,16 +46,17 @@ static void setup_test(void **state) {
     cfg.rx_buffer_size = sizeof(rx_buf);
     cfg.tx_buffer = tx_buf;
     cfg.tx_buffer_size = sizeof(tx_buf);
-    
+
     /* Missing table */
-    static const uds_did_entry_t dids[] = {{0,0,NULL,NULL,NULL}};
+    static const uds_did_entry_t dids[] = {{0, 0, UDS_SESSION_ALL, 0, NULL, NULL, NULL}};
     cfg.did_table.entries = dids;
     cfg.did_table.count = 0;
 
     uds_init(&ctx, &cfg);
 }
 
-static void test_comm_control_accept(void **state) {
+static void test_comm_control_accept(void **state)
+{
     setup_test(state);
 
     /* 28 01 01 (EnableRxAndDisableTx, Application) */
@@ -65,7 +75,8 @@ static void test_comm_control_accept(void **state) {
     uds_input_sdu(&ctx, req, sizeof(req));
 }
 
-static void test_comm_control_reject(void **state) {
+static void test_comm_control_reject(void **state)
+{
     setup_test(state);
 
     /* 28 03 01 (DisableRxAndTx, Application) */
@@ -85,10 +96,46 @@ static void test_comm_control_reject(void **state) {
     uds_input_sdu(&ctx, req, sizeof(req));
 }
 
-int main(void) {
+static void test_comm_control_invalid_length_nrc(void **state)
+{
+    setup_test(state);
+
+    /* 28 01 (Short request, missing CommType) */
+    uint8_t req[] = {0x28, 0x01};
+
+    /* Expect NRC 7F 28 13 (IncorrectMessageLength) */
+    uint8_t resp[] = {0x7F, 0x28, 0x13};
+    expect_memory(mock_tp_send, data, resp, 3);
+    expect_value(mock_tp_send, len, 3);
+
+    uds_input_sdu(&ctx, req, sizeof(req));
+}
+
+static void test_comm_control_suppress_pos_resp(void **state)
+{
+    setup_test(state);
+
+    /* 28 81 01 (EnableRxAndDisableTx + SuppressBit, Application) */
+    uint8_t req[] = {0x28, 0x81, 0x01};
+
+    expect_value(mock_comm_control, ctrl_type, 0x01);
+    expect_value(mock_comm_control, comm_type, 0x01);
+    will_return(mock_comm_control, UDS_OK);
+
+    /* NO expect_memory(mock_tp_send, ...) because suppressed */
+
+    uds_input_sdu(&ctx, req, sizeof(req));
+
+    assert_int_equal(ctx.comm_state, 0x01);
+}
+
+int main(void)
+{
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_comm_control_accept),
         cmocka_unit_test(test_comm_control_reject),
+        cmocka_unit_test(test_comm_control_invalid_length_nrc),
+        cmocka_unit_test(test_comm_control_suppress_pos_resp),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

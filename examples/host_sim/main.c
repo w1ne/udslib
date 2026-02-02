@@ -64,7 +64,6 @@ static struct sockaddr_in g_client_addr;
 /** Length of the client address */
 static socklen_t g_client_len = sizeof(g_client_addr);
 
-/**
 /* Mock Memory (1KB) */
 static uint8_t mock_memory[1024];
 
@@ -141,8 +140,8 @@ static char g_customer_name[16] = "ECU_OWNER";
  * @brief Example DID table setup.
  */
 static const uds_did_entry_t g_ecu_dids[] = {
-    {0xF190, 14, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
-    {0x0123, 16, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
+    {0xF190, 14, 0, 0, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
+    {0x0123, 16, 0, 0, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
 };
 
 static const uds_did_table_t g_ecu_did_table = {.entries = g_ecu_dids, .count = 2};
@@ -176,6 +175,32 @@ static int mock_dtc_clear(struct uds_ctx *ctx, uint32_t group)
 {
     (void) ctx;
     printf("[APP] DTC CLEAR: Group 0x%06X\n", group);
+    return UDS_OK;
+}
+
+static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf,
+                              uint16_t max_len)
+{
+    (void) ctx;
+    (void) level;
+    if (max_len < 4u) return -0x22; /* ConditionsNotCorrect */
+    printf("[APP] SECURITY SEED (level %u)\n", level);
+    seed_buf[0] = 0xDE;
+    seed_buf[1] = 0xAD;
+    seed_buf[2] = 0xBE;
+    seed_buf[3] = 0xEF;
+    return 4;
+}
+
+static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed,
+                             const uint8_t *key, uint16_t key_len)
+{
+    (void) ctx;
+    (void) level;
+    (void) seed;
+    (void) key;
+    (void) key_len;
+    printf("[APP] SECURITY KEY ACCEPTED (level %u)\n", level);
     return UDS_OK;
 }
 
@@ -269,6 +294,8 @@ int main(int argc, char **argv)
                         .fn_reset = mock_reset,
                         .fn_dtc_read = mock_dtc_read,
                         .fn_dtc_clear = mock_dtc_clear,
+                        .fn_security_seed = mock_security_seed,
+                        .fn_security_key = mock_security_key,
                         .fn_auth = mock_auth,
                         .fn_routine_control = mock_routine_control,
                         .fn_request_download = mock_request_download,

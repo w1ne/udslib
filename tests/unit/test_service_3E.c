@@ -14,7 +14,7 @@
 
 static void test_tester_present_zero_sub(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -35,7 +35,7 @@ static void test_tester_present_zero_sub(void **state)
 
 static void test_tester_present_suppress_bit(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);

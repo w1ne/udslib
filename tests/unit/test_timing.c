@@ -7,7 +7,7 @@
 
 static void test_p2_timeout_nrc78(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -32,7 +32,7 @@ static void test_p2_timeout_nrc78(void **state)
 
 static void test_s3_timeout_reset(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);

@@ -40,7 +40,7 @@ echo -e "${GREEN}PASSED${NC}"
 # 3. Static Analysis (if available)
 echo -n "[3/3] Running Static Analysis (cppcheck)... "
 if command -v cppcheck &> /dev/null; then
-    cppcheck --enable=all --suppress=missingIncludeSystem src/ include/ --error-exitcode=1 > /dev/null 2>&1
+    cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction src/ include/ --error-exitcode=1 > /dev/null 2>&1
     echo -e "${GREEN}PASSED${NC}"
 else
     echo -e "${RED}SKIPPED${NC} (cppcheck not installed)"

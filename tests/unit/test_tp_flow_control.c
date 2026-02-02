@@ -10,24 +10,31 @@
 #include "uds/uds_config.h"
 
 /* Mock CAN Send */
-static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len) {
+static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
+{
     check_expected(id);
     check_expected(len);
     check_expected_ptr(data);
-    return (int)mock();
+    return (int) mock();
 }
 
-static int setup(void **state) {
+static int setup(void **state)
+{
+    (void) state;
     uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);
     return 0;
 }
 
-static int teardown(void **state) {
+static int teardown(void **state)
+{
+    (void) state;
     return 0;
 }
 
 /* 1. Verify STmin Enforcement */
-static void test_tp_stmin_enforcement(void **state) {
+static void test_tp_stmin_enforcement(void **state)
+{
+    (void) state;
     /* Send First Frame for 20 bytes (requires 1 FF + 2 CF) */
     uint8_t data[20];
     memset(data, 0xAA, sizeof(data));
@@ -41,17 +48,17 @@ static void test_tp_stmin_enforcement(void **state) {
     uds_isotp_send(NULL, data, 20);
 
     /* Receive FC (CTS, BS=0, STmin=50ms) */
-    uint8_t fc_frame[] = {0x30, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00}; // 0x32 = 50ms
+    uint8_t fc_frame[] = {0x30, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00};  // 0x32 = 50ms
     uds_isotp_rx_callback(NULL, 0x7E8, fc_frame, 8);
 
-    /* Process at T=0. Should NOT send CF because STmin might need a baseline. 
-       Actually, the first CF after FC should probably be sent immediately or wait? 
-       Standard says STmin is between consecutive frames. 
-       UDSLib implementation resets timer_st on send. 
+    /* Process at T=0. Should NOT send CF because STmin might need a baseline.
+       Actually, the first CF after FC should probably be sent immediately or wait?
+       Standard says STmin is between consecutive frames.
+       UDSLib implementation resets timer_st on send.
        If timer_st is 0 initially, elapsed might be large.
     */
-    
-    /* Current implementation resets timer_st to time_ms on send. 
+
+    /* Current implementation resets timer_st to time_ms on send.
        So first CF after FC will be sent if elapsed >= st_min.
        Initial timer_st is 0. If we pass time_ms=100, elapsed=100. >= 50. OK.
     */
@@ -78,11 +85,13 @@ static void test_tp_stmin_enforcement(void **state) {
 }
 
 /* 2. Verify Block Size (BS) Enforcement */
-static void test_tp_bs_enforcement(void **state) {
+static void test_tp_bs_enforcement(void **state)
+{
+    (void) state;
     /* Send First Frame for 30 bytes (FF + 4 CF) */
     uint8_t data[30];
     memset(data, 0xBB, sizeof(data));
-    
+
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
@@ -128,7 +137,8 @@ static void test_tp_bs_enforcement(void **state) {
     uds_tp_isotp_process(301);
 }
 
-int main(void) {
+int main(void)
+{
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_tp_stmin_enforcement, setup, teardown),
         cmocka_unit_test_setup_teardown(test_tp_bs_enforcement, setup, teardown),
