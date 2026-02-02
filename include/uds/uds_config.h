@@ -348,6 +348,12 @@ typedef struct
      * @brief Callback to unlock the UDS context mutex.
      */
     void (*fn_mutex_unlock)(void *mutex_handle);
+    /* --- Timing Parameters (C-19) --- */
+    /** Default P2 Server Max (ms). Recommended: 50ms */
+    uint16_t p2_server_max;
+    /** Default P2* Server Max (ms). Recommended: 5000ms */
+    uint16_t p2_star_server_max;
+
 } uds_config_t;
 
 /* --- Internal Context --- */

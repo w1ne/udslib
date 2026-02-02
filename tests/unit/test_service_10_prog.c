@@ -29,7 +29,7 @@ static void test_session_reset_security(void **state) {
     will_return(mock_get_time, 2000); 
     will_return(mock_get_time, 2000); 
     expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 2);
+    expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, request, sizeof(request));
