@@ -64,7 +64,6 @@ static struct sockaddr_in g_client_addr;
 /** Length of the client address */
 static socklen_t g_client_len = sizeof(g_client_addr);
 
-/**
 /* Mock Memory (1KB) */
 static uint8_t mock_memory[1024];
 
@@ -141,8 +140,8 @@ static char g_customer_name[16] = "ECU_OWNER";
  * @brief Example DID table setup.
  */
 static const uds_did_entry_t g_ecu_dids[] = {
-    {0xF190, 14, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
-    {0x0123, 16, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
+    {0xF190, 14, 0, 0, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
+    {0x0123, 16, 0, 0, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
 };
 
 static const uds_did_table_t g_ecu_did_table = {.entries = g_ecu_dids, .count = 2};

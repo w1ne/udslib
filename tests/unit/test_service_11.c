@@ -17,14 +17,14 @@ static uint8_t g_last_reset_type = 0;
 
 static void mock_reset_cb(uds_ctx_t *ctx, uint8_t type)
 {
-    (void)ctx;
+    (void) ctx;
     g_reset_called++;
     g_last_reset_type = type;
 }
 
 static void test_ecu_reset_hard_success(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -49,7 +49,7 @@ static void test_ecu_reset_hard_success(void **state)
 
 static void test_ecu_reset_invalid_subfunction_nrc(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -73,7 +73,7 @@ static void test_ecu_reset_invalid_subfunction_nrc(void **state)
 
 static void test_ecu_reset_suppress_pos_resp(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);

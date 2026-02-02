@@ -20,7 +20,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
         if (entry != NULL) {
             /* C-18: Security & Session Validation per DID */
             /* Session Check */
-            if ((entry->session_mask != 0u) && 
+            if ((entry->session_mask != 0u) &&
                 !((1u << (ctx->active_session - 1u)) & entry->session_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_REQUEST_OUT_OF_RANGE; /* 0x31 per ISO 14229-1 */
@@ -28,7 +28,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
             }
 
             /* Security Check */
-            if ((entry->security_mask != 0u) && 
+            if ((entry->security_mask != 0u) &&
                 !((1u << ctx->security_level) & entry->security_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_SECURITY_ACCESS_DENIED;
@@ -38,8 +38,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
             /* C-12: Buffer Overflow Vulnerability Check */
             if ((uint32_t) tx_len + (uint32_t) entry->size + 2u > /* +2 for DID ID */
                 (uint32_t) ctx->config->tx_buffer_size) {
-                return uds_send_nrc(ctx, UDS_SID_READ_DATA_BY_ID,
-                                    UDS_NRC_RESPONSE_TOO_LONG);
+                return uds_send_nrc(ctx, UDS_SID_READ_DATA_BY_ID, UDS_NRC_RESPONSE_TOO_LONG);
             }
 
             ctx->config->tx_buffer[tx_len] = (uint8_t) ((did >> 8u) & 0xFFu);
@@ -98,14 +97,13 @@ int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
 
     /* C-18: Security & Session Validation per DID */
     /* Session Check */
-    if ((entry->session_mask != 0u) && 
+    if ((entry->session_mask != 0u) &&
         !((1u << (ctx->active_session - 1u)) & entry->session_mask)) {
         return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
     }
 
     /* Security Check */
-    if ((entry->security_mask != 0u) && 
-        !((1u << ctx->security_level) & entry->security_mask)) {
+    if ((entry->security_mask != 0u) && !((1u << ctx->security_level) & entry->security_mask)) {
         return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_SECURITY_ACCESS_DENIED);
     }
 

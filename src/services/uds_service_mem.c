@@ -74,7 +74,8 @@ int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data
         return uds_send_nrc(ctx, UDS_SID_WRITE_MEM_BY_ADDR, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
-    if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, UDS_SID_WRITE_MEM_BY_ADDR, data, len)) {
+    if (ctx->config->fn_is_safe &&
+        !ctx->config->fn_is_safe(ctx, UDS_SID_WRITE_MEM_BY_ADDR, data, len)) {
         return uds_send_nrc(ctx, UDS_SID_WRITE_MEM_BY_ADDR, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 

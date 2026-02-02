@@ -67,14 +67,16 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
         else {
             /* C-15: Attempt Management */
             ctx->security_attempts++;
-            uint8_t max_att = ctx->config->security_max_attempts ? ctx->config->security_max_attempts : 3u;
-            
+            uint8_t max_att =
+                ctx->config->security_max_attempts ? ctx->config->security_max_attempts : 3u;
+
             if (ctx->security_attempts >= max_att) {
-                uint32_t delay = ctx->config->security_delay_ms ? ctx->config->security_delay_ms : 10000u;
+                uint32_t delay =
+                    ctx->config->security_delay_ms ? ctx->config->security_delay_ms : 10000u;
                 ctx->security_delay_end = now + delay;
                 return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_EXCEEDED_ATTEMPTS);
             }
-            
+
             /* Return NRC provided by key handler, or 0x35 (InvalidKey) */
             uint8_t nrc = (res < 0) ? (uint8_t) - (int32_t) res : UDS_NRC_INVALID_KEY;
             return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, nrc);

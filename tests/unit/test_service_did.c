@@ -17,8 +17,8 @@ static char g_str[10] = "OLD";
 
 static int mock_did_read_fn(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t max_len)
 {
-    (void)ctx;
-    (void)max_len;
+    (void) ctx;
+    (void) max_len;
     if (did == 0x0100) {
         buf[0] = 0xAA;
         return 0;
@@ -28,7 +28,7 @@ static int mock_did_read_fn(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t
 
 static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
+    (void) ctx;
     if (did == 0x0200 && len == 3) {
         memcpy(g_str, data, 3);
         return 0;
@@ -37,20 +37,17 @@ static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, 
 }
 
 static const uds_did_entry_t g_test_dids[] = {
-    {0xF190, 8, UDS_SESSION_ALL, 0, NULL, NULL, &g_val_8},       /* Direct Storage */
-    {0x0100, 1, UDS_SESSION_ALL, 0, mock_did_read_fn, NULL, NULL}, /* Read Callback */
-    {0x0200, 3, UDS_SESSION_ALL, 0, NULL, mock_did_write_fn, NULL},/* Write Callback */
-    {0x5EC1, 4, UDS_SESSION_ALL, 0x04, NULL, NULL, &g_val_8},    /* Security Level 2 Required */
+    {0xF190, 8, UDS_SESSION_ALL, 0, NULL, NULL, &g_val_8},          /* Direct Storage */
+    {0x0100, 1, UDS_SESSION_ALL, 0, mock_did_read_fn, NULL, NULL},  /* Read Callback */
+    {0x0200, 3, UDS_SESSION_ALL, 0, NULL, mock_did_write_fn, NULL}, /* Write Callback */
+    {0x5EC1, 4, UDS_SESSION_ALL, 0x04, NULL, NULL, &g_val_8},       /* Security Level 2 Required */
 };
 
-static const uds_did_table_t g_test_table = {
-    .entries = g_test_dids,
-    .count = 4
-};
+static const uds_did_table_t g_test_table = {.entries = g_test_dids, .count = 4};
 
 static void test_rdbi_single_did_success(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -74,7 +71,7 @@ static void test_rdbi_single_did_success(void **state)
 
 static void test_rdbi_callback_success(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -96,7 +93,7 @@ static void test_rdbi_callback_success(void **state)
 
 static void test_wdbi_callback_success(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -119,7 +116,7 @@ static void test_wdbi_callback_success(void **state)
 
 static void test_rdbi_invalid_did_nrc(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -142,7 +139,7 @@ static void test_rdbi_invalid_did_nrc(void **state)
 
 static void test_rdbi_security_denied(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -167,7 +164,7 @@ static void test_rdbi_security_denied(void **state)
 
 static void test_wdbi_security_denied(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -192,7 +189,7 @@ static void test_wdbi_security_denied(void **state)
 
 static void test_wdbi_length_fail_nrc13(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
