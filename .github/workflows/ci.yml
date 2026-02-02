@@ -4,24 +4,18 @@ on:
   push:
     branches: [ main, develop, 'release/*' ]
   pull_request:
-    branches: [ main, develop, 'release/*' ]
+    branches: [ main, develop ]
 
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Build Docker Image
         run: docker build -t libuds-test-env -f Dockerfile .
-        
       - name: Run Static Analysis in Docker
         run: |
-          docker run --rm \
-            -v $GITHUB_WORKSPACE:/app \
-            -u $(id -u):$(id -g) \
-            libuds-test-env \
-            bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=unmatchedSuppression --inconclusive --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+          ./scripts/docker_run.sh bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=unmatchedSuppression --inconclusive --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
 
   build-posix:
     runs-on: ubuntu-latest
@@ -30,12 +24,6 @@ jobs:
       - name: Build and Test in Docker
         run: |
           ./scripts/docker_run.sh bash -c "mkdir -p build_quality && cd build_quality && cmake .. && make && ctest --output-on-failure"
-      - name: Archive Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-report
-          path: build_quality/report.xml
 
   coverage:
     runs-on: ubuntu-latest
@@ -55,63 +43,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          
-      - name: Cache Zephyr Workspace
-        id: cache-zephyr
-        uses: actions/cache@v4
-        with:
-          path: zephyr-workspace
-          key: ${{ runner.os }}-zephyr-4.3.99-${{ hashFiles('scripts/requirements.txt') }}
-
-      - name: Cache Zephyr SDK
-        id: cache-zephyr-sdk
-        uses: actions/cache@v4
-        with:
-          path: /opt/zephyr-sdk
-          key: ${{ runner.os }}-zephyr-sdk-0.16.5
-
-      - name: Install Zephyr SDK
-        if: steps.cache-zephyr-sdk.outputs.cache-hit != 'true'
+      - name: Build and Initialize Zephyr in Docker
         run: |
-          wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64_minimal.tar.xz
-          sudo mkdir -p /opt/zephyr-sdk
-          sudo tar -xvf zephyr-sdk-0.16.5_linux-x86_64_minimal.tar.xz -C /opt/zephyr-sdk --strip-components=1
-          cd /opt/zephyr-sdk
-          ./setup.sh -t x86_64-zephyr-elf -c
-
-      - name: Install West and Dependencies
-        run: |
-          python3 -m pip install --user -U west jsonschema
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install -r scripts/requirements.txt
-          
-      - name: Initialize Zephyr
-        if: steps.cache-zephyr.outputs.cache-hit != 'true'
-        run: |
-          source .venv/bin/activate
-          west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
-          cd zephyr-workspace
-          west update --narrow -o=--depth=1
-          west zephyr-export
-          
-      - name: Install Zephyr Python Dependencies
-        run: |
-          source .venv/bin/activate
-          pip install -r zephyr-workspace/zephyr/scripts/requirements.txt
-
-      - name: Build Zephyr Example
-        run: |
-          source .venv/bin/activate
-          export ZEPHYR_BASE=$GITHUB_WORKSPACE/zephyr-workspace/zephyr
-          export ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk
-          export ZEPHYR_MODULES=$GITHUB_WORKSPACE
-          cd examples/zephyr_uds_server
-          west build -b native_sim
+          ./scripts/docker_run.sh bash -c "
+            # Set up python environment
+            python3 -m venv .venv_zephyr
+            source .venv_zephyr/bin/activate
+            pip install jsonschema west
+            
+            # Initialize workspace if not present (caching is handled by runner)
+            if [ ! -d zephyr-workspace ]; then
+              west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
+              cd zephyr-workspace
+              west update --narrow -o=--depth=1
+              west zephyr-export
+              pip install -r zephyr/scripts/requirements.txt
+              cd ..
+            fi
+            
+            # Build example
+            export ZEPHYR_BASE=\$PWD/zephyr-workspace/zephyr
+            export ZEPHYR_SDK_INSTALL_DIR=/opt/zephyr-sdk
+            export ZEPHYR_MODULES=\$PWD
+            cd examples/zephyr_uds_server
+            west build -b native_sim
+          "
 
   integration-tests:
     runs-on: ubuntu-latest
