@@ -178,6 +178,32 @@ static int mock_dtc_clear(struct uds_ctx *ctx, uint32_t group)
     return UDS_OK;
 }
 
+static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf,
+                              uint16_t max_len)
+{
+    (void) ctx;
+    (void) level;
+    if (max_len < 4u) return -0x22; /* ConditionsNotCorrect */
+    printf("[APP] SECURITY SEED (level %u)\n", level);
+    seed_buf[0] = 0xDE;
+    seed_buf[1] = 0xAD;
+    seed_buf[2] = 0xBE;
+    seed_buf[3] = 0xEF;
+    return 4;
+}
+
+static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed,
+                             const uint8_t *key, uint16_t key_len)
+{
+    (void) ctx;
+    (void) level;
+    (void) seed;
+    (void) key;
+    (void) key_len;
+    printf("[APP] SECURITY KEY ACCEPTED (level %u)\n", level);
+    return UDS_OK;
+}
+
 static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
                      uint8_t *out_buf, uint16_t max_len)
 {
@@ -268,6 +294,8 @@ int main(int argc, char **argv)
                         .fn_reset = mock_reset,
                         .fn_dtc_read = mock_dtc_read,
                         .fn_dtc_clear = mock_dtc_clear,
+                        .fn_security_seed = mock_security_seed,
+                        .fn_security_key = mock_security_key,
                         .fn_auth = mock_auth,
                         .fn_routine_control = mock_routine_control,
                         .fn_request_download = mock_request_download,
