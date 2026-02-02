@@ -1,10 +1,10 @@
 # OS Integration Guide
 
-LibUDS is designed to be OS-agnostic. It can run on Bare Metal, RTOS, or POSIX systems.
+UDSLib is designed to be OS-agnostic. It can run on Bare Metal, RTOS, or POSIX systems.
 
 ## 1. Bare Metal (Super Loop)
 
-In a bare metal environment, `libuds` typically runs inside the main `while(1)` loop.
+In a bare metal environment, `udslib` typically runs inside the main `while(1)` loop.
 
 - **Example**: [examples/bare_metal/main.c](../examples/bare_metal/main.c)
 - **Key Concepts**:
@@ -26,7 +26,7 @@ while (1) {
 
 ## 2. FreeRTOS (Task-Based)
 
-In an RTOS, `libuds` usually runs in its own low-priority task.
+In an RTOS, `udslib` usually runs in its own low-priority task.
 
 - **Example**: [examples/freertos_demo/main.c](../examples/freertos_demo/main.c)
 - **Key Concepts**:

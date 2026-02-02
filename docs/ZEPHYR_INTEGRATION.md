@@ -1,12 +1,12 @@
 # Zephyr OS Integration Guide
 
-LibUDS is designed from the ground up to integrate seamlessly with Zephyr OS, leveraging Zephyr's native CAN and ISO-TP subsystems while maintaining the portability to fall back to the internal ISO-TP implementation when needed.
+UDSLib is designed from the ground up to integrate seamlessly with Zephyr OS, leveraging Zephyr's native CAN and ISO-TP subsystems while maintaining the portability to fall back to the internal ISO-TP implementation when needed.
 
 ## Architecture Overview
 
 ```mermaid
 graph TD
-    A[Your Zephyr App] -->|uds_client_request| B[LibUDS Core]
+    A[Your Zephyr App] -->|uds_client_request| B[UDSLib Core]
     A -->|uds_process| B
     B -->|SDU Send| C{Transport Layer}
     C -->|Native| D[Zephyr ISO-TP Socket]
@@ -61,7 +61,7 @@ uint32_t zephyr_get_time_ms(void) {
     return k_uptime_get_32();
 }
 
-/* 4. Initialize LibUDS */
+/* 4. Initialize UDSLib */
 uds_config_t cfg = {
     .fn_tp_send = zephyr_tp_send,
     .get_time_ms = zephyr_get_time_ms,
@@ -132,7 +132,7 @@ can_add_rx_filter(can_dev, can_rx_callback, NULL, &filter);
 /* 5. Main loop must call */
 while (1) {
     uds_process(&ctx);
-    uds_tp_isotp_process(); // For multi-frame CF transmission
+    uds_tp_isotp_process(k_uptime_get_32()); // For multi-frame CF transmission
     k_sleep(K_MSEC(1));
 }
 ```
@@ -143,7 +143,7 @@ while (1) {
 
 **Directory Structure**:
 ```
-libuds/
+udslib/
 ├── zephyr/
 │   ├── module.yml          # Zephyr module definition
 │   ├── CMakeLists.txt      # Build integration
@@ -159,7 +159,7 @@ libuds/
 ### `zephyr/module.yml`
 
 ```yaml
-name: libuds
+name: udslib
 build:
   cmake: .
   kconfig: Kconfig
@@ -168,42 +168,42 @@ build:
 ### `zephyr/Kconfig`
 
 ```kconfig
-config LIBUDS
-    bool "LibUDS - Unified Diagnostic Services"
+config UDSLIB
+    bool "UDSLib - Unified Diagnostic Services"
     help
       Portable UDS (ISO 14229) protocol stack
 
-if LIBUDS
+if UDSLIB
 
-choice LIBUDS_TRANSPORT
+choice UDSLIB_TRANSPORT
     prompt "Transport Layer"
-    default LIBUDS_TRANSPORT_NATIVE if CAN_ISOTP
-    default LIBUDS_TRANSPORT_FALLBACK
+    default UDSLIB_TRANSPORT_NATIVE if CAN_ISOTP
+    default UDSLIB_TRANSPORT_FALLBACK
 
-config LIBUDS_TRANSPORT_NATIVE
+config UDSLIB_TRANSPORT_NATIVE
     bool "Use Zephyr ISO-TP sockets"
     depends on CAN_ISOTP
     help
       Leverage Zephyr's native ISO-TP implementation.
 
-config LIBUDS_TRANSPORT_FALLBACK
+config UDSLIB_TRANSPORT_FALLBACK
     bool "Use internal ISO-TP fallback"
     help
-      Use LibUDS internal ISO-TP for bare-metal or custom setups.
+      Use UDSLib internal ISO-TP for bare-metal or custom setups.
 
 endchoice
 
-config LIBUDS_MAX_SDU_SIZE
+config UDSLIB_MAX_SDU_SIZE
     int "Maximum UDS SDU size"
     default 4095
     range 256 4095
 
-config LIBUDS_LOG_LEVEL
+config UDSLIB_LOG_LEVEL
     int "Log level"
     default 3
     range 0 4
 
-endif # LIBUDS
+endif # UDSLIB
 ```
 
 ### `zephyr/CMakeLists.txt`
@@ -215,7 +215,7 @@ zephyr_library_sources(
     ../src/core/uds_core.c
 )
 
-if(CONFIG_LIBUDS_TRANSPORT_FALLBACK)
+if(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
     zephyr_library_sources(
         ../src/transport/uds_tp_isotp.c
     )
@@ -237,9 +237,9 @@ CONFIG_NET=y
 CONFIG_NET_SOCKETS=y
 CONFIG_NET_SOCKETCAN=y
 
-# LibUDS
-CONFIG_LIBUDS=y
-CONFIG_LIBUDS_TRANSPORT_NATIVE=y
+# UDSLib
+CONFIG_UDSLIB=y
+CONFIG_UDSLIB_TRANSPORT_NATIVE=y
 ```
 
 ## Simulated Target Testing
@@ -267,7 +267,7 @@ sudo ip link set vcan0 up
 #### Build & Run
 
 ```bash
-cd libuds/examples/zephyr_uds_server
+cd udslib/examples/zephyr_uds_server
 
 # Build for native_sim
 west build -b native_sim
@@ -286,7 +286,7 @@ west build -b native_sim
 echo "10 03" | isotpsend -s 7E0 -d 7E8 vcan0
 isotprecv -s 7E8 -d 7E0 vcan0  # Should see: 50 03 ...
 
-# Terminal 3: Or test with LibUDS client_demo
+# Terminal 3: Or test with UDSLib client_demo
 cd ../../
 ./examples/client_demo/uds_client_demo vcan0
 ```
@@ -306,13 +306,13 @@ west build -t run
 
 ### Non-Blocking Design
 
-LibUDS is designed for single-threaded or cooperative multitasking:
+UDSLib is designed for single-threaded or cooperative multitasking:
 
 ```c
 void uds_task(void *p1, void *p2, void *p3) {
     while (1) {
         uds_process(&ctx);         // Check timers, handle state machine
-        uds_tp_isotp_process();    // (If using fallback) Send pending CFs
+        uds_tp_isotp_process(now);    // (If using fallback) Send pending CFs
         k_sleep(K_MSEC(1));        // Yield to other tasks
     }
 }
@@ -359,15 +359,15 @@ void uds_task(void) {
 
 ### For Production ECUs
 ```ini
-CONFIG_LIBUDS_TRANSPORT_NATIVE=y    # Use Zephyr's ISO-TP
-CONFIG_LIBUDS_MAX_SDU_SIZE=256      # Constrain memory
+CONFIG_UDSLIB_TRANSPORT_NATIVE=y    # Use Zephyr's ISO-TP
+CONFIG_UDSLIB_MAX_SDU_SIZE=256      # Constrain memory
 CONFIG_LOG=n                        # Disable logging
 ```
 
 ### For Development/Testing
 ```ini
-CONFIG_LIBUDS_TRANSPORT_FALLBACK=y  # More control
-CONFIG_LIBUDS_LOG_LEVEL=4           # Verbose logging
+CONFIG_UDSLIB_TRANSPORT_FALLBACK=y  # More control
+CONFIG_UDSLIB_LOG_LEVEL=4           # Verbose logging
 CONFIG_SHELL=y                      # Enable shell commands
 ```
 

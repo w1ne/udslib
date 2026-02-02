@@ -1,4 +1,4 @@
-# LibUDS Release Strategy
+# UDSLib Release Strategy
 
 This document outlines the development workflow, versioning, and release procedures.
 
@@ -38,10 +38,11 @@ Pushes to `develop` or `main` trigger the CI pipeline.
    - CMocka unit tests.
    - Python integration tests.
 
-## 4. Release Process
+### 4. Release Process
 
 1. **Freeze**: Create a `release/x.y.z` branch from `develop`.
 2. **Audit & Documentation**:
+   - **MISRA-C Audit**: Run `scripts/check_misra.sh` and ensure 100% compliance.
    - Update `CHANGELOG.md`.
    - Update `ROADMAP.md` milestones.
    - Synchronize `SERVICE_COMPLIANCE.md`.

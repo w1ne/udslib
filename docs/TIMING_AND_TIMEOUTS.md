@@ -1,6 +1,6 @@
 # UDS Timing and Timeout Management
 
-LibUDS implements the timing requirements of **ISO 14229-1** (UDS) and **ISO 15765-2** (ISO-TP).
+UDSLib implements the timing requirements of **ISO 14229-1** (UDS) and **ISO 15765-2** (ISO-TP).
 
 ## 1. Server Response Deadlines (P2 / P2*)
 
@@ -29,7 +29,7 @@ void my_service_handler(uds_ctx_t* ctx, ...) {
 }
 ```
 
-LibUDS handles the NRC 0x78 generation in the background via `uds_process()`.
+UDSLib handles the NRC 0x78 generation in the background via `uds_process()`.
 
 ### Finishing the Operation
 When the task completes, call `uds_send_response()` or `uds_send_nrc()`:
@@ -55,3 +55,5 @@ if (job_done) {
 | `p2_ms` | 50ms | Time to first response / NRC 0x78 |
 | `p2_star_ms` | 5000ms | Interval between subsequent NRC 0x78 |
 | `s3_server` | 5000ms | Session timeout due to inactivity |
+| `STmin` | 0ms | Separation time between ISO-TP CFs |
+| `Block Size`| 8 | ISO-TP flow control block size |

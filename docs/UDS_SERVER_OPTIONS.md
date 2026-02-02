@@ -42,11 +42,11 @@ This document compares open-source UDS server implementations for validation.
 ## Integration Strategy
 
 ### Phase 1: Internal Validation
-Use `libuds/host_sim` for rapid CI/CD loops.
+Use `udslib/host_sim` for rapid CI/CD loops.
 
 ### Phase 2: Independent C Validation
 1. Clone `driftregion/iso14229`.
-2. Cross-verify Client/Server roles against LibUDS.
+2. Cross-verify Client/Server roles against UDSLib.
 
 ### Phase 3: Python Harness
 1. Use `py-uds` for complex scenarios.

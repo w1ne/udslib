@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
     uint32_t start = get_time_ms();
     while(get_time_ms() - start < 1000) {
         uds_process(&ctx);
-        uds_tp_isotp_process();
+        uds_tp_isotp_process(get_time_ms());
 
         // Non-blocking recv
         struct timeval tv = {0, 1000};
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
     start = get_time_ms();
     while(get_time_ms() - start < 1000) {
         uds_process(&ctx);
-        uds_tp_isotp_process();
+        uds_tp_isotp_process(get_time_ms());
         
         vcan_packet_t pkt;
         if (recv(sock_fd, &pkt, sizeof(pkt), MSG_DONTWAIT) > 0) {

@@ -70,6 +70,12 @@ typedef int (*uds_did_read_fn)(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, 
 typedef int (*uds_did_write_fn)(struct uds_ctx *ctx, uint16_t did, const uint8_t *data, uint16_t len);
 
 /**
+ * @brief Security Access Callbacks (SID 0x27)
+ */
+typedef int (*uds_security_seed_fn)(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len);
+typedef int (*uds_security_key_fn)(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len);
+
+/**
  * @brief DID Registry Entry
  */
 typedef struct {
@@ -138,6 +144,7 @@ typedef struct {
     uint16_t security_mask;  /**< Minimum security level required (bitmask or level) */
     uint8_t addressing_mask; /**< Allowed addressing (Physical/Functional) */
     uds_service_handler_t handler; /**< Function pointer to handler */
+    const uint8_t *sub_mask; /**< Optional bitmask of supported 7-bit subfunctions (16 bytes) */
 } uds_service_entry_t;
 
 
@@ -182,6 +189,11 @@ typedef struct {
      */
     int (*fn_comm_control)(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type);
 
+    /** Optional: Security Access Seed Provider (SID 0x27) */
+    uds_security_seed_fn fn_security_seed;
+    /** Optional: Security Access Key Verifier (SID 0x27) */
+    uds_security_key_fn fn_security_key;
+
     /* --- Memory Management (Zero Malloc) --- */
 
     /** Working buffer for reassembling incoming requests */
@@ -193,6 +205,20 @@ typedef struct {
     uint8_t *tx_buffer;
     /** Size of tx_buffer. Determines Max Response Size */
     uint16_t tx_buffer_size;
+
+    /* --- Enterprise Hardening --- */
+    /** 
+     * @brief Enable strict ISO 14229-1 compliance checks.
+     * When true, the stack will perform more aggressive validation of 
+     * timing parameters and request payload ranges.
+     */
+    bool strict_compliance;
+
+    /** 
+     * @brief Global log level filter for the stack.
+     * Logs below this level will be suppressed before the callback is called.
+     */
+    uint8_t log_level;
 
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
@@ -396,8 +422,17 @@ typedef struct uds_ctx {
     /** Communication control state for SID 0x28 (uds_comm_control_type_t) */
     uint8_t comm_state;
 
-    /** Expected Block Sequence Counter for 0x36 */
-    uint8_t transfer_sequence;
+    /** ISO 14229-1: Centralized Suppression of Positive Response (bit 7 of sub-function) */
+    bool suppress_pos_resp;
+
+    /* --- Dynamic Timing Parameters --- */
+    /** Current P2 server timeout */
+    uint16_t p2_ms;
+    /** Current P2* server timeout */
+    uint32_t p2_star_ms;
+
+    /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
+    uint8_t flash_sequence;
 } uds_ctx_t;
 
 

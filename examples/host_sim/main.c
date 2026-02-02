@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Host Simulation Example for LibUDS.
+ * @brief Host Simulation Example for UDSLib.
  *
  * Implements a virtual ECU using ISO-TP over UDP.
  */
@@ -132,7 +132,7 @@ static uint8_t g_rx_buf[1024];
 /** Transmit buffer (1KB) */
 static uint8_t g_tx_buf[1024];
 
-static char g_ecu_vin[] = "LIBUDS_SIM_001";
+static char g_ecu_vin[] = "UDSLIB_SIM_001";
 static char g_customer_name[16] = "ECU_OWNER";
 
 /**
@@ -276,7 +276,7 @@ int main(int argc, char **argv)
     while (1) {
         uint32_t now = get_time_ms();
         uds_process(&ctx);
-        uds_tp_isotp_process();
+        uds_tp_isotp_process(now);
 
         /* Mock "Long Running" Async Operation for SID 0x31 */
         if (ctx.p2_msg_pending && ctx.pending_sid == 0x31 && slow_op_start == 0) {

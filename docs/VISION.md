@@ -1,4 +1,4 @@
-# LibUDS Vision
+# UDSLib Vision
 
 ## Mission
 To provide a robust, hardware-agnostic, and **safety-first** UDS stack that eases the transition to Software-Defined Vehicles (SDV).
@@ -23,4 +23,4 @@ Validation happens on PC/Cloud before targeting hardware. This removes hardware 
 - **Atomic Operations**: State recovery is the default.
 
 ## Market Position
-LibUDS targets the mid-market. We bridge the gap between "DIY" repositories and expensive Tier-1 commercial stacks. We offer commercial stability with open-source agility.
+UDSLib is designed for production embedded systems where failure is not an option. It provides a hardened, source-available alternative to high-overhead commercial stacks, without the unverified risks often associated with community-maintained projects.

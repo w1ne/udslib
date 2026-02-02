@@ -9,7 +9,7 @@
 
 #include "uds/uds_core.h"
 
-#ifdef CONFIG_LIBUDS_TRANSPORT_NATIVE
+#ifdef CONFIG_UDSLIB_TRANSPORT_NATIVE
 
 /** Static file descriptor for the ISO-TP socket */
 static int g_isotp_fd = -1;
@@ -91,4 +91,4 @@ int uds_zephyr_isotp_recv(uint8_t *buf, uint16_t size)
     return (int)ret;
 }
 
-#endif /* CONFIG_LIBUDS_TRANSPORT_NATIVE */
+#endif /* CONFIG_UDSLIB_TRANSPORT_NATIVE */

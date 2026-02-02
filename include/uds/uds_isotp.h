@@ -83,6 +83,7 @@ typedef struct {
     /* --- Timers --- */
     uint32_t timer_n_cr; /**< Timeout N_Cr (Reception) */
     uint32_t timer_n_bs; /**< Timeout N_Bs (Transmission) */
+    uint32_t timer_st;   /**< Separation Time timer (STmin) */
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
@@ -124,8 +125,9 @@ void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *
  * @brief Process ISO-TP periodic tasks.
  *
  * Must be called frequently to handle multi-frame timing and transmission.
+ * @param time_ms Current system time in milliseconds.
  */
-void uds_tp_isotp_process(void);
+void uds_tp_isotp_process(uint32_t time_ms);
 
 #ifdef __cplusplus
 }

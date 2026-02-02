@@ -1,6 +1,6 @@
 # UDS Client API Guide
 
-LibUDS functions symmetrically: the same core stack acts as both a Server (ECU) and a Client (Tester).
+UDSLib functions symmetrically: the same core stack acts as both a Server (ECU) and a Client (Tester).
 
 ## 1. Request and Response Pattern
 
@@ -63,7 +63,7 @@ uds_client_request(&ctx, 0x22, (uint8_t[]){0xF1, 0x90}, 2, on_vin_received);
 // Ensure the main loop calls uds_process and transport-layer processing
 while(1) {
     uds_process(&ctx);
-    uds_tp_isotp_process(); // If using fallback
+    uds_tp_isotp_process(get_time_ms()); // If using fallback
     // ...
 }
 ```

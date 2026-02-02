@@ -1,6 +1,6 @@
 # Quickstart: Zephyr OS Integration
 
-This guide explains how to run LibUDS on Zephyr OS in under 5 minutes.
+This guide explains how to run UDSLib on Zephyr OS in under 5 minutes.
 
 ## Prerequisites
 
@@ -16,14 +16,14 @@ sudo scripts/setup_vcan.sh
 
 ## 2. Initialize Zephyr Workspace
 
-Add LibUDS to your `west.yml`:
+Add UDSLib to your `west.yml`:
 
 ```yaml
 manifest:
   projects:
-    - name: libuds
-      path: modules/lib/libuds
-      url: https://github.com/your-org/libuds
+    - name: udslib
+      path: modules/lib/udslib
+      url: https://github.com/your-org/udslib
 ```
 
 Update dependencies:
@@ -36,7 +36,7 @@ west update
 Build the `zephyr_uds_server` for `native_sim` (Zephyr as a Linux process):
 
 ```bash
-cd modules/lib/libuds/examples/zephyr_uds_server
+cd modules/lib/udslib/examples/zephyr_uds_server
 west build -b native_sim
 ```
 
@@ -56,7 +56,7 @@ sudo ip link set vcan0 up
 In a separate terminal:
 
 ```bash
-cd modules/lib/libuds/examples/client_demo
+cd modules/lib/udslib/examples/client_demo
 ./uds_client_demo vcan0
 ```
 
@@ -64,7 +64,7 @@ cd modules/lib/libuds/examples/client_demo
 
 **Zephyr Server:**
 ```
-Starting LibUDS Zephyr Server Example...
+Starting UDSLib Zephyr Server Example...
 UDS Server ready. Waiting for requests (0x7E0 RX / 0x7E8 TX)...
 [INFO] (uds_core.c:120) dispatcher: sid 0x10, len 2
 ```
@@ -78,14 +78,14 @@ UDS Server ready. Waiting for requests (0x7E0 RX / 0x7E8 TX)...
 
 ## Configuration
 
-Tune LibUDS in `prj.conf`:
+Tune UDSLib in `prj.conf`:
 
 | Option | Default | Description |
 |:-------|:--------|:------------|
-| `CONFIG_LIBUDS` | `y` | Enable the library |
-| `CONFIG_LIBUDS_TRANSPORT_NATIVE` | `y` | Use Zephyr SocketCAN ISO-TP |
-| `CONFIG_LIBUDS_MAX_SDU_SIZE` | `4095` | Max buffer size |
-| `CONFIG_LIBUDS_LOG_LEVEL` | `3` | Info level logging |
+| `CONFIG_UDSLIB` | `y` | Enable the library |
+| `CONFIG_UDSLIB_TRANSPORT_NATIVE` | `y` | Use Zephyr SocketCAN ISO-TP |
+| `CONFIG_UDSLIB_MAX_SDU_SIZE` | `4095` | Max buffer size |
+| `CONFIG_UDSLIB_LOG_LEVEL` | `3` | Info level logging |
 
 ## Advanced Testing
 

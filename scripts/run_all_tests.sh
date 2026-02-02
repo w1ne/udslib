@@ -1,5 +1,5 @@
 #!/bin/bash
-# LibUDS Comprehensive Test Suite Runner
+# UDSLib Comprehensive Test Suite Runner
 # Executes all test tiers: Unit → Integration → System Validation
 
 set -e
@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}╔════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║  LibUDS Comprehensive Test Suite              ║${NC}"
+echo -e "${GREEN}║  UDSLib Comprehensive Test Suite              ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════╝${NC}"
 echo ""
 

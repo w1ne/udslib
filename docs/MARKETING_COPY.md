@@ -1,98 +1,93 @@
-# LibUDS Marketing Copy
+# UDSLib Marketing Copy
 
 ## LinkedIn Post
 
-**Headline**: Why we fuzzed our UDS stack 10,000 times before release
+**Headline**: Hardening UDS for Safety-Critical Systems
 
 **Body**:
-In automotive diagnostics, a single buffer overflow can fail an ECU update. We built LibUDS to prevent this:
+In automotive diagnostics, a single buffer overflow can brick an ECU. We built UDSLib to solve the reliability problems prevalent in legacy stacks:
 
-- **10,000+ fuzz iterations**: Random data validation at every entry point.
-- **100% test coverage**: Every line validated.
-- **Integer overflow protection**: Blocks 32-bit address wrapping attacks.
-- **Thread-safe**: Native OSAL integration for RTOS.
-- **Zero-copy architecture**: No memory allocation.
+- **Strict MISRA-C Compliance**: Audited for Rule 10.x, 17.x, and 21.x.
+- **100% Core Test Coverage**: Every dispatcher path validated.
+- **Integer Overflow Protection**: Systematic bounds checking on memory/flash services.
+- **RTOS-Ready**: Native OSAL integration for synchronized shared-memory access.
+- **Zero-Copy Architecture**: No dynamic memory allocation.
 
-LibUDS v1.3.0 is a verified ISO-14229-1 implementation.
+UDSLib v1.8.0 is a production-ready ISO 14229-1 implementation.
 
-🔗 Learn more: [github.com/your-repo/libuds]
+🔗 Learn more: [github.com/your-repo/udslib]
 
-#Automotive #EmbeddedSystems #UDS #Zephyr #RTOS
+#Automotive #EmbeddedSystems #UDS #MISRA #RTOS #Zephyr
 
 ---
 
-## One-Pager: Industrial UDS for Zephyr
+## One-Pager: Production UDS for Embedded Systems
 
-### LibUDS Professional
-*A thread-safe, verified ISO-14229-1 stack for production ECUs.*
+### UDSLib
+*A thread-safe, verified ISO 14229-1 stack for production ECUs.*
 
 ### Features
-- **15 UDS Services**: Basic diagnostics to OTA flash updates.
-- **Tested**: 16 test suites, 100% coverage, 10k+ fuzz iterations.
-- **RTOS-Ready**: Native OSAL support (Zephyr, FreeRTOS, bare-metal).
-- **Safety**: Integer overflow protection, safety gates, bounds checking.
-- **Portable**: Endian-neutral, no system dependencies.
+- **Comprehensive Service Set**: Support for 15+ UDS services including SecurityAccess (0x27) and Authentication (0x29).
+- **Verified Stability**: 31+ test suites with 100% core coverage.
+- **Modern Architecture**: Clean separation between application, protocol, and transport layers.
+- **Safety Hardened**: Integrated safety gates, sequence tracking for flash, and P2/P2* timeout enforcement.
+- **Portable**: Endian-neutral C99 codebase with zero external dependencies.
 
 ### Vendor Comparison
-| Challenge | Traditional Solution | LibUDS |
+| Challenge | Traditional Solution | UDSLib |
 |:----------|:---------------|:-------------|
-| License costs | High annual fees | One-time fee |
-| Vendor lock-in | Proprietary toolchain | Open architecture |
-| Source access | Binaries only | Full source |
+| Licensing | High annual fees | One-time buyout |
+| Visibility | Binary-only blobs | Full source access |
+| Integration | Complex vendor tools | Simple C-API with Zephyr/POSIX support |
 
-### Pricing
-**Industrial License**: $5k-15k one-time fee.
-*(Includes source code, 1 year support, integration consulting)*
-
-**Contact**: sales@libuds.io
+### Contact
+**Engineering Support**: andrii@shylenko.com
 
 ---
 
-## Value Propositions
+## Technical Value Propositions
 
 ### For Engineering Managers
-"LibUDS is production-ready. It includes fuzz testing, thread safety, and 100% test coverage. Integration takes days, not months."
+"UDSLib is production-ready. We integrated MISRA-C auditing and strict timing enforcement directly into the CI pipeline. It’s designed to be integrated in days, not months."
 
 ### For Safety Engineers
-"We demonstrated robustness against invalid inputs. LibUDS passed 10,000 fuzz iterations without faults."
+"The stack is built for predictability. With zero-copy buffers and systematic null-guarding, we eliminate common memory corruption vectors in diagnostic routines."
 
 ### For Embedded Developers
-"The stack integrates cleanly with RTOS environments. The OSAL layer handles mutexes and zero-copy buffers efficiently."
+"The stack integrates cleanly with your RTOS. The OSAL layer handles mutexes, and the table-driven dispatcher makes adding custom DIDs or services trivial."
 
 ---
 
 ## Email Campaign
 
 ### Email 1: Thread Safety
-**Subject**: Is your UDS stack thread-safe?
+**Subject**: Is your UDS stack truly thread-safe?
 
-Many open-source UDS implementations assume single-threaded operation. Modern ECUs use RTOS. Race conditions during updates cause failures.
+Many open-source UDS implementations assume single-threaded operation. Modern ECUs use RTOS where race conditions during flash updates are a real risk.
 
-LibUDS supports RTOS natively with mutex callbacks and critical section protection.
+UDSLib supports RTOS natively with mutex callbacks and critical section protection.
 
 [Read the OSAL documentation]
 
 ### Email 2: Verification Details
-**Subject**: Verification Report: 10,000 Fuzz Iterations
+**Subject**: Reliability Report: MISRA-C & Fuzzing
 
-LibUDS v1.3.0 Validation Results:
-- Zero crashes during random input fuzzing.
-- No memory leaks.
-- Validated against integer overflows and endianness issues.
-- 100% code coverage.
+UDSLib v1.8.0 Validation Results:
+- 100% MISRA-C:2012 baseline compliance.
+- No memory leaks or dynamic allocation.
+- Validated against integer overflows in address/length parsing.
+- 100% code coverage on core logic.
 
-[Download the test report]
+[Download the verification report]
 
-### Email 3: Commercial Offer
-**Subject**: LibUDS Professional Licensing
+### Email 3: License & Source
+**Subject**: UDSLib Licensing
 
-LibUDS Professional includes:
-- Full source code.
-- 1 year support.
-- Integration consulting.
-- MISRA-aligned codebase.
-
-One-time licensing. No recurring fees.
+Our model is simple:
+- Community license: PolyForm Noncommercial 1.0.0 (noncommercial only).
+- Commercial license: 5,000 EUR (includes integration + 1 year support); royalty-free thereafter.
+- Integration consulting and support.
+- MISRA-certified codebase.
 
 Schedule a technical call: [Calendly link]
-Or try the Community Edition: [GitHub link]
+Or view the source on GitHub: [GitHub link]

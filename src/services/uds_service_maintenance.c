@@ -8,125 +8,128 @@
 
 int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    uint8_t sub = data[1] & 0x7F; /* C-03: Mask out suppress bit */
-    
-    if (sub >= 0x01 && sub <= 0x03) {
-        if (!(data[1] & 0x80)) { /* Check Suppress Bit */
-            ctx->config->tx_buffer[0] = 0x51;
-            ctx->config->tx_buffer[1] = sub;
-            uds_send_response(ctx, 2);
-        }
+    uint8_t sub = (uint8_t)(data[1] & UDS_MASK_SUBFUNCTION);
 
-        if (ctx->config->fn_reset) {
-            ctx->config->fn_reset(ctx, sub);
-        }
-        return UDS_OK;
+    if ((sub < 0x01u) || (sub > 0x03u)) {
+        return uds_send_nrc(ctx, UDS_SID_ECU_RESET, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
     }
-    return uds_send_nrc(ctx, 0x11, 0x12);
+
+    ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = sub;
+    uds_send_response(ctx, 2u);
+
+    if (ctx->config->fn_reset != NULL) {
+        ctx->config->fn_reset(ctx, sub);
+    }
+    return UDS_OK;
 }
 
 int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    if (len < 3) { /* C-11: Min Length 3 */
-        return uds_send_nrc(ctx, 0x28, 0x13);
+    if (len < 3u) {
+        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_INCORRECT_LENGTH);
     }
 
-    uint8_t ctrl_type = data[1] & 0x7F;
+    uint8_t ctrl_type = (uint8_t)(data[1] & UDS_MASK_SUBFUNCTION);
     uint8_t comm_type = data[2];
 
-    if (ctrl_type <= 0x03) {
-        if (ctx->config->fn_comm_control) {
-            int ret = ctx->config->fn_comm_control(ctx, ctrl_type, comm_type);
-            if (ret != UDS_OK) {
-                return uds_send_nrc(ctx, 0x28, (uint8_t)(-ret)); 
-            }
-        }
-
-        ctx->comm_state = ctrl_type;
-        if (!(data[1] & 0x80)) {
-            ctx->config->tx_buffer[0] = 0x68;
-            ctx->config->tx_buffer[1] = ctrl_type;
-            return uds_send_response(ctx, 2);
-        }
-        return UDS_OK;
+    if (ctrl_type > 0x03u) {
+        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
     }
-    return uds_send_nrc(ctx, 0x28, 0x12);
+
+    /* ISO 14229-1: communicationType lower nibble must be 1, 2, or 3 */
+    uint8_t type_nibble = (uint8_t)(comm_type & 0x03u);
+    if ((type_nibble == 0u) || (type_nibble > 3u)) {
+         return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_REQUEST_OUT_OF_RANGE);
+    }
+
+    /* Check App Callback */
+    if (ctx->config->fn_comm_control != NULL) {
+        int ret = ctx->config->fn_comm_control(ctx, ctrl_type, comm_type);
+        if (ret != UDS_OK) {
+            return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, (uint8_t)-(int32_t)ret); 
+        }
+    }
+
+    ctx->comm_state = ctrl_type;
+    ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_COMM_CONTROL + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = data[1];
+
+    uds_internal_log(ctx, UDS_LOG_INFO, "Communication state changed");
+    return uds_send_response(ctx, 2u);
 }
 
 int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    if (len < 4) {
-        return uds_send_nrc(ctx, 0x14, 0x13);
+    if (len < 4u) {
+        return uds_send_nrc(ctx, UDS_SID_CLEAR_DTC, UDS_NRC_INCORRECT_LENGTH);
     }
 
-    uint32_t group = (data[1] << 16) | (data[2] << 8) | data[3];
-    
     if (!ctx->config->fn_dtc_clear) {
-        return uds_send_nrc(ctx, 0x14, 0x22);
+        return uds_send_nrc(ctx, UDS_SID_CLEAR_DTC, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
+    uint32_t group = (uint32_t)((uint32_t)data[1] << 16u) | (uint32_t)((uint32_t)data[2] << 8u) | (uint32_t)data[3];
     int res = ctx->config->fn_dtc_clear(ctx, group);
-    if (res == UDS_OK) {
-        ctx->config->tx_buffer[0] = 0x54;
-        return uds_send_response(ctx, 1);
+
+    if (res != UDS_OK) {
+        return uds_send_nrc(ctx, UDS_SID_CLEAR_DTC, (uint8_t)-(int32_t)res);
     }
-    return uds_send_nrc(ctx, 0x14, (uint8_t)(-res));
+
+    ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_CLEAR_DTC + UDS_RESPONSE_OFFSET);
+    return uds_send_response(ctx, 1u);
 }
 
 int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    uint8_t sub = data[1] & 0x7F;
-    uint8_t mask = 0;
+    uint8_t sub = (uint8_t)(data[1] & UDS_MASK_SUBFUNCTION);
+    uint8_t mask = 0u;
 
-    /* C-10: Extract Status Mask if applicable (0x01, 0x02, 0x11, 0x12, etc) */
-    if (len >= 3) {
+    if (len >= 3u) {
         mask = data[2];
-    } else if (sub == 0x01 || sub == 0x02) {
-        return uds_send_nrc(ctx, 0x19, 0x13); /* Mask required */
+    } else if ((sub == 0x01u) || (sub == 0x02u)) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
     }
 
     if (!ctx->config->fn_dtc_read) {
-        return uds_send_nrc(ctx, 0x19, 0x22);
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
     uint8_t *out_payload = &ctx->config->tx_buffer[2];
-    uint16_t max_payload = ctx->config->tx_buffer_size - 2;
+    uint16_t max_payload = (uint16_t)(ctx->config->tx_buffer_size - 2u);
 
     int written = ctx->config->fn_dtc_read(ctx, sub, mask, out_payload, max_payload);
     if (written < 0) {
-        return uds_send_nrc(ctx, 0x19, (uint8_t)(-written));
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t)-(int32_t)written);
     }
 
-    ctx->config->tx_buffer[0] = 0x59;
-    ctx->config->tx_buffer[1] = sub;
-    return uds_send_response(ctx, written + 2);
+    ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = data[1];
+    return uds_send_response(ctx, (uint16_t)((uint16_t)written + 2u));
 }
 
 int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    uint8_t sub = data[1] & 0x7F;
-    uint32_t group = 0xFFFFFF; /* Default: All */
+    uint8_t sub = (uint8_t)(data[1] & UDS_MASK_SUBFUNCTION);
+    uint32_t group = 0xFFFFFFu; /* Default: All */
     
-    /* C-16: Parse GroupOfDTC if present */
-    if (len >= 5) {
-        group = (data[2] << 16) | (data[3] << 8) | data[4];
+    if (len >= 5u) {
+        group = (uint32_t)((uint32_t)data[2] << 16u) | (uint32_t)((uint32_t)data[3] << 8u) | (uint32_t)data[4];
     }
 
-    if (sub == 0x01 || sub == 0x02) { /* ON / OFF */
-        if (ctx->config->fn_control_dtc) {
-            int ret = ctx->config->fn_control_dtc(ctx, sub, group);
-            if (ret != UDS_OK) {
-                return uds_send_nrc(ctx, 0x85, (uint8_t)(-ret));
-            }
-        }
-
-        if (!(data[1] & 0x80)) {
-            ctx->config->tx_buffer[0] = 0xC5;
-            ctx->config->tx_buffer[1] = sub;
-            uds_send_response(ctx, 2);
-        }
-        return UDS_OK;
+    if ((sub != 0x01u) && (sub != 0x02u)) {
+        return uds_send_nrc(ctx, UDS_SID_CONTROL_DTC_SETTING, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
     }
-    return uds_send_nrc(ctx, 0x85, 0x12);
+
+    if (ctx->config->fn_control_dtc != NULL) {
+        int ret = ctx->config->fn_control_dtc(ctx, sub, group);
+        if (ret != UDS_OK) {
+            return uds_send_nrc(ctx, UDS_SID_CONTROL_DTC_SETTING, (uint8_t)-(int32_t)ret);
+        }
+    }
+
+    ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_CONTROL_DTC_SETTING + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = data[1];
+    return uds_send_response(ctx, 2u);
 }
 

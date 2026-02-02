@@ -5,7 +5,7 @@
 
 #include "test_helpers.h"
 
-static uint8_t g_vin[] = "LIBUDS_SIM_001";
+static uint8_t g_vin[] = "UDSLIB_SIM_001";
 
 static const uds_did_entry_t g_test_dids[] = {
     {0xF190, 14, NULL, NULL, g_vin},

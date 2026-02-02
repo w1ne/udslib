@@ -55,7 +55,7 @@ Or run the test binary directly:
 
 ### 2.1. C-to-C Test
 ```bash
-cd libuds
+cd udslib
 bash run_integration_test.sh
 ```
 
@@ -84,7 +84,7 @@ cd ../../examples/client_demo
 
 **Setup**:
 ```bash
-cd libuds/external
+cd udslib/external
 git clone https://github.com/driftregion/iso14229
 cd iso14229
 mkdir build && cd build
@@ -118,7 +118,7 @@ We script `can-isotp` to send malformed frames (invalid SIDs, truncated messages
 
 ## Automation
 
-**Script**: `libuds/scripts/run_all_tests.sh`
+**Script**: `udslib/scripts/run_all_tests.sh`
 
 This logic executes:
 1. Unit Tests.
@@ -129,7 +129,7 @@ This logic executes:
 
 **Run Suite**:
 ```bash
-cd libuds
+cd udslib
 bash scripts/run_all_tests.sh
 ```
 

@@ -1,10 +1,10 @@
 # ODX Tooling Guide
 
-This guide describes how to use LibUDS code generation tools.
+This guide describes how to use UDSLib code generation tools.
 
 ## Overview
 
-LibUDS includes two automation tools:
+UDSLib includes two automation tools:
 
 1. **`odx_to_c.py`**: Generates DID tables from ODX diagnostic database files.
 2. **`generate_tests.py`**: Scaffolds Python integration tests from service specifications.

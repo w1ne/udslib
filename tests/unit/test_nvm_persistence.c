@@ -35,11 +35,27 @@ static int mock_nvm_load(struct uds_ctx *ctx, uint8_t *state, uint16_t len) {
 
 static uint32_t my_get_time(void) { return 0; }
 
+static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len) {
+    (void)ctx; (void)level; (void)max_len;
+    seed_buf[0] = 0xDE; seed_buf[1] = 0xAD; seed_buf[2] = 0xBE; seed_buf[3] = 0xEF;
+    return 4;
+}
+
+static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len) {
+    (void)ctx; (void)level; (void)seed; (void)key_len;
+    if (key[0] == 0xDF && key[1] == 0xAE && key[2] == 0xBF && key[3] == 0xF0) {
+        return 0;
+    }
+    return -1;
+}
+
 static int setup(void **state) {
     setup_ctx(&g_ctx, &g_cfg);
     g_cfg.get_time_ms = my_get_time;
     g_cfg.fn_nvm_save = mock_nvm_save;
     g_cfg.fn_nvm_load = mock_nvm_load;
+    g_cfg.fn_security_seed = mock_security_seed;
+    g_cfg.fn_security_key = mock_security_key;
     
     /* Reset NVM to defaults */
     g_nvm_storage[0] = 0x01; /* Default Session */

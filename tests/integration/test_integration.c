@@ -34,6 +34,17 @@ static int mock_did_write(struct uds_ctx *ctx, uint16_t did, const uint8_t *data
     return 0; /* Success */
 }
 
+static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len) {
+    (void)ctx; (void)level; (void)max_len;
+    seed_buf[0] = 0xDE; seed_buf[1] = 0xAD; seed_buf[2] = 0xBE; seed_buf[3] = 0xEF;
+    return 4;
+}
+
+static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len) {
+    (void)ctx; (void)level; (void)seed; (void)key_len;
+    return 0; /* Just return success for integration test simplicity */
+}
+
 static const uds_did_entry_t g_dids[] = {
     {0xF190, 17, NULL, NULL, (void*)"VIN12345678901234"}, /* VIN */
     {0x0100, 4, NULL, mock_did_write, NULL},
@@ -52,6 +63,8 @@ static int setup(void **state) {
     g_cfg.tx_buffer = g_tx_buf;
     g_cfg.tx_buffer_size = sizeof(g_tx_buf);
     g_cfg.did_table = g_did_table;
+    g_cfg.fn_security_seed = mock_security_seed;
+    g_cfg.fn_security_key = mock_security_key;
     
     uds_init(&g_ctx, &g_cfg);
     return 0;

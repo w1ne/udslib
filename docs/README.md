@@ -1,4 +1,4 @@
-# LibUDS Documentation Index
+# UDSLib Documentation Index
 
 This library provides a portable, commercial-grade UDS (ISO 14229) protocol stack for automotive diagnostics.
 
@@ -46,7 +46,7 @@ This library provides a portable, commercial-grade UDS (ISO 14229) protocol stac
 ## 📂 Repository Structure
 
 ```
-libuds/
+udslib/
 ├── docs/                    ← Documentation
 ├── src/
 │   ├── core/               ← UDS protocol logic
@@ -88,4 +88,6 @@ libuds/
 
 ## 📝 License
 
-Commercial license available. See [VISION.md](VISION.md).
+- Community: PolyForm Noncommercial 1.0.0 (noncommercial use only). See `../LICENSE`.
+- Commercial: 5,000 EUR, includes integration help + 1 year support. See `../COMMERCIAL_LICENSE.md` or email `andrii@shylenko.com`.
+- Evaluation: development/testing allowed under the community terms; no production or for-profit deployment without the commercial license.

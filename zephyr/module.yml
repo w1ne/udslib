@@ -1,4 +1,4 @@
-name: libuds
+name: udslib
 build:
   cmake: zephyr
   kconfig: zephyr/Kconfig

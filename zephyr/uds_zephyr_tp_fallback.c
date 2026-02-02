@@ -9,7 +9,7 @@
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
 
-#if defined(CONFIG_LIBUDS_TRANSPORT_FALLBACK)
+#if defined(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
 
 /** Static reference to the CAN controller device */
 static const struct device *g_can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
@@ -77,4 +77,4 @@ int uds_zephyr_tp_fallback_init(struct uds_ctx *uds_ctx, uint32_t rx_id, uint32_
     return can_add_rx_filter(g_can_dev, uds_internal_zephyr_can_rx_cb, NULL, &filter);
 }
 
-#endif /* CONFIG_LIBUDS_TRANSPORT_FALLBACK */
+#endif /* CONFIG_UDSLIB_TRANSPORT_FALLBACK */

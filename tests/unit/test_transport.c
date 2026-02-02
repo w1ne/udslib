@@ -102,7 +102,7 @@ static void test_recv_fc_send_cf(void **state) {
     uds_isotp_rx_callback(NULL, 0x7E8, fc_frame, 8);
     
     /* Call process to send CF */
-    uds_tp_isotp_process();
+    uds_tp_isotp_process(0);
 }
 
 /* 4. Receive Single Frame (SF) */

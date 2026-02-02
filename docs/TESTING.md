@@ -1,6 +1,6 @@
 # Testing Strategy & Automation
 
-LibUDS uses a multi-tiered testing strategy.
+UDSLib uses a multi-tiered testing strategy.
 
 ## 1. Unit Tests
 - **Location**: `tests/unit/`
@@ -38,7 +38,7 @@ We support three tiers of simulation:
 
 | Option | Pros | Cons | Best For |
 | :--- | :--- | :--- | :--- |
-| **libuds `host_sim`** (Internal) | Zero dependencies. Uses production C code. Fast. | Circular verification (LibUDS testing itself). | Rapid CI/CD. |
+| **udslib `host_sim`** (Internal) | Zero dependencies. Uses production C code. Fast. | Circular verification (UDSLib testing itself). | Rapid CI/CD. |
 | **`uds_sim`** (External) | Independent codebase. High-fidelity. | Requires external setup. | Acceptance testing. |
 | **Python `scapy` / `udsoncan`** | Flexible. Good for negative testing. | Slower. Requires Python. | Security and robustness testing. |
 

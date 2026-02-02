@@ -1,9 +1,9 @@
 #!/bin/bash
-# Build and run LibUDS tests in a standardized Docker container
+# Build and run UDSLib tests in a standardized Docker container
 
 set -e
 
-IMAGE_NAME="libuds-test-env"
+IMAGE_NAME="udslib-test-env"
 PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
 # Check if docker is installed

@@ -1,21 +1,32 @@
-/**
- * @file test_service_27.c
- * @brief Unit tests for SID 0x27 (Security Access)
- */
-
 #include "test_helpers.h"
+
+static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len) {
+    (void)ctx; (void)level; (void)max_len;
+    seed_buf[0] = 0xDE;
+    seed_buf[1] = 0xAD;
+    seed_buf[2] = 0xBE;
+    seed_buf[3] = 0xEF;
+    return 4;
+}
+
+static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len) {
+    (void)ctx; (void)level; (void)seed; (void)key; (void)key_len;
+    if (key[0] == 0xDF && key[1] == 0xAE && key[2] == 0xBF && key[3] == 0xF0) {
+        return 0;
+    }
+    return -0x35; /* Invalid Key */
+}
 
 static void test_security_access_seed(void **state)
 {
     (void)state;
-    uds_ctx_t ctx;
-    uds_config_t cfg;
-    setup_ctx(&ctx, &cfg);
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_seed = mock_security_seed;
 
     uint8_t request[] = {0x27, 0x01};
 
-    will_return(mock_get_time, 1000); /* Input */
-    will_return(mock_get_time, 1000); /* Dispatch */
+    will_return(mock_get_time, 1000); 
+    will_return(mock_get_time, 1000); 
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 6); /* 0x67 01 + Seed(4) */
     will_return(mock_tp_send, 0);
@@ -29,15 +40,14 @@ static void test_security_access_seed(void **state)
 static void test_security_access_key_success(void **state)
 {
     (void)state;
-    uds_ctx_t ctx;
-    uds_config_t cfg;
-    setup_ctx(&ctx, &cfg);
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_key = mock_security_key;
 
     /** Mock Key based on Seed DE AD BE EF is DF AE BF F0 */
     uint8_t request[] = {0x27, 0x02, 0xDF, 0xAE, 0xBF, 0xF0};
 
-    will_return(mock_get_time, 2000); /* Input */
-    will_return(mock_get_time, 2000); /* Dispatch */
+    will_return(mock_get_time, 2000); 
+    will_return(mock_get_time, 2000); 
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 2); /* 0x67 02 */
     will_return(mock_tp_send, 0);
