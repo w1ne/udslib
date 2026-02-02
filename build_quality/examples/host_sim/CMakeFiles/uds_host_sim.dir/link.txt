@@ -1,1 +1,0 @@
-/usr/bin/cc  -Wall -Wextra -g CMakeFiles/uds_host_sim.dir/main.c.o -o uds_host_sim  ../../libuds.a 

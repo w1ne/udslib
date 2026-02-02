@@ -46,3 +46,11 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+
+# Documentation
+ISO_14229-1_2013.en.PDF.pdf
+build_quality/
+.venv_zephyr/
+zephyr-workspace-local/
+zephyr-sdk-*.tar.xz
+zephyr-sdk-*/

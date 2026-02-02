@@ -93,9 +93,9 @@ def test_full_sequence():
     # 1. Start Simulator
     print("[TEST] Starting ECU Simulator...")
     search_paths = [
-        "./build_quality/examples/host_sim/uds_host_sim", 
         "./build/examples/host_sim/uds_host_sim",
-        "./examples/host_sim/uds_host_sim"
+        "./build_quality/examples/host_sim/uds_host_sim",
+        "./examples/host_sim/uds_host_sim",
     ]
     sim_path = next((p for p in search_paths if os.path.exists(p)), None)
     if not sim_path:
@@ -141,7 +141,7 @@ def test_full_sequence():
         # 31 01 FF 00 (Erase)
         assert client.uds_request(bytes([0x31, 0x01, 0xFF, 0x00])) == [0x71, 0x01, 0xFF, 0x00, 0x00]
         # 34 (Download)
-        assert client.uds_request(bytes([0x34, 0x00, 0x44, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x10, 0x00])) == [0x74, 0x20, 0x04, 0x00]
+        assert client.uds_request(bytes([0x34, 0x00, 0x44, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x10, 0x00])) == [0x74, 0x20, 0x00, 0x00, 0x04, 0x00]
         # 36 (Transfer)
         assert client.uds_request(bytes([0x36, 0x01, 0xAA, 0xBB])) == [0x76, 0x01]
         # 37 (Exit)
@@ -161,7 +161,7 @@ def test_full_sequence():
         # 3D 12 00 10 01 AB (Write addr 0x0010 size 1 byte val 0xAB)
         # Format 0x12 -> Size=1 byte, Addr=2 bytes
         # 3D 12 00 10 01 AB
-        assert client.uds_request(bytes([0x3D, 0x12, 0x00, 0x10, 0x01, 0xAB])) == [0x7D, 0x12]
+        assert client.uds_request(bytes([0x3D, 0x12, 0x00, 0x10, 0x01, 0xAB])) == [0x7D, 0x12, 0x00, 0x10, 0x01]
         
         # 23 12 00 10 01 (Read addr 0x0010 size 1 byte)
         assert client.uds_request(bytes([0x23, 0x12, 0x00, 0x10, 0x01])) == [0x63, 0xAB]

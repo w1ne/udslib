@@ -9,44 +9,49 @@
 #include "uds/uds_config.h"
 
 /* Mock Transport Send */
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
     check_expected_ptr(data);
     check_expected(len);
     return 0;
 }
 
 /* Dummy Handler */
-static int dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len) {
-    (void)ctx; (void)data; (void)len;
+static int dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
     return UDS_OK;
 }
 
-static uint32_t mock_get_time(void) {
+static uint32_t mock_get_time(void)
+{
     return 0;
 }
 
 /* 1. Verify NRC Priority: Subfunction (0x12) > Security (0x33) */
-static void test_nrc_priority_sub_vs_security(void **state) {
-    (void)state;
+static void test_nrc_priority_sub_vs_security(void **state)
+{
+    (void) state;
     uint8_t rx_buf[64], tx_buf[64];
-    
+
     /* Subfunction mask for sub 0x01 ONLY */
-    static const uint8_t mask_sub_01[] = {0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
+    static const uint8_t mask_sub_01[] = {0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     uds_service_entry_t user_services[] = {
         {0x44, 2, UDS_SESSION_ALL, 1, dummy_handler, mask_sub_01} /* Requires security level 1 */
     };
 
-    uds_config_t cfg = {
-        .fn_tp_send = mock_tp_send,
-        .rx_buffer = rx_buf,
-        .rx_buffer_size = 64,
-        .tx_buffer = tx_buf,
-        .tx_buffer_size = 64,
-        .user_services = user_services,
-        .user_service_count = 1,
-        .get_time_ms = mock_get_time
-    };
+    uds_config_t cfg = {.fn_tp_send = mock_tp_send,
+                        .rx_buffer = rx_buf,
+                        .rx_buffer_size = 64,
+                        .tx_buffer = tx_buf,
+                        .tx_buffer_size = 64,
+                        .user_services = user_services,
+                        .user_service_count = 1,
+                        .get_time_ms = mock_get_time};
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
@@ -70,27 +75,26 @@ static void test_nrc_priority_sub_vs_security(void **state) {
 }
 
 /* 2. Verify NRC Priority: Subfunction (0x12) > Length (0x13) */
-static void test_nrc_priority_sub_vs_length(void **state) {
-    (void)state;
+static void test_nrc_priority_sub_vs_length(void **state)
+{
+    (void) state;
     uint8_t rx_buf[64], tx_buf[64];
-    
+
     /* Subfunction mask for sub 0x01 ONLY */
-    static const uint8_t mask_sub_01[] = {0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
+    static const uint8_t mask_sub_01[] = {0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     uds_service_entry_t user_services[] = {
         {0x44, 4, UDS_SESSION_ALL, 0, dummy_handler, mask_sub_01} /* Requires length 4 */
     };
 
-    uds_config_t cfg = {
-        .fn_tp_send = mock_tp_send,
-        .rx_buffer = rx_buf,
-        .rx_buffer_size = 64,
-        .tx_buffer = tx_buf,
-        .tx_buffer_size = 64,
-        .user_services = user_services,
-        .user_service_count = 1,
-        .get_time_ms = mock_get_time
-    };
+    uds_config_t cfg = {.fn_tp_send = mock_tp_send,
+                        .rx_buffer = rx_buf,
+                        .rx_buffer_size = 64,
+                        .tx_buffer = tx_buf,
+                        .tx_buffer_size = 64,
+                        .user_services = user_services,
+                        .user_service_count = 1,
+                        .get_time_ms = mock_get_time};
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
@@ -104,7 +108,8 @@ static void test_nrc_priority_sub_vs_length(void **state) {
     uds_input_sdu(&ctx, req_both_invalid, 2);
 }
 
-int main(void) {
+int main(void)
+{
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_nrc_priority_sub_vs_security),
         cmocka_unit_test(test_nrc_priority_sub_vs_length),

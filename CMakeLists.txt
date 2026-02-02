@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(UDSLib C)
+project(LibUDS C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
@@ -18,7 +18,7 @@ include_directories(include)
 include_directories(src/core)
 
 # Core Library
-set(UDSLIB_SOURCES
+set(LIBUDS_SOURCES
     src/core/uds_core.c
     src/services/uds_service_session.c
     src/services/uds_service_data.c
@@ -28,13 +28,9 @@ set(UDSLIB_SOURCES
     src/services/uds_service_mem.c
     src/transport/uds_tp_isotp.c
 )
-add_library(udslib STATIC ${UDSLIB_SOURCES})
-add_library(udslib_shared SHARED ${UDSLIB_SOURCES})
-set_target_properties(udslib udslib_shared PROPERTIES OUTPUT_NAME udslib)
+add_library(uds STATIC ${LIBUDS_SOURCES})
 
 # Temporary compatibility aliases (old target names)
-add_library(uds ALIAS udslib)
-add_library(uds_shared ALIAS udslib_shared)
 
 # Examples
 add_subdirectory(examples/host_sim)

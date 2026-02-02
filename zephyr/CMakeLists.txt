@@ -3,6 +3,12 @@ zephyr_library()
 # Core UDS stack (always included)
 zephyr_library_sources(
     ../src/core/uds_core.c
+    ../src/services/uds_service_session.c
+    ../src/services/uds_service_maintenance.c
+    ../src/services/uds_service_data.c
+    ../src/services/uds_service_mem.c
+    ../src/services/uds_service_security.c
+    ../src/services/uds_service_flash.c
     uds_zephyr_port.c
 )
 
@@ -22,7 +28,10 @@ if(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
 endif()
 
 # Include directories
-zephyr_include_directories(../include)
+zephyr_include_directories(
+    ../include
+    ../src/core
+)
 
 # Compiler flags
 zephyr_library_compile_options(

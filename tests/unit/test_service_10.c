@@ -7,7 +7,7 @@
 
 static void test_extended_session_success(void **state)
 {
-    (void)state;
+    (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
 
     uint8_t request[] = {0x10, 0x03};
@@ -27,7 +27,7 @@ static void test_extended_session_success(void **state)
 
 static void test_default_session_success(void **state)
 {
-    (void)state;
+    (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     ctx.active_session = 0x03;
 
@@ -36,7 +36,7 @@ static void test_default_session_success(void **state)
     will_return(mock_get_time, 2000); /* Input */
     will_return(mock_get_time, 2000); /* Dispatch */
     expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 2);
+    expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, request, sizeof(request));

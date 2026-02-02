@@ -8,20 +8,26 @@
 #include <stdint.h>
 #include "uds/uds_core.h"
 
-static void flash_log(uint8_t level, const char *msg) {
+static void flash_log(uint8_t level, const char *msg)
+{
     printf("[UDS-PRO] %s\n", msg);
 }
 
-static uint32_t get_time(void) { return 0; } // Mock time
+static uint32_t get_time(void)
+{
+    return 0;
+}  // Mock time
 
-static int tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len) {
+static int tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
     printf(">> TP TX: ");
-    for(int i=0; i<len; i++) printf("%02X ", data[i]);
+    for (int i = 0; i < len; i++) printf("%02X ", data[i]);
     printf("\n");
     return 0;
 }
 
-int main() {
+int main()
+{
     uds_ctx_t ctx;
     uds_config_t cfg = {0};
     uint8_t rx_buf[1024], tx_buf[1024];
@@ -42,8 +48,8 @@ int main() {
 
     /* 1. Request Download (0x34) */
     printf("\nStep 1: Requesting Download (Address=0x08000000, Size=0x1000)\n");
-    uint8_t req_34[] = { 
-        0x44,          /* DFIs: AddressLen=4, SizeLen=4 */
+    uint8_t req_34[] = {
+        0x44,                   /* DFIs: AddressLen=4, SizeLen=4 */
         0x08, 0x00, 0x00, 0x00, /* Address */
         0x00, 0x00, 0x10, 0x00  /* Size */
     };

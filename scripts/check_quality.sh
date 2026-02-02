@@ -3,11 +3,11 @@
 
 set -e
 
-echo "=== Skipping Clang-Format Apply (Not installed) ==="
-# find src include examples tests zephyr -name "*.c" -o -name "*.h" | xargs clang-format -i
+echo "=== Running Clang-Format Audit ==="
+find src include examples tests -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror
 
-echo "=== Skipping Cppcheck (Not installed) ==="
-# cppcheck --enable=all --suppress=missingIncludeSystem --inconclusive --error-exitcode=1 -I include src/
+echo "=== Running Cppcheck (MISRA Audit) ==="
+cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --inconclusive --error-exitcode=1 -I include src/
 echo "✅ Cppcheck passed."
 
 echo "=== Running Build & Unit Test Verification ==="

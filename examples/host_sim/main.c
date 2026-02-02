@@ -39,7 +39,7 @@ static uint32_t get_time_ms(void)
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint32_t)((ts.tv_sec * 1000) + (ts.tv_nsec / 1000000));
+    return (uint32_t) ((ts.tv_sec * 1000) + (ts.tv_nsec / 1000000));
 }
 #endif
 
@@ -49,10 +49,11 @@ static uint32_t get_time_ms(void)
 /**
  * @brief Virtual CAN packet structure.
  */
-typedef struct {
-    uint32_t id;      /**< CAN ID */
-    uint8_t data[8];  /**< Payload */
-    uint8_t len;      /**< Length */
+typedef struct
+{
+    uint32_t id;     /**< CAN ID */
+    uint8_t data[8]; /**< Payload */
+    uint8_t len;     /**< Length */
 } vcan_packet_t;
 #pragma pack(pop)
 
@@ -63,13 +64,12 @@ static struct sockaddr_in g_client_addr;
 /** Length of the client address */
 static socklen_t g_client_len = sizeof(g_client_addr);
 
-/**
 /* Mock Memory (1KB) */
 static uint8_t mock_memory[1024];
 
 static int fn_mem_read(uds_ctx_t *ctx, uint32_t addr, uint32_t size, uint8_t *out_buf)
 {
-    (void)ctx;
+    (void) ctx;
     if (addr + size > sizeof(mock_memory)) {
         return -0x31; /* RequestOutOfRange */
     }
@@ -79,7 +79,7 @@ static int fn_mem_read(uds_ctx_t *ctx, uint32_t addr, uint32_t size, uint8_t *ou
 
 static int fn_mem_write(uds_ctx_t *ctx, uint32_t addr, uint32_t size, const uint8_t *data)
 {
-    (void)ctx;
+    (void) ctx;
     if (addr + size > sizeof(mock_memory)) {
         return -0x31; /* RequestOutOfRange */
     }
@@ -95,7 +95,8 @@ static int fn_mem_write(uds_ctx_t *ctx, uint32_t addr, uint32_t size, const uint
  */
 static void log_event(uint8_t level, const char *msg)
 {
-    const char *lvl_str = (level == UDS_LOG_ERROR) ? "ERR" : ((level == UDS_LOG_INFO) ? "INF" : "DBG");
+    const char *lvl_str =
+        (level == UDS_LOG_ERROR) ? "ERR" : ((level == UDS_LOG_INFO) ? "INF" : "DBG");
     printf("[%u] [%s] %s\n", get_time_ms(), lvl_str, msg);
 }
 
@@ -120,7 +121,7 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
         pkt.id = id;
         pkt.len = len;
         memcpy(pkt.data, data, len);
-        sendto(g_server_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *)&g_client_addr, g_client_len);
+        sendto(g_server_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *) &g_client_addr, g_client_len);
     }
     return 0;
 }
@@ -139,8 +140,8 @@ static char g_customer_name[16] = "ECU_OWNER";
  * @brief Example DID table setup.
  */
 static const uds_did_entry_t g_ecu_dids[] = {
-    {0xF190, 14, NULL, NULL, g_ecu_vin},          /* VIN (Direct storage) */
-    {0x0123, 16, NULL, NULL, g_customer_name},    /* Customer Name (Read/Write) */
+    {0xF190, 14, 0, 0, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
+    {0x0123, 16, 0, 0, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
 };
 
 static const uds_did_table_t g_ecu_did_table = {.entries = g_ecu_dids, .count = 2};
@@ -150,15 +151,17 @@ static const uds_did_table_t g_ecu_did_table = {.entries = g_ecu_dids, .count = 
  */
 static void mock_reset(uds_ctx_t *ctx, uint8_t type)
 {
-    (void)ctx;
+    (void) ctx;
     const char *type_str = (type == UDS_RESET_HARD) ? "HARD" : "SOFT";
     printf("[APP] ECU RESET TRIGGERED: Type %s (0x%02X)\n", type_str, type);
 }
 
-static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len) {
-    (void)ctx; (void)max_len;
+static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) max_len;
     printf("[APP] DTC READ: Subfunction 0x%02X\n", subfn);
-    if (subfn == 0x01) { /* count of DTCs matching status mask */
+    if (subfn == 0x01) {   /* count of DTCs matching status mask */
         out_buf[0] = 0x01; /* availability mask */
         out_buf[1] = 0x01; /* status availability */
         out_buf[2] = 0x00; /* count MSB */
@@ -168,47 +171,90 @@ static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, u
     return -0x31;
 }
 
-static int mock_dtc_clear(struct uds_ctx *ctx, uint32_t group) {
-    (void)ctx;
+static int mock_dtc_clear(struct uds_ctx *ctx, uint32_t group)
+{
+    (void) ctx;
     printf("[APP] DTC CLEAR: Group 0x%06X\n", group);
     return UDS_OK;
 }
 
-static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len) {
-    (void)ctx; (void)data; (void)len; (void)max_len;
+static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf,
+                              uint16_t max_len)
+{
+    (void) ctx;
+    (void) level;
+    if (max_len < 4u) return -0x22; /* ConditionsNotCorrect */
+    printf("[APP] SECURITY SEED (level %u)\n", level);
+    seed_buf[0] = 0xDE;
+    seed_buf[1] = 0xAD;
+    seed_buf[2] = 0xBE;
+    seed_buf[3] = 0xEF;
+    return 4;
+}
+
+static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed,
+                             const uint8_t *key, uint16_t key_len)
+{
+    (void) ctx;
+    (void) level;
+    (void) seed;
+    (void) key;
+    (void) key_len;
+    printf("[APP] SECURITY KEY ACCEPTED (level %u)\n", level);
+    return UDS_OK;
+}
+
+static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
+                     uint8_t *out_buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    (void) max_len;
     printf("[APP] AUTH: Subfunction 0x%02X\n", subfn);
     if (subfn == 0x01) return 0; /* deAuthenticate success */
-    if (subfn == 0x02) { /* verifyCertificateUnidirectional */
-        out_buf[0] = 0x01; /* Evaluation Status: Valid */
+    if (subfn == 0x02) {         /* verifyCertificateUnidirectional */
+        out_buf[0] = 0x01;       /* Evaluation Status: Valid */
         return 1;
     }
     return -0x22;
 }
 
-static int mock_routine_control(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len) {
-    (void)ctx; (void)data; (void)len; (void)max_len;
+static int mock_routine_control(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data,
+                                uint16_t len, uint8_t *out_buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    (void) max_len;
     printf("[APP] ROUTINE CONTROL: Type 0x%02X ID 0x%04X\n", type, id);
-    if (id == 0xFF00) { /* Erase Memory */
+    if (id == 0xFF00) {    /* Erase Memory */
         out_buf[0] = 0x00; /* Success */
         return 1;
     }
     return -0x31;
 }
 
-static int mock_request_download(struct uds_ctx *ctx, uint32_t addr, uint32_t size) {
-    (void)ctx;
+static int mock_request_download(struct uds_ctx *ctx, uint32_t addr, uint32_t size)
+{
+    (void) ctx;
     printf("[APP] REQUEST DOWNLOAD: Addr 0x%08X Size 0x%08X\n", addr, size);
     return UDS_OK;
 }
 
-static int mock_transfer_data(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data, uint16_t len) {
-    (void)ctx; (void)data; (void)len;
+static int mock_transfer_data(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data,
+                              uint16_t len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
     printf("[APP] TRANSFER DATA: Seq 0x%02X Len %u\n", sequence, len);
     return UDS_OK;
 }
 
-static int mock_transfer_exit(struct uds_ctx *ctx) {
-    (void)ctx;
+static int mock_transfer_exit(struct uds_ctx *ctx)
+{
+    (void) ctx;
     printf("[APP] TRANSFER EXIT\n");
     return UDS_OK;
 }
@@ -232,7 +278,7 @@ int main(int argc, char **argv)
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(port);
 
-    if (bind(g_server_fd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+    if (bind(g_server_fd, (const struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
         return -1;
     }
@@ -241,30 +287,30 @@ int main(int argc, char **argv)
     uds_tp_isotp_init(mock_can_send, 0x7E8, 0x7E0);
 
     /* Configure UDS Stack */
-    uds_config_t cfg = {
-        .ecu_address = 0x10,
-        .get_time_ms = get_time_ms,
-        .fn_log = log_event,
-        .fn_tp_send = uds_isotp_send,
-        .fn_reset = mock_reset,
-        .fn_dtc_read = mock_dtc_read,
-        .fn_dtc_clear = mock_dtc_clear,
-        .fn_auth = mock_auth,
-        .fn_routine_control = mock_routine_control,
-        .fn_request_download = mock_request_download,
-        .fn_transfer_data = mock_transfer_data,
-        .fn_transfer_exit = mock_transfer_exit,
-        .fn_mem_read = fn_mem_read,
-        .fn_mem_write = fn_mem_write,
-        
-        .did_table = g_ecu_did_table,
-        .rx_buffer = g_rx_buf,
-        .rx_buffer_size = sizeof(g_rx_buf),
-        .tx_buffer = g_tx_buf,
-        .tx_buffer_size = sizeof(g_tx_buf),
-        .p2_ms = 50,
-        .p2_star_ms = 2000
-    };
+    uds_config_t cfg = {.ecu_address = 0x10,
+                        .get_time_ms = get_time_ms,
+                        .fn_log = log_event,
+                        .fn_tp_send = uds_isotp_send,
+                        .fn_reset = mock_reset,
+                        .fn_dtc_read = mock_dtc_read,
+                        .fn_dtc_clear = mock_dtc_clear,
+                        .fn_security_seed = mock_security_seed,
+                        .fn_security_key = mock_security_key,
+                        .fn_auth = mock_auth,
+                        .fn_routine_control = mock_routine_control,
+                        .fn_request_download = mock_request_download,
+                        .fn_transfer_data = mock_transfer_data,
+                        .fn_transfer_exit = mock_transfer_exit,
+                        .fn_mem_read = fn_mem_read,
+                        .fn_mem_write = fn_mem_write,
+
+                        .did_table = g_ecu_did_table,
+                        .rx_buffer = g_rx_buf,
+                        .rx_buffer_size = sizeof(g_rx_buf),
+                        .tx_buffer = g_tx_buf,
+                        .tx_buffer_size = sizeof(g_tx_buf),
+                        .p2_ms = 50,
+                        .p2_star_ms = 2000};
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
@@ -297,7 +343,7 @@ int main(int argc, char **argv)
         setsockopt(g_server_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
         vcan_packet_t pkt;
-        ssize_t n = recvfrom(g_server_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *)&g_client_addr,
+        ssize_t n = recvfrom(g_server_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *) &g_client_addr,
                              &g_client_len);
         if (n > 0) {
             uds_isotp_rx_callback(&ctx, pkt.id, pkt.data, pkt.len);

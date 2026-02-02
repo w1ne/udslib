@@ -16,18 +16,21 @@ static uint8_t rx_buf[256];
 static uint8_t tx_buf[256];
 
 /* --- Mocks --- */
-static uint32_t mock_get_time(void) {
+static uint32_t mock_get_time(void)
+{
     return mock_time_ms;
 }
 
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
     check_expected(data);
     check_expected(len);
     return 0;
 }
 
 /* --- Async Service Handler --- */
-static int async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
+static int async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
     /* Simulate a service that cannot complete immediately */
     return UDS_PENDING;
 }
@@ -36,7 +39,8 @@ static const uds_service_entry_t user_services[] = {
     {0x31, 4, UDS_SESSION_ALL, 0, async_service_handler},
 };
 
-static void setup_test(void **state) {
+static void setup_test(void **state)
+{
     memset(&cfg, 0, sizeof(cfg));
     cfg.get_time_ms = mock_get_time;
     cfg.fn_tp_send = mock_tp_send;
@@ -44,7 +48,7 @@ static void setup_test(void **state) {
     cfg.rx_buffer_size = sizeof(rx_buf);
     cfg.tx_buffer = tx_buf;
     cfg.tx_buffer_size = sizeof(tx_buf);
-    
+
     /* Config Timing */
     cfg.p2_ms = 50;
     cfg.p2_star_ms = 2000;
@@ -53,7 +57,7 @@ static void setup_test(void **state) {
     cfg.user_services = user_services;
     cfg.user_service_count = 1;
     /* Missing table */
-    static const uds_did_entry_t dids[] = {{0,0,NULL,NULL,NULL}};
+    static const uds_did_entry_t dids[] = {{0, 0, NULL, NULL, NULL}};
     cfg.did_table.entries = dids;
     cfg.did_table.count = 0;
 
@@ -61,12 +65,13 @@ static void setup_test(void **state) {
     mock_time_ms = 1000;
 }
 
-static void test_async_workflow(void **state) {
+static void test_async_workflow(void **state)
+{
     setup_test(state);
 
     /* 1. Send Request 31 01 FF 00 */
     uint8_t req[] = {0x31, 0x01, 0xFF, 0x00};
-    
+
     /* Expect IMMEDIATE NRC 0x78 because handler returns UDS_PENDING */
     uint8_t exp_nrc78[] = {0x7F, 0x31, 0x78};
     expect_memory(mock_tp_send, data, exp_nrc78, 3);
@@ -75,15 +80,15 @@ static void test_async_workflow(void **state) {
     uds_input_sdu(&ctx, req, sizeof(req));
 
     /* Check State: response_pending should be tracked internally (p2_msg_pending) */
-    /* Assert internal state if possible, but struct is opaque/internal. 
+    /* Assert internal state if possible, but struct is opaque/internal.
        We rely on behavior. */
 
-    /* 2. Advance time < P2* (e.g. 1000ms elapsed). 
+    /* 2. Advance time < P2* (e.g. 1000ms elapsed).
        No response expected during process() */
     mock_time_ms += 1000;
     uds_process(&ctx);
 
-    /* 3. Advance time > P2* (e.g. +1100ms = 2100ms total elapsed). 
+    /* 3. Advance time > P2* (e.g. +1100ms = 2100ms total elapsed).
        Expect another NRC 0x78 (Keep Alive) */
     mock_time_ms += 1100;
 
@@ -106,11 +111,12 @@ static void test_async_workflow(void **state) {
     uds_send_response(&ctx, 4);
 
     /* 5. Process again. Should be IDLE. No more 0x78. */
-    mock_time_ms += 3000; 
+    mock_time_ms += 3000;
     uds_process(&ctx);
 }
 
-int main(void) {
+int main(void)
+{
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_async_workflow),
     };

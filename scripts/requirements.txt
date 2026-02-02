@@ -1,3 +1,5 @@
 py-uds>=1.2.0
 can-isotp>=1.8
 python-can>=4.0.0
+jsonschema
+west

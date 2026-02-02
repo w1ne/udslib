@@ -34,26 +34,29 @@ extern "C" {
 /**
  * @brief ECU Reset Types (SID 0x11).
  */
-typedef enum {
-    UDS_RESET_HARD = 0x01,        /**< Power cycle reset */
-    UDS_RESET_SOFT = 0x02,        /**< Software-driven reset */
+typedef enum
+{
+    UDS_RESET_HARD = 0x01,       /**< Power cycle reset */
+    UDS_RESET_SOFT = 0x02,       /**< Software-driven reset */
     UDS_RESET_KEY_OFF_ON = 0x03, /**< Simulated key cycle */
 } uds_reset_type_t;
 
 /**
  * @brief Communication Control Types (SID 0x28).
  */
-typedef enum {
+typedef enum
+{
     UDS_COMM_ENABLE_RX_TX = 0x00,         /**< Normal communication */
     UDS_COMM_ENABLE_RX_DISABLE_TX = 0x01, /**< Receive only */
     UDS_COMM_DISABLE_RX_ENABLE_TX = 0x02, /**< Transmit only */
-    UDS_COMM_DISABLE_RX_TX = 0x03          /**< Total communication silence */
+    UDS_COMM_DISABLE_RX_TX = 0x03         /**< Total communication silence */
 } uds_comm_control_type_t;
 
 /**
  * @brief Authentication Sub-functions (SID 0x29).
  */
-typedef enum {
+typedef enum
+{
     UDS_AUTH_DEAUTHENTICATE = 0x01,
     UDS_AUTH_VERIFY_CERT_UNI = 0x02,
     UDS_AUTH_VERIFY_CERT_BI = 0x03,

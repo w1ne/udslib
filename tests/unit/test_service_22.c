@@ -8,17 +8,14 @@
 static uint8_t g_vin[] = "UDSLIB_SIM_001";
 
 static const uds_did_entry_t g_test_dids[] = {
-    {0xF190, 14, NULL, NULL, g_vin},
+    {0xF190, 14, UDS_SESSION_ALL, 0, NULL, NULL, g_vin},
 };
 
-static const uds_did_table_t g_test_table = {
-    .entries = g_test_dids,
-    .count = 1
-};
+static const uds_did_table_t g_test_table = {.entries = g_test_dids, .count = 1};
 
 static void test_rdbi_vin_success(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
@@ -42,7 +39,7 @@ static void test_rdbi_vin_success(void **state)
 
 static void test_rdbi_unsupported_id_nrc(void **state)
 {
-    (void)state;
+    (void) state;
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);

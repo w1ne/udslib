@@ -67,29 +67,36 @@ typedef void (*uds_reset_fn)(struct uds_ctx *ctx, uint8_t type);
  * @brief DID Data Access Callbacks (SID 0x22 / 0x2E)
  */
 typedef int (*uds_did_read_fn)(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, uint16_t max_len);
-typedef int (*uds_did_write_fn)(struct uds_ctx *ctx, uint16_t did, const uint8_t *data, uint16_t len);
+typedef int (*uds_did_write_fn)(struct uds_ctx *ctx, uint16_t did, const uint8_t *data,
+                                uint16_t len);
 
 /**
  * @brief Security Access Callbacks (SID 0x27)
  */
-typedef int (*uds_security_seed_fn)(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len);
-typedef int (*uds_security_key_fn)(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key, uint16_t key_len);
+typedef int (*uds_security_seed_fn)(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf,
+                                    uint16_t max_len);
+typedef int (*uds_security_key_fn)(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed,
+                                   const uint8_t *key, uint16_t key_len);
 
 /**
  * @brief DID Registry Entry
  */
-typedef struct {
-    uint16_t id;             /**< Data Identifier (e.g., 0xF190) */
-    uint16_t size;           /**< Expected data size in bytes */
-    uds_did_read_fn read;    /**< Optional: Dynamic read callback */
-    uds_did_write_fn write;  /**< Optional: Dynamic write callback */
-    void *storage;           /**< Optional: Direct data storage pointer */
+typedef struct
+{
+    uint16_t id;            /**< Data Identifier (e.g., 0xF190) */
+    uint16_t size;          /**< Expected data size in bytes */
+    uint8_t session_mask;   /**< Allowed sessions bitmask (0=All) */
+    uint16_t security_mask; /**< Required security level (0=None) */
+    uds_did_read_fn read;   /**< Optional: Dynamic read callback */
+    uds_did_write_fn write; /**< Optional: Dynamic write callback */
+    void *storage;          /**< Optional: Direct data storage pointer */
 } uds_did_entry_t;
 
 /**
  * @brief DID Table Registry
  */
-typedef struct {
+typedef struct
+{
     const uds_did_entry_t *entries; /**< Pointer to an array of entries */
     uint16_t count;                 /**< Number of entries in the table */
 } uds_did_table_t;
@@ -117,11 +124,12 @@ typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, u
 /**
  * @brief UDS Service Registry Entry
  */
-typedef struct {
-    uint8_t sid;             /**< Service ID (e.g., 0x22) */
-    uint16_t min_len;        /**< Minimum required request length */
-    uint8_t session_mask;    /**< Allowed sessions bitmask */
-    uint16_t security_mask;  /**< Minimum security level required (bitmask or level) */
+typedef struct
+{
+    uint8_t sid;                   /**< Service ID (e.g., 0x22) */
+    uint16_t min_len;              /**< Minimum required request length */
+    uint8_t session_mask;          /**< Allowed sessions bitmask */
+    uint16_t security_mask;        /**< Minimum security level required (bitmask or level) */
     uds_service_handler_t handler; /**< Function pointer to handler */
     const uint8_t *sub_mask; /**< Optional bitmask of supported 7-bit subfunctions (16 bytes) */
 } uds_service_entry_t;
@@ -134,7 +142,8 @@ typedef struct {
  * This struct must be populated by the user and passed to uds_init().
  * It persists for the lifetime of the stack.
  */
-typedef struct {
+typedef struct
+{
     /** The logical address of this ECU (optional usage) */
     uint8_t ecu_address;
 
@@ -158,8 +167,8 @@ typedef struct {
     /** Optional: ECU Reset callback for SID 0x11 */
     uds_reset_fn fn_reset;
 
-    /** 
-     * @brief Optional: Communication Control callback (SID 0x28) 
+    /**
+     * @brief Optional: Communication Control callback (SID 0x28)
      * @param ctx  UDS Context
      * @param ctrl_type Control Type (0-3)
      * @param comm_type Communication Type (Data Byte 2)
@@ -185,18 +194,27 @@ typedef struct {
     uint16_t tx_buffer_size;
 
     /* --- Enterprise Hardening --- */
-    /** 
+    /**
      * @brief Enable strict ISO 14229-1 compliance checks.
-     * When true, the stack will perform more aggressive validation of 
+     * When true, the stack will perform more aggressive validation of
      * timing parameters and request payload ranges.
      */
     bool strict_compliance;
 
-    /** 
+    /**
      * @brief Global log level filter for the stack.
      * Logs below this level will be suppressed before the callback is called.
      */
     uint8_t log_level;
+
+    /* --- Security Hardening (C-14, C-15) --- */
+    /** Time delay after failed security attempts (ms). Default: 10000ms */
+    uint32_t security_delay_ms;
+    /** Max failed attempts before triggering delay. Default: 3 */
+    uint8_t security_max_attempts;
+
+    /** ISO 14229-1: Max allowed NRC 0x78 (ResponsePending) repetitions. 0=Infinite (C-07) */
+    uint16_t rcrrp_limit;
 
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
@@ -210,7 +228,7 @@ typedef struct {
 
     /* --- Advanced Policy Callbacks --- */
 
-    /** 
+    /**
      * @brief Optional: Safety Gate Check.
      * Called before executing potentially destructive services (Reset, Write, Flash).
      * @param sid   The service ID being requested.
@@ -257,7 +275,8 @@ typedef struct {
      * @param max_len   Max output size.
      * @return          Bytes written to out_buf, or negative NRC.
      */
-    int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len);
+    int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
+                   uint8_t *out_buf, uint16_t max_len);
 
     /* --- Flash Engine (OTA Support) --- */
 
@@ -272,7 +291,8 @@ typedef struct {
      * @param max_len   Max output size.
      * @return          Bytes written to out_buf, or negative NRC.
      */
-    int (*fn_routine_control)(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data, uint16_t len, uint8_t *out_buf, uint16_t max_len);
+    int (*fn_routine_control)(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data,
+                              uint16_t len, uint8_t *out_buf, uint16_t max_len);
 
     /**
      * @brief Optional: Request Download (SID 0x34).
@@ -291,7 +311,8 @@ typedef struct {
      * @param len       Block length.
      * @return          UDS_OK or negative NRC.
      */
-    int (*fn_transfer_data)(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data, uint16_t len);
+    int (*fn_transfer_data)(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data,
+                            uint16_t len);
 
     /**
      * @brief Optional: Request Transfer Exit (SID 0x37).
@@ -338,6 +359,12 @@ typedef struct {
      * @brief Callback to unlock the UDS context mutex.
      */
     void (*fn_mutex_unlock)(void *mutex_handle);
+    /* --- Timing Parameters (C-19) --- */
+    /** Default P2 Server Max (ms). Recommended: 50ms */
+    uint16_t p2_server_max;
+    /** Default P2* Server Max (ms). Recommended: 5000ms */
+    uint16_t p2_star_server_max;
+
 } uds_config_t;
 
 /* --- Internal Context --- */
@@ -348,7 +375,8 @@ typedef struct {
  * Stores the runtime state of the stack.
  * The user allocates this (stack/static), but should treat members as private.
  */
-typedef struct uds_ctx {
+typedef struct uds_ctx
+{
     /** Config pointer (must remain valid) */
     const uds_config_t *config;
 
@@ -392,6 +420,15 @@ typedef struct uds_ctx {
 
     /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
     uint8_t flash_sequence;
+
+    /* --- Security State (C-14, C-15) --- */
+    /** Timestamp when security delay expires */
+    uint32_t security_delay_end;
+    /** Counter for failed security attempts */
+    uint8_t security_attempts;
+
+    /** ISO 14229-1: Counter for NRC 0x78 repetitions (C-07) */
+    uint16_t rcrrp_count;
 } uds_ctx_t;
 
 #ifdef __cplusplus
