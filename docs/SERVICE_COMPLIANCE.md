@@ -30,6 +30,7 @@ This document tracks the compliance and support level for UDS services.
 - **Verification Priority**: Enforces ISO 14229-1 NRC priorities (Session -> Subfunction -> Length -> Security -> Safety).
 - **Safety Gates**: Application callbacks block destructive services (Reset, Write, Download) when unsafe.
 - **Asynchronous Processing**: Support for `UDS_PENDING` (NRC 0x78) enables non-blocking integration with slow hardware/flash operations.
+- **MISRA-C:2012**: Core logic audited for baseline MISRA-C:2012 compliance (Rules 10.x, 17.x, 21.x).
 
 ## Future Services
 

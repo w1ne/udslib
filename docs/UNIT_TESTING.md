@@ -1,6 +1,6 @@
 # Unit Testing
 
-LibUDS uses **CMocka** for its unit testing suite. Tests are located in `tests/` and integrated with CMake.
+UDSLib uses **CMocka** for its unit testing suite. Tests are located in `tests/` and integrated with CMake.
 
 ## 1. Prerequisites
 

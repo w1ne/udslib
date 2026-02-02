@@ -7,14 +7,14 @@ zephyr_library_sources(
 )
 
 # Zephyr-specific ISO-TP shim
-if(CONFIG_LIBUDS_TRANSPORT_NATIVE)
+if(CONFIG_UDSLIB_TRANSPORT_NATIVE)
     zephyr_library_sources(
         uds_zephyr_isotp.c
     )
 endif()
 
 # Transport layer: Internal fallback (only if not using Zephyr native)
-if(CONFIG_LIBUDS_TRANSPORT_FALLBACK)
+if(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
     zephyr_library_sources(
         ../src/transport/uds_tp_isotp.c
         uds_zephyr_tp_fallback.c

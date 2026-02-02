@@ -1,6 +1,6 @@
 /**
  * @file test_core.c
- * @brief Unit tests for LibUDS Core Logic
+ * @brief Unit tests for UDSLib Core Logic
  */
 
 #include <stdarg.h>

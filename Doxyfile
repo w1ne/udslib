@@ -1,4 +1,4 @@
-PROJECT_NAME           = "LibUDS"
+PROJECT_NAME           = "UDSLib"
 PROJECT_NUMBER         = "1.0.0"
 PROJECT_BRIEF          = "Enterprise-Grade ISO-14229 UDS Protocol Stack"
 OUTPUT_DIRECTORY       = docs/html

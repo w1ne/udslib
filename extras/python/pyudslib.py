@@ -3,9 +3,9 @@ import os
 
 # Load the shared library
 # Assuming it's in the build directory relative to the repository root
-_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "build", "libuds.so"))
+_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "build", "libudslib.so"))
 if not os.path.exists(_lib_path):
-    raise ImportError(f"LibUDS shared library not found at {_lib_path}. Please run 'make uds_shared' in the build directory.")
+    raise ImportError(f"UDSLib shared library not found at {_lib_path}. Please run 'make udslib_shared' in the build directory.")
 _lib = ctypes.CDLL(_lib_path)
 
 # --- Type Definitions ---
@@ -72,7 +72,7 @@ _lib.uds_client_request.restype = ctypes.c_int
 
 # --- Pythonic Wrapper Class ---
 
-class LibUDS:
+class UDSLib:
     def __init__(self, config_dict):
         self.ctx = UdsCtx()
         self.config = UdsConfig()
@@ -97,7 +97,7 @@ class LibUDS:
         
         res = _lib.uds_init(ctypes.byref(self.ctx), ctypes.byref(self.config))
         if res != 0:
-            raise Exception(f"LibUDS init failed with code {res}")
+            raise Exception(f"UDSLib init failed with code {res}")
 
     def process(self):
         _lib.uds_process(ctypes.byref(self.ctx))
@@ -131,7 +131,7 @@ if __name__ == "__main__":
         print(f"[PY-TP] Sending SDU: {bytes(payload).hex(' ').upper()}")
         return 0
 
-    uds = LibUDS({
+    uds = UDSLib({
         'get_time_ms': lambda: int(time.time() * 1000),
         'fn_tp_send': tp_send_cb,
         'fn_log': log_cb

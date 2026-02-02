@@ -1,5 +1,5 @@
 #!/bin/bash
-# LibUDS Stricter Code Quality Check Script
+# UDSLib Stricter Code Quality Check Script
 
 set -e
 

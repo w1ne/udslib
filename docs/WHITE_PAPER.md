@@ -1,36 +1,33 @@
-# White Paper: The Architecture of Automotive Safety
+# White Paper: UDSLib Architecture
 
-## Executive Summary
-LibUDS is a high-performance, hardware-agnostic UDS (ISO 14229-1) protocol stack designed for safety-critical automotive systems. Unlike legacy stacks that are often bloated and hardware-locked, LibUDS provides a "Pure-Play" logic layer that integrates seamlessly into modern CI/CD pipelines and safety-audited environments.
+## Overview
+UDSLib is a portable UDS (ISO 14229-1) protocol stack for safety-critical systems.
 
-## 1. Safety by Design: Zero-Copy Memory Model
-Memory corruption is the leading cause of safety failures in embedded systems. LibUDS eliminates this risk by using a **100% static memory model**:
-- **Zero Malloc**: No dynamic memory allocation is performed at runtime.
-- **Caller-Owned Buffers**: The application provides fixed-size buffers, preventing unexpected heap-based failures.
-- **Buffer Overflow Protection**: Native hardening against multi-packet overflow (e.g., SID 0x22 reads).
+## 1. Safety by Design
+Dynamic memory allocation is a common source of failure in long-running embedded systems. UDSLib avoids this with a **static memory model**.
+**No Malloc**. The stack performs zero runtime allocation.
+**Caller-Owned Buffers**. Applications allocate buffers and pass them to the stack.
+**Overflow Protection**. Internal checks prevent multi-packet read operations (SID 0x22) from exceeding buffer limits.
 
-## 2. Deterministic Performance: Tickless Timing
-In automotive diagnostics, timing is everything. LibUDS implements a "Tickless" timing engine:
-- **Jitter-Free**: Responses (P2/P2*) are handled based on absolute monotonic time providers.
-- **Non-Blocking**: The stack never blocks the main execution loop, allowing it to coexist with high-priority safety tasks (e.g., motor control).
-- **Asynchronous Dispatch**: Support for long-running operations (NRC 0x78) is built-in, not bolted on.
+## 2. Deterministic Timing
+UDSLib uses a "Tickless" timing engine to maintain protocol compliance without monopolizing the CPU.
+**Monotonic Timing**. Protocol timers (P2/P2*) rely on absolute system time, eliminating tick-drift.
+**Non-Blocking**. The stack processes states without blocking the main loop, allowing critical tasks like motor control to preempt it.
+**Asynchronous Dispatch**. The stack handles "Response Pending" (NRC 0x78) logic for long operations automatically.
 
-## 3. The "Safety Gate" Architecture
-Traditional stacks execute requests immediately, which can be dangerous (e.g., resetting an ECU while the vehicle is in motion). LibUDS introduces **Integrated Safety Gates**:
-- EVERY destructive operation (Flash, Reset, Write) must pass a mandatory application hook.
-- The ECU remains in control of its safety policy at all times.
+## 3. The "Safety Gate"
+Executing diagnostic requests immediately can be dangerous. A diagnostic tool should not be able to reset an ECU while a vehicle is in motion. UDSLib enforces **Safety Gates**.
+**Application Approval**. Destructive operations (Flash, Reset, Write) require explicit approval from the application layer via a callback.
+**ECU Authority**. The application knows the vehicle state; the protocol stack does not. The application always has final say.
 
-## 4. Professional Ecosystem: Beyond the Code
-Engineering teams spend 70% of their time debugging, not coding. LibUDS provides a production-ready ecosystem to slash this overhead:
-- **Wireshark Integration**: A native LUA dissector that decodes UDS SDUs in real-time, transforming cryptic hex dumps into actionable insights.
-- **Python-Native Testing**: A comprehensive Python wrapper (`ctypes`) that allows engineers to write high-level validation scripts and automated test benches in minutes.
-- **Zephyr RTOS Blueprint**: Pre-verified integration guides for modern automotive operating systems, ensuring a "first-time right" deployment.
+## 4. Developer Ecosystem
+Debugging binary protocols is slow. UDSLib includes tools to help engineers see what is happening:
+**Wireshark Dissector**. A LUA script decodes raw UDS frames into readable protocol messages within Wireshark.
+**Python Bindings**. A `ctypes` wrapper exposes the C stack to Python, enabling scriptable integration tests on a host machine.
+**Zephyr Integration**. The repository includes specific guides for integrating with Zephyr RTOS.
 
-## 5. Production-Ready Verification
-Compliance is a verified fact, not a claim. LibUDS is shipped with a comprehensive automated suite:
-- **100% Core Coverage**: Every protocol edge case is verified on host simulation.
-- **Fuzzing Ready**: The modular parser is designed to handle malformed packets without crashing.
-- **MISRA-C Alignment**: Architected for strict coding standards from the ground up.
-
-## Conclusion
-LibUDS reduces time-to-market by up to 6 months by providing a pre-verified, portable foundation for automotive diagnostics. It allows Tier-1 suppliers to focus on their application logic rather than debugging protocol edge cases.
+## 5. Verification
+The stack ships with the tests used to verify it:
+**Host-Based Testing**. Protocol logic is verified on the host.
+**Fuzzing**. The parser is tested against malformed packets to ensure stability.
+**MISRA-C**. The codebase follows MISRA-C:2012 guidelines.

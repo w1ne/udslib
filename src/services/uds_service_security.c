@@ -1,74 +1,74 @@
 /**
  * @file uds_service_security.c
- * @brief Security Access (0x27)
+ * @brief Security Access (0x27) & Authentication (0x29)
  */
 
 #include "uds_internal.h"
 
 int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    uint8_t sub = data[1] & 0x7F;
-    if (sub % 2 != 0) { /* Request Seed (Odd subfunctions: 0x01, 0x03...) */
-        if (!ctx->config->fn_security_seed) {
-            return uds_send_nrc(ctx, 0x27, 0x22); /* Conditions Not Correct */
+    uint8_t sub = (uint8_t)(data[1] & 0x7Fu);
+    if ((sub % 2u) != 0u) { /* Request Seed (Odd subfunctions: 0x01, 0x03...) */
+        if (ctx->config->fn_security_seed == NULL) {
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_CONDITIONS_NOT_CORRECT);
         }
         
-        ctx->config->tx_buffer[0] = 0x67;
+        ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_SECURITY_ACCESS + UDS_RESPONSE_OFFSET);
         ctx->config->tx_buffer[1] = data[1];
         
-        int seed_len = ctx->config->fn_security_seed(ctx, (sub + 1) / 2, &ctx->config->tx_buffer[2], ctx->config->tx_buffer_size - 2);
+        int seed_len = ctx->config->fn_security_seed(ctx, (uint8_t)(((uint16_t)sub + 1u) / 2u), &ctx->config->tx_buffer[2], (uint16_t)(ctx->config->tx_buffer_size - 2u));
         if (seed_len < 0) {
-            return uds_send_nrc(ctx, 0x27, (uint8_t)(-seed_len));
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, (uint8_t)-(int32_t)seed_len);
         }
-        return uds_send_response(ctx, seed_len + 2);
+        return uds_send_response(ctx, (uint16_t)((uint16_t)seed_len + 2u));
     } else { /* Send Key (Even subfunctions: 0x02, 0x04...) */
-        if (!ctx->config->fn_security_key) {
-            return uds_send_nrc(ctx, 0x27, 0x22);
+        if (ctx->config->fn_security_key == NULL) {
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_CONDITIONS_NOT_CORRECT);
         }
 
         /* Standard assumes key is passed in the request after SID and subfn */
-        int res = ctx->config->fn_security_key(ctx, sub / 2, NULL, &data[2], len - 2);
+        int res = ctx->config->fn_security_key(ctx, (uint8_t)(sub / 2u), NULL, &data[2], (uint16_t)(len - 2u));
         if (res == 0) {
-            ctx->security_level = sub / 2;
+            ctx->security_level = (uint8_t)(sub / 2u);
             
             /* NVM Persistence: Save State */
             if (ctx->config->fn_nvm_save) {
                 uint8_t state[2] = {ctx->active_session, ctx->security_level};
-                ctx->config->fn_nvm_save(ctx, state, 2);
+                ctx->config->fn_nvm_save(ctx, state, 2u);
             }
 
-            ctx->config->tx_buffer[0] = 0x67;
+            ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_SECURITY_ACCESS + UDS_RESPONSE_OFFSET);
             ctx->config->tx_buffer[1] = data[1];
-            return uds_send_response(ctx, 2);
+            return uds_send_response(ctx, 2u);
         } else {
-            return uds_send_nrc(ctx, 0x27, (uint8_t)(-res));
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, (uint8_t)-(int32_t)res);
         }
     }
 }
 
 int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    if (len < 2) {
-        return uds_send_nrc(ctx, 0x29, 0x13); /* Incorrect Msg Length */
+    if (len < 2u) {
+        return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, UDS_NRC_INCORRECT_LENGTH);
     }
 
-    uint8_t sub = data[1] & 0x7F;
+    uint8_t sub = (uint8_t)(data[1] & 0x7Fu);
 
-    if (!ctx->config->fn_auth) {
-        return uds_send_nrc(ctx, 0x29, 0x22); /* Conditions Not Correct */
+    if (ctx->config->fn_auth == NULL) {
+        return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
     /* Payload begins at data[2]. Output payload at tx_buffer[2] */
     uint8_t *out_payload = &ctx->config->tx_buffer[2];
-    uint16_t max_payload = ctx->config->tx_buffer_size - 2;
+    uint16_t max_payload = (uint16_t)(ctx->config->tx_buffer_size - 2u);
 
-    int written = ctx->config->fn_auth(ctx, sub, &data[2], len - 2, out_payload, max_payload);
+    int written = ctx->config->fn_auth(ctx, sub, &data[2], (uint16_t)(len - 2u), out_payload, max_payload);
 
     if (written < 0) {
-        return uds_send_nrc(ctx, 0x29, (uint8_t)(-written));
+        return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, (uint8_t)-(int32_t)written);
     }
 
-    ctx->config->tx_buffer[0] = 0x69;
+    ctx->config->tx_buffer[0] = (uint8_t)(UDS_SID_AUTHENTICATION + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = data[1];
-    return uds_send_response(ctx, written + 2);
+    return uds_send_response(ctx, (uint16_t)((uint16_t)written + 2u));
 }

@@ -1,6 +1,6 @@
 # UDS Client API Guide
 
-LibUDS functions symmetrically: the same core stack acts as both a Server (ECU) and a Client (Tester).
+UDSLib functions symmetrically: the same core stack acts as both a Server (ECU) and a Client (Tester).
 
 ## 1. Request and Response Pattern
 

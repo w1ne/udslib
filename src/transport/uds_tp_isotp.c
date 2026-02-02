@@ -56,10 +56,10 @@ int uds_isotp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
     if (len <= 7) {
         /* Single Frame */
         uint8_t frame[8] = {0};
-        frame[0] = (uint8_t)(ISOTP_PCI_SF | len);
+        frame[0] = (uint8_t)((uint8_t)ISOTP_PCI_SF | (uint8_t)len);
         memcpy(&frame[1], data, len);
 
-        return uds_internal_tp_send_frame(&g_isotp_ctx, frame, 8);
+        return uds_internal_tp_send_frame(&g_isotp_ctx, frame, 8u);
     } else {
         /* Multi-Frame: Send First Frame */
         if (len > 4095 || len > sizeof(g_pending_tx_sdu)) {
@@ -74,11 +74,11 @@ int uds_isotp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
         g_isotp_ctx.state = ISOTP_TX_WAIT_FC;
 
         uint8_t frame[8] = {0};
-        frame[0] = (uint8_t)(ISOTP_PCI_FF | ((len >> 8) & 0x0F));
-        frame[1] = (uint8_t)(len & 0xFF);
-        memcpy(&frame[2], data, 6);
-        g_isotp_ctx.bytes_processed = 6;
-        g_isotp_ctx.sn = 1;
+        frame[0] = (uint8_t)((uint8_t)ISOTP_PCI_FF | (uint8_t)((len >> 8u) & 0x0Fu));
+        frame[1] = (uint8_t)(len & 0xFFu);
+        memcpy(&frame[2], data, 6u);
+        g_isotp_ctx.bytes_processed = 6u;
+        g_isotp_ctx.sn = 1u;
 
         if (uds_internal_tp_send_frame(&g_isotp_ctx, frame, 8) != 0) {
             return -1;
@@ -154,11 +154,11 @@ void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *
             /* Abort any active multi-frame on new Single Frame */
             g_isotp_ctx.state = ISOTP_IDLE;
 
-            uint8_t sdu_len = data[0] & 0x0F;
-            if (sdu_len == 0 || sdu_len > 7) {
+            uint8_t sdu_len = (uint8_t)(data[0] & 0x0Fu);
+            if ((sdu_len == 0u) || (sdu_len > 7u)) {
                 return;
             }
-            uds_input_sdu(uds_ctx, &data[1], sdu_len);
+            uds_input_sdu(uds_ctx, &data[1], (uint16_t)sdu_len);
             break;
         }
 
@@ -166,8 +166,8 @@ void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *
             /* Abort any active multi-frame on new First Frame */
             g_isotp_ctx.state = ISOTP_IDLE;
 
-            uint16_t sdu_len = ((data[0] & 0x0F) << 8) | data[1];
-            if (sdu_len < 8) {
+            uint16_t sdu_len = (uint16_t)((uint16_t)((uint16_t)data[0] & 0x0Fu) << 8u) | (uint16_t)data[1];
+            if (sdu_len < 8u) {
                 return; /* Multi-frame must be > 7 bytes */
             }
 

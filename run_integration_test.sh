@@ -1,5 +1,5 @@
 #!/bin/bash
-# LibUDS C-to-C Integration Test
+# UDSLib C-to-C Integration Test
 
 # Get the script directory
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"

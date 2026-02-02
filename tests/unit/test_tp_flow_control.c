@@ -47,7 +47,7 @@ static void test_tp_stmin_enforcement(void **state) {
     /* Process at T=0. Should NOT send CF because STmin might need a baseline. 
        Actually, the first CF after FC should probably be sent immediately or wait? 
        Standard says STmin is between consecutive frames. 
-       LibUDS implementation resets timer_st on send. 
+       UDSLib implementation resets timer_st on send. 
        If timer_st is 0 initially, elapsed might be large.
     */
     

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate release notes for LibUDS releases
+# Generate release notes for UDSLib releases
 # Usage: ./generate_release_notes.sh <version>
 
 set -e
@@ -14,7 +14,7 @@ fi
 
 # Header
 cat << EOF
-# 🚀 LibUDS v${VERSION}
+# 🚀 UDSLib v${VERSION}
 
 **Universal Diagnostics Stack for Embedded Systems**
 
@@ -100,7 +100,7 @@ cat << EOF
 
 ## 🎯 Supported Services
 
-LibUDS v${VERSION} implements **16 ISO 14229-1 services**:
+UDSLib v${VERSION} implements **16 ISO 14229-1 services**:
 
 | Service | Description | SID |
 |---------|-------------|-----|
@@ -135,8 +135,8 @@ Download the attached artifacts:
 ### Build from Source
 
 \`\`\`bash
-git clone https://github.com/yourusername/libuds.git
-cd libuds
+git clone https://github.com/yourusername/udslib.git
+cd udslib
 git checkout v${VERSION}
 mkdir build && cd build
 cmake ..
@@ -154,17 +154,17 @@ ctest
 - [Porting Guide](README.md#4-porting-guide)
 - [Commercial Licensing](docs/COMMERCIAL_STRATEGY.md)
 
-## 💼 Commercial License
+## 💼 Licensing
 
-- **Single Developer**: \$1,499 (Royalty Free)
-- **Consultancy Pack**: \$4,999 (Up to 5 Seats)
-- **Evaluation**: GPLv3 (Source Available)
+- **Community**: PolyForm Noncommercial 1.0.0 (noncommercial use). See LICENSE.
+- **Commercial**: 5,000 EUR for production/commercial use, includes integration + 1 year support.
+- **Contact**: andrii@shylenko.com for commercial terms and support.
 
 ---
 
 ## 🐛 Report Issues
 
-Found a bug? [Open an issue](https://github.com/yourusername/libuds/issues)
+Found a bug? [Open an issue](https://github.com/yourusername/udslib/issues)
 
 ## 📜 Full Changelog
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ODX-to-C Code Generator for LibUDS
+ODX-to-C Code Generator for UDSLib
 
 Parses ODX (Open Diagnostic Data Exchange) files and generates:
 - uds_did_table.c: DID registry with read/write permissions

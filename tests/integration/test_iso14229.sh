@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test LibUDS client against iso14229 external server
+# Test UDSLib client against iso14229 external server
 
 set -e
 
@@ -22,7 +22,7 @@ $ROOT_DIR/iso14229_server > $ROOT_DIR/iso14229_srv.log 2>&1 &
 SRV_PID=$!
 sleep 1
 
-# 2. Run LibUDS Client
+# 2. Run UDSLib Client
 # Our client demo currently takes [IP] [PORT] for UDP, but we need a vcan version.
 # Actually, I should build a vcan version of our client demo.
 

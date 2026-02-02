@@ -1,5 +1,5 @@
 #!/bin/bash
-# LibUDS Coverage Report Generator
+# UDSLib Coverage Report Generator
 # Requirements: lcov, genhtml
 
 set -e

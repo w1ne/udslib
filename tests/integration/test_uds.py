@@ -125,7 +125,7 @@ def test_full_sequence():
         print("[TEST] 4. Data Services (22 F1 90 / 2E 01 23)")
         # 22 F1 90 - VIN (MF Response)
         resp = client.uds_request(bytes([0x22, 0xF1, 0x90]))
-        assert bytes(resp[3:]).decode() == "LIBUDS_SIM_001"
+        assert bytes(resp[3:]).decode() == "UDSLIB_SIM_001"
         # 2E 01 23 - Write Customer Name
         data_to_write = b"TEST_CLIENT_001".ljust(16, b"\x00")
         assert client.uds_request(bytes([0x2E, 0x01, 0x23]) + data_to_write) == [0x6E, 0x01, 0x23]

@@ -46,8 +46,8 @@
 ## Phase 8: Asynchronous Architecture & Hardening (Complete)
 - [x] **Async Services**: Support `UDS_PENDING` return code for non-blocking handlers.
 - [x] **Service 0x28**: Enhanced Communication Control with app callbacks.
-- [ ] **Concurrency**: Multi-threaded validation suite.
-- [ ] **Fuzzing**: LibFuzzer integration for deep packet inspection.
+- [x] **Concurrency**: Multi-threaded validation suite.
+- [x] **Fuzzing**: LibFuzzer integration for deep packet inspection.
 
 ## Phase 9: Full ISO 14229-1 Compliance Alignment (Complete)
 - [x] **ISO-TP (ISO 15765-2)**: STmin & Block Size (BS) enforcement timers.
@@ -58,8 +58,8 @@
 - [x] **Security**: Non-deterministic hook-based seed/key exchange.
 
 ## Phase 10: Deep Inspection & Ecosystem (Planned)
-- [ ] **Fuzzing**: Integrated LibFuzzer/AFL harness for SDU parsing robustness.
-- [ ] **Advanced Security**: Support for SID 0x29 (Authentication) state persistence.
+- [x] **Fuzzing**: Integrated LibFuzzer/AFL harness for SDU parsing robustness.
+- [x] **Advanced Security**: Support for SID 0x29 (Authentication) state persistence.
 - [ ] **More OS Ports**: Native support for QNX and PikeOS.
 - [ ] **Python ODX-to-C V2**: Enhanced routine/DID parameter generator.
 

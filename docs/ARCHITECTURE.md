@@ -1,6 +1,6 @@
-# LibUDS Architecture
+# UDSLib Architecture
 
-LibUDS separates core diagnostic logic from the input/output layer and the operating system.
+UDSLib separates core diagnostic logic from the input/output layer and the operating system.
 
 ## 1. Design Principles
 
@@ -29,7 +29,7 @@ graph TD
     Core -->|Condition Check| Gate{Safety Gate}
     Gate -->|Passed| Registry
     Gate -->|Rejected| NRC[Send NRC 0x22]
-    Core[LibUDS Core] -->|SDU Send| TP[Transport Layer]
+    Core[UDSLib Core] -->|SDU Send| TP[Transport Layer]
     TP -->|CAN Frame| HW[Hardware/HAL]
     HW -->|CAN Frame| TP
     TP -->|SDU Input| Core
@@ -46,7 +46,7 @@ A table-driven dispatcher manages UDS services.
 
 ## 4. Safety Gates
 
-For industrial and automotive safety, LibUDS implements **Safety Gates**.
+For industrial and automotive safety, UDSLib implements **Safety Gates**.
 
 Every potentially destructive service (Reset, Write, Download) passes through an application-provided `fn_is_safe` callback.
 
@@ -68,11 +68,11 @@ The Transport Layer (ISO 15765-2) operates as a pluggable module.
 - **SDU (Service Data Unit)**: A complete UDS message (e.g., `[0x10, 0x03]`).
 - **PDU (Protocol Data Unit)**: A single CAN frame (e.g., `[0x02, 0x10, 0x03, 0x00...]`).
 
-The `libuds` core logic strictly consumes and produces **SDUs**.
+The `udslib` core logic strictly consumes and produces **SDUs**.
 
-If the underlying OS (like Zephyr or Linux) has a native ISO-TP stack, LibUDS communicates directly at the SDU level. This removes redundant reassembly logic.
+If the underlying OS (like Zephyr or Linux) has a native ISO-TP stack, UDSLib communicates directly at the SDU level. This removes redundant reassembly logic.
 
-If the OS is "dumb" (Bare Metal), LibUDS uses the `uds_tp_isotp.c` fallback to handle reassembly, converting SDUs into raw CAN PDUs.
+If the OS is "dumb" (Bare Metal), UDSLib uses the `uds_tp_isotp.c` fallback to handle reassembly, converting SDUs into raw CAN PDUs.
 
 ## 7. Memory Management
 
@@ -85,7 +85,7 @@ To ensure MISRA-C compliance and reliability:
 
 The `uds_process()` function runs the stack. It is designed for a loop and does not block. It uses the `get_time_ms()` callback to check if internal timers (S3, P2, P2*) have expired.
 
-This allows `libuds` to fit into different scheduling models:
+This allows `udslib` to fit into different scheduling models:
 - **Super Loop**: Call once per loop.
 - **RTOS Task**: Call periodically with `vTaskDelay` or `k_sleep`.
 - **Interrupt Mode**: Call when a hardware timer triggers.

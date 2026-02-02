@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Host Simulation Example for LibUDS.
+ * @brief Host Simulation Example for UDSLib.
  *
  * Implements a virtual ECU using ISO-TP over UDP.
  */
@@ -132,7 +132,7 @@ static uint8_t g_rx_buf[1024];
 /** Transmit buffer (1KB) */
 static uint8_t g_tx_buf[1024];
 
-static char g_ecu_vin[] = "LIBUDS_SIM_001";
+static char g_ecu_vin[] = "UDSLIB_SIM_001";
 static char g_customer_name[16] = "ECU_OWNER";
 
 /**

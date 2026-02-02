@@ -3,7 +3,7 @@
 
 set -e
 
-echo "=== LibUDS Virtual CAN Setup ==="
+echo "=== UDSLib Virtual CAN Setup ==="
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then

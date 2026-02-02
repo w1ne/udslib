@@ -29,7 +29,7 @@ static uint8_t tx_buffer[4096];
 static int tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len) {
     /* For Bare Metal without ISO-TP stack, use valid TP implementation */
     /* If using raw CAN, we need uds_tp_isotp.c (not shown here to keep simple) */
-    /* Or assume 'data' is a CAN frame if len <= 8? No, LibUDS sends SDUs. */
+    /* Or assume 'data' is a CAN frame if len <= 8? No, UDSLib sends SDUs. */
     /* Real implementation needs an ISO-TP layer */
     return can_send_frame(data, len);
 }

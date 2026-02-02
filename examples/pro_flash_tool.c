@@ -38,7 +38,7 @@ int main() {
 
     if (uds_init(&ctx, &cfg) != UDS_OK) return 1;
 
-    printf("--- LibUDS Pro: Starting Flash Sequence ---\n");
+    printf("--- UDSLib Pro: Starting Flash Sequence ---\n");
 
     /* 1. Request Download (0x34) */
     printf("\nStep 1: Requesting Download (Address=0x08000000, Size=0x1000)\n");

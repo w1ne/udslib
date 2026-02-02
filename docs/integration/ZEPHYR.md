@@ -1,13 +1,13 @@
 # Integration Guide: Zephyr RTOS
 
-This guide demonstrates how to integrate LibUDS with the Zephyr Project RTOS using the native `isotp` socket wrapper.
+This guide demonstrates how to integrate UDSLib with the Zephyr Project RTOS using the native `isotp` socket wrapper.
 
 ## Prerequisites
 - Zephyr SDK installed.
 - `CONFIG_ISOTP=y` and `CONFIG_NET_SOCKETS=y` in your `prj.conf`.
 
 ## 1. Define the Transport Bridge
-LibUDS is transport-agnostic. You simply need to wrap the Zephyr socket send call.
+UDSLib is transport-agnostic. You simply need to wrap the Zephyr socket send call.
 
 ```c
 #include <zephyr/net/socket.h>
@@ -59,7 +59,7 @@ k_timer_start(&uds_timer, K_MSEC(1), K_MSEC(1));
 ```
 
 ## Why this is better than "Native" stacks
-By using LibUDS on top of Zephyr's `isotp`, you gain:
-1. **ISO 14229-1 Compliance**: Zephyr only handles the transport layer (segmentation). LibUDS handles the protocol logic.
-2. **Persistence**: Use LibUDS NVM hooks to save session state in Zephyr's NVS.
-3. **Safety**: Use LibUDS Safety Gates to check vehicle speed before resetting.
+By using UDSLib on top of Zephyr's `isotp`, you gain:
+1. **ISO 14229-1 Compliance**: Zephyr only handles the transport layer (segmentation). UDSLib handles the protocol logic.
+2. **Persistence**: Use UDSLib NVM hooks to save session state in Zephyr's NVS.
+3. **Safety**: Use UDSLib Safety Gates to check vehicle speed before resetting.

@@ -1,6 +1,6 @@
 /**
  * @file test_timing.c
- * @brief Unit tests for LibUDS Timing Engine (P2/P2* and S3)
+ * @brief Unit tests for UDSLib Timing Engine (P2/P2* and S3)
  */
 
 #include "test_helpers.h"

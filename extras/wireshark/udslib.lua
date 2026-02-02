@@ -1,17 +1,17 @@
--- LibUDS Wireshark Dissector
+-- UDSLib Wireshark Dissector
 -- Provides human-readable decoding of UDS Service Data Units (SDUs)
 
-local libuds_p = Proto("libuds", "LibUDS Protocol")
+local udslib_p = Proto("udslib", "UDSLib Protocol")
 
-local f_sid = ProtoField.uint8("libuds.sid", "Service ID", base.HEX)
-local f_sub = ProtoField.uint8("libuds.sub", "Sub-function", base.HEX)
-local f_sub_base = ProtoField.uint8("libuds.sub_base", "Sub-function ID", base.HEX, nil, 0x7F)
-local f_sub_suppress = ProtoField.bool("libuds.sub_press", "Suppress Positive Response", 8, nil, 0x80)
-local f_did = ProtoField.uint16("libuds.did", "Data Identifier", base.HEX)
-local f_nrc = ProtoField.uint8("libuds.nrc", "NRC", base.HEX)
-local f_data = ProtoField.bytes("libuds.data", "Data")
+local f_sid = ProtoField.uint8("udslib.sid", "Service ID", base.HEX)
+local f_sub = ProtoField.uint8("udslib.sub", "Sub-function", base.HEX)
+local f_sub_base = ProtoField.uint8("udslib.sub_base", "Sub-function ID", base.HEX, nil, 0x7F)
+local f_sub_suppress = ProtoField.bool("udslib.sub_press", "Suppress Positive Response", 8, nil, 0x80)
+local f_did = ProtoField.uint16("udslib.did", "Data Identifier", base.HEX)
+local f_nrc = ProtoField.uint8("udslib.nrc", "NRC", base.HEX)
+local f_data = ProtoField.bytes("udslib.data", "Data")
 
-libuds_p.fields = { f_sid, f_sub, f_sub_base, f_sub_suppress, f_nrc, f_did, f_data }
+udslib_p.fields = { f_sid, f_sub, f_sub_base, f_sub_suppress, f_nrc, f_did, f_data }
 
 local sids = {
     [0x10] = "DiagnosticSessionControl",
@@ -71,9 +71,9 @@ local nrcs = {
     [0x7F] = "ServiceNotSupportedInActiveSession"
 }
 
-function libuds_p.dissector(buffer, pinfo, tree)
-    pinfo.cols.protocol = "LibUDS"
-    local subtree = tree:add(libuds_p, buffer(), "LibUDS Protocol")
+function udslib_p.dissector(buffer, pinfo, tree)
+    pinfo.cols.protocol = "UDSLib"
+    local subtree = tree:add(udslib_p, buffer(), "UDSLib Protocol")
     
     local sid = buffer(0,1):uint()
     local sid_name = sids[sid] or "Unknown Service"

@@ -1,6 +1,6 @@
-# LibUDS Coding Standards
+# UDSLib Coding Standards
 
-This guide defines the coding rules for LibUDS. Follow them to ensure the library remains portable, readable, and consistent.
+This guide defines the coding rules for UDSLib. Follow them to ensure the library remains portable, readable, and consistent.
 
 ## 1. Naming Conventions
 
