@@ -245,16 +245,6 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     ctx->comm_state = 0x00u;                      /* Enable Rx/Tx */
     ctx->suppress_pos_resp = false;
 
-    /* Security Hardening (C-14, C-15) */
-    ctx->security_attempts = 0u;
-    ctx->security_delay_end = 0u;
-    if (ctx->config->security_delay_ms == 0u) {
-        ((uds_config_t *) ctx->config)->security_delay_ms = 10000u; /* 10 seconds */
-    }
-    if (ctx->config->security_max_attempts == 0u) {
-        ((uds_config_t *) ctx->config)->security_max_attempts = 3u;
-    }
-
     ctx->rcrrp_count = 0u;
 
     /* Enforce Timing Safety (ISO 14229-1 requires reasonable timeouts) */

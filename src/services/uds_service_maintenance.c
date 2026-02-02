@@ -177,10 +177,6 @@ int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data,
     /* Process DTC Setting Control (usually global flag in ctx or config) */
     /* ... application should probably handle this via a hook if needed ... */
 
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_CONTROL_DTC_SETTING + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
     return uds_send_response(ctx, 2u);

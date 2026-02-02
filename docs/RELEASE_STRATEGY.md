@@ -48,7 +48,7 @@ Pushes to `develop` or `main` trigger the CI pipeline.
    - Update `ROADMAP.md` milestones.
    - Synchronize `SERVICE_COMPLIANCE.md`.
    - Bump version in `include/uds/uds_version.h`.
-3. **Validate**: Ensure CI passes on the release branch.
+3. **Validate**: Ensure CI passes on the release branch. **Local validation MUST be performed using Docker** (`./scripts/docker_run.sh`) to guarantee environment parity with CI.
 4. **Publish**:
    - Merge `release/x.y.z` into `main`.
    - Tag the release: `git tag -a vx.y.z -m "Release vx.y.z"`.
