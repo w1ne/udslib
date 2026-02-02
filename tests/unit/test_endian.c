@@ -67,7 +67,7 @@ static void test_big_endian_parsing(void **state)
     expect_value(mock_tp_send, len, 17); 
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&ctx, req, sizeof(req)ctx, req, sizeof(req, 0));
 
     /* Verify the stack parsed the Big Endian bytes correctly into the native uint32_t */
     assert_int_equal(last_read_addr, 0x12345678);
@@ -101,7 +101,7 @@ static void test_big_endian_parsing_small(void **state)
     expect_value(mock_tp_send, len, 1 + 5); 
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&ctx, req, sizeof(req)ctx, req, sizeof(req, 0));
 
     assert_int_equal(last_read_addr, 0xAABB);
     assert_int_equal(last_read_size, 0x05);

@@ -45,7 +45,7 @@ static void test_auth_deauthenticate_success(void **state) {
     expect_value(mock_tp_send, len, 2); /* 0x69 01 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 2);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 2)ctx, req, 2, 0);
     assert_int_equal(g_tx_buf[0], 0x69);
     assert_int_equal(g_tx_buf[1], 0x01);
 }
@@ -63,7 +63,7 @@ static void test_auth_verify_cert_uni_success(void **state) {
     expect_value(mock_tp_send, len, 3); /* 0x69 02 01 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 4);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 4)ctx, req, 4, 0);
     assert_int_equal(g_tx_buf[0], 0x69);
     assert_int_equal(g_tx_buf[1], 0x02);
     assert_int_equal(g_tx_buf[2], 0x01);
@@ -82,7 +82,7 @@ static void test_auth_no_callback_nrc(void **state) {
     expect_value(mock_tp_send, len, 3); /* 0x7F 29 22 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 2);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 2)ctx, req, 2, 0);
     assert_int_equal(g_tx_buf[2], 0x22); 
 }
 

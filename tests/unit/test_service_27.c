@@ -20,7 +20,7 @@ static void test_security_access_seed(void **state)
     expect_value(mock_tp_send, len, 6); /* 0x67 01 + Seed(4) */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
 
     assert_int_equal(g_tx_buf[0], 0x67);
     assert_int_equal(g_tx_buf[1], 0x01);
@@ -42,7 +42,7 @@ static void test_security_access_key_success(void **state)
     expect_value(mock_tp_send, len, 2); /* 0x67 02 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
 
     assert_int_equal(ctx.security_level, 1);
     assert_int_equal(g_tx_buf[0], 0x67);

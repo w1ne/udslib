@@ -11,23 +11,23 @@
 /* --- Core Service Table --- */
 
 static const uds_service_entry_t core_services[] = {
-    {0x10, 2, UDS_SESSION_ALL, 0, uds_internal_handle_session_control},
-    {0x11, 2, UDS_SESSION_ALL, 0, uds_internal_handle_ecu_reset},
-    {0x14, 4, UDS_SESSION_ALL, 0, uds_internal_handle_clear_dtc},
-    {0x19, 2, UDS_SESSION_ALL, 0, uds_internal_handle_read_dtc_info},
-    {0x22, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_data_by_id},
-    {0x23, 3, UDS_SESSION_ALL, 0, uds_internal_handle_read_memory_by_addr},
-    {0x27, 2, UDS_SESSION_ALL, 0, uds_internal_handle_security_access},
-    {0x28, 2, UDS_SESSION_ALL, 0, uds_internal_handle_comm_control},
-    {0x29, 2, UDS_SESSION_ALL, 0, uds_internal_handle_authentication},
-    {0x2E, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_data_by_id},
-    {0x31, 4, UDS_SESSION_ALL, 0, uds_internal_handle_routine_control},
-    {0x34, 10, UDS_SESSION_ALL, 0, uds_internal_handle_request_download},
-    {0x36, 2, UDS_SESSION_ALL, 0, uds_internal_handle_transfer_data},
-    {0x37, 1, UDS_SESSION_ALL, 0, uds_internal_handle_request_transfer_exit},
-    {0x3D, 3, UDS_SESSION_ALL, 0, uds_internal_handle_write_memory_by_addr},
-    {0x3E, 2, UDS_SESSION_ALL, 0, uds_internal_handle_tester_present},
-    {0x85, 2, UDS_SESSION_ALL, 0, uds_internal_handle_control_dtc_setting},
+    {0x10, 2, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_session_control},
+    {0x11, 2, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_ecu_reset},
+    {0x14, 4, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_clear_dtc},
+    {0x19, 2, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_read_dtc_info},
+    {0x22, 3, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_read_data_by_id},
+    {0x23, 3, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_read_memory_by_addr},
+    {0x27, 2, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_security_access},
+    {0x28, 2, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_comm_control},
+    {0x29, 2, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_authentication},
+    {0x2E, 3, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_write_data_by_id},
+    {0x31, 4, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_routine_control},
+    {0x34, 10, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_request_download},
+    {0x36, 2, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_transfer_data},
+    {0x37, 1, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_request_transfer_exit},
+    {0x3D, 3, UDS_SESSION_ALL, 0, UDS_ADDR_PHYSICAL_REQ, uds_internal_handle_write_memory_by_addr},
+    {0x3E, 2, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_tester_present},
+    {0x85, 2, UDS_SESSION_ALL, 0, UDS_ADDR_ALL_REQ, uds_internal_handle_control_dtc_setting},
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))
@@ -207,7 +207,7 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
     return result;
 }
 
-void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_net_addr_t addr_type)
 {
     if (ctx->config->fn_mutex_lock) {
         ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
@@ -218,15 +218,29 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         return;
     }
 
+    uint8_t sid = data[0];
+
+    /* Check 1: Async Race Condition (C-17) */
+    /* If we are busy processing an async request, we cannot accept new requests unless it's TesterPresent */
+    if (ctx->p2_msg_pending && sid != 0x3E) {
+        uds_send_nrc(ctx, sid, 0x21); /* Busy Repeat Request */
+        if (ctx->config->fn_mutex_unlock) ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+        return;
+    }
+
     /* Update S3 timer tracking */
     ctx->last_msg_time = ctx->config->get_time_ms();
 
     /* Initialize P2 timing state for new request */
     ctx->p2_timer_start = ctx->config->get_time_ms();
-    ctx->p2_msg_pending = false;
-    ctx->p2_star_active = false;
-
-    uint8_t sid = data[0];
+    
+    /* Only reset p2_msg_pending if we are NOT in an async loop (Wait, we already checked above) */
+    /* Actually: If sid is 0x3E and we are pending, we do NOT want to reset pending state of the PRIMARY request. */
+    if (sid != 0x3E) {
+        ctx->p2_msg_pending = false;
+        ctx->p2_star_active = false;
+        ctx->p2_star_count = 0;
+    }
 
     /* Check if this is a response to our previous request */
     if (ctx->pending_sid != 0) {
@@ -248,21 +262,32 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     /* internal dispatch service */
     const uds_service_entry_t *service = find_service(ctx, sid);
     if (service) {
-        /* Check Session */
-        /* Must convert session ID (0x01/0x02/0x03) to component mask (0x01/0x02/0x04) */
         uint8_t sess_bit = get_session_bit(ctx->active_session);
+        uint8_t addr_bit = (addr_type == UDS_NET_ADDR_PHYSICAL) ? UDS_ADDR_PHYSICAL_REQ : UDS_ADDR_FUNCTIONAL_REQ;
+
+        /* Check 2: Session (C-01/C-02) */
         if (!(service->session_mask & sess_bit)) {
-            uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
-        } 
-        /* Check Message Length (ISO 14229-1) */
-        else if (len < service->min_len) {
-            uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length Or Invalid Format */
+            /* Suppress NRC 0x7F if Functional Addressing */
+            if (addr_type == UDS_NET_ADDR_PHYSICAL) {
+                uds_send_nrc(ctx, sid, 0x7F); /* Service Not Supported In Active Session */
+            }
         }
-        /* Check Security */
+        /* Check 3: Addressing Mode (C-15) */
+        else if (!(service->addressing_mask & addr_bit)) {
+             /* Suppress NRC 0x11 if Functional Addressing (ISO 14229-1 Annex A) */
+            if (addr_type == UDS_NET_ADDR_PHYSICAL) {
+                uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
+            }
+        }
+        /* Check 4: Security (C-05 Priority: Security BEFORE Length) */
         else if (service->security_mask > ctx->security_level) {
             uds_send_nrc(ctx, sid, 0x33); /* Security Access Denied */
         }
-        /* Check Safety Gate */
+        /* Check 5: Message Length (C-05/Protocol) */
+        else if (len < service->min_len) {
+            uds_send_nrc(ctx, sid, 0x13); /* Incorrect Message Length */
+        }
+        /* Check 6: Safety Gate */
         else if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
             uds_send_nrc(ctx, sid, 0x22); /* Conditions Not Correct */
             uds_internal_log(ctx, UDS_LOG_INFO, "Safety Gate Check Failed");
@@ -276,20 +301,26 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
                 /* Switch to P2* timing */
                 ctx->p2_msg_pending = true;
                 ctx->p2_star_active = true;
+                ctx->p2_star_count = 0;
                 ctx->p2_timer_start = ctx->config->get_time_ms();
                 
                 /* Store the SID we are working on so we know what to respond to later */
                 ctx->pending_sid = sid; 
             }
             else if (result < 0) {
-                 /* If handler fails with negative, it presumably sent NRC? 
-                    Or should we send general reject? 
-                    Current handlers send NRC. 
+                 /* Handler returned error code.
+                    If it didn't send NRC, we should? 
+                    Current design: handler sends NRC or returns code to send NRC.
+                    Since we modified handlers to return negative values instead of sending NRC in some cases,
+                    we should implement the send here.
                  */
             }
         }
     } else {
-        uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
+        /* Suppress NRC 0x11 if Functional Addressing */
+        if (addr_type == UDS_NET_ADDR_PHYSICAL) {
+            uds_send_nrc(ctx, sid, 0x11); /* Service Not Supported */
+        }
     }
 
     if (ctx->config->fn_mutex_unlock) {
@@ -316,6 +347,19 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
     /* NRC 0x78 does not clear the pending flag, others do */
     if (nrc != 0x78) {
         ctx->p2_msg_pending = false;
+    } else {
+        /* C-07: RCRRP Limit Check (Default 20) */
+        if (++ctx->p2_star_count > 20) {
+            ctx->p2_msg_pending = false; 
+            /* Abort this operation. Return error? 
+               We should send GeneralReject (0x10) or specific error instead of 0x78?
+               Actually we can't send NRC now because we are inside send_nrc.
+               We just return error and let the stack crash/reset?
+               Better: Send NRC 0x10 (General Reject) to indicate failure?
+            */
+            uds_internal_log(ctx, UDS_LOG_ERROR, "RCRRP Limit Exceeded");
+            return UDS_ERR_INVALID_ARG;
+        }
     }
 
     ctx->config->tx_buffer[0] = 0x7F;

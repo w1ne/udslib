@@ -39,7 +39,7 @@ static void test_ecu_reset_hard_success(void **state)
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
 
     assert_int_equal(g_tx_buf[0], 0x51);
     assert_int_equal(g_tx_buf[1], 0x01);
@@ -63,7 +63,7 @@ static void test_ecu_reset_invalid_subfunction_nrc(void **state)
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
 
     assert_int_equal(g_tx_buf[0], 0x7F);
     assert_int_equal(g_tx_buf[1], 0x11);

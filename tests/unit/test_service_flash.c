@@ -63,7 +63,7 @@ static void test_routine_control_erase_success(void **state) {
     expect_value(mock_tp_send, len, 5); /* 0x71 01 FF 00 00 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 4);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 4)ctx, req, 4, 0);
     assert_int_equal(g_tx_buf[0], 0x71);
     assert_int_equal(g_routine_id, 0xFF00);
 }
@@ -82,7 +82,7 @@ static void test_request_download_success(void **state) {
     expect_value(mock_tp_send, len, 4); /* 0x74 20 04 00 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 11);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 11)ctx, req, 11, 0);
     assert_int_equal(g_tx_buf[0], 0x74);
     assert_int_equal(g_download_addr, 0x11223344);
     assert_int_equal(g_download_size, 0x00001000);
@@ -101,7 +101,7 @@ static void test_transfer_data_success(void **state) {
     expect_value(mock_tp_send, len, 2); /* 0x76 01 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 6);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 6)ctx, req, 6, 0);
     assert_int_equal(g_tx_buf[0], 0x76);
     assert_int_equal(g_transfer_seq, 0x01);
 }
@@ -120,7 +120,7 @@ static void test_transfer_exit_success(void **state) {
     expect_value(mock_tp_send, len, 1); /* 0x77 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 1);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 1)ctx, req, 1, 0);
     assert_int_equal(g_tx_buf[0], 0x77);
     assert_int_equal(g_transfer_exit_called, 1);
 }

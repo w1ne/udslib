@@ -46,3 +46,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+
+# Documentation
+ISO_14229-1_2013.en.PDF.pdf

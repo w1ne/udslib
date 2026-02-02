@@ -60,7 +60,7 @@ static void test_wdbi_storage_success(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&g_ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
     
     uint8_t expected_storage[] = {0xDE, 0xAD, 0xBE, 0xEF};
     assert_memory_equal(g_storage_did, expected_storage, 4);
@@ -76,7 +76,7 @@ static void test_wdbi_callback_success(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&g_ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
 }
 
 /* 3. Test Unknown DID (NRC 0x31) */
@@ -90,7 +90,7 @@ static void test_wdbi_unknown_did(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&g_ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
 }
 
 /* 4. Test Invalid Length (NRC 0x31 per current implementation) */
@@ -105,7 +105,7 @@ static void test_wdbi_invalid_length(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&g_ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
 }
 
 /* 5. Test Write Failure (Callback returns -1) (NRC 0x31) */
@@ -120,7 +120,7 @@ static void test_wdbi_write_fail(void **state) {
     expect_value(mock_tp_send, len, 3);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&g_ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&g_ctx, req, sizeof(req)g_ctx, req, sizeof(req, 0));
 }
 
 int main(void) {

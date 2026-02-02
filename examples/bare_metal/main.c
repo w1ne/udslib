@@ -51,7 +51,7 @@ int main(void) {
     while (1) {
         /* A. Poll Hardware */
         /* if (CAN_Rx_Available()) {
-             uds_input_sdu(&ctx, data, len); 
+             uds_input_sdu(uds_input_sdu(&ctx, data, len)ctx, data, len, 0); 
            } */
 
         /* B. Run Stack */

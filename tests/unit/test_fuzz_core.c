@@ -156,7 +156,7 @@ static void test_overflow_checks(void **state) {
     expect_any(mock_tp_send, len);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, sizeof(req));
+    uds_input_sdu(uds_input_sdu(&ctx, req, sizeof(req)ctx, req, sizeof(req, 0));
 }
 
 int main(void)

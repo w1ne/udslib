@@ -70,7 +70,7 @@ void vCANRxTask(void *pvParameters) {
         /* Thread-safe injection */
         /* uds_input_sdu handles locking internally if configured? 
            Check Core: Yes, uds_input_sdu calls fn_mutex_lock! */
-        uds_input_sdu(&ctx, NULL, 0); 
+        uds_input_sdu(uds_input_sdu(&ctx, NULL, 0)ctx, NULL, 0, 0); 
     }
 }
 

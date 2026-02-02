@@ -50,7 +50,7 @@ static void test_clear_dtc_success(void **state) {
     expect_value(mock_tp_send, len, 1); /* 0x54 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 4);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 4)ctx, req, 4, 0);
     assert_int_equal(g_tx_buf[0], 0x54);
     assert_int_equal(g_dtc_clear_count, 1);
     assert_int_equal(g_last_clear_group, 0xAABBCC);
@@ -69,7 +69,7 @@ static void test_read_dtc_info_success(void **state) {
     expect_value(mock_tp_send, len, 6); /* 0x59 01 status msb lsb ... */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 3);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 3)ctx, req, 3, 0);
     assert_int_equal(g_tx_buf[0], 0x59);
     assert_int_equal(g_tx_buf[1], 0x01);
     assert_int_equal(g_tx_buf[5], 0x01); /* Count LSB */
@@ -87,7 +87,7 @@ static void test_control_dtc_setting_success(void **state) {
     expect_value(mock_tp_send, len, 2); /* 0xC5 01 */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, req, 2);
+    uds_input_sdu(uds_input_sdu(&ctx, req, 2)ctx, req, 2, 0);
     assert_int_equal(g_tx_buf[0], 0xC5);
     assert_int_equal(g_tx_buf[1], 0x01);
 }

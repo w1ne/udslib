@@ -7,31 +7,41 @@
 
 int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    uint8_t sub = data[1];
-    if (sub == 0x03) { /* Extended Session */
-        ctx->active_session = 0x03;
-        ctx->config->tx_buffer[0] = 0x50;
-        ctx->config->tx_buffer[1] = 0x03;
-        ctx->config->tx_buffer[2] = 0x00;
-        ctx->config->tx_buffer[3] = 0x32;
-        ctx->config->tx_buffer[4] = 0x01;
-        ctx->config->tx_buffer[5] = 0xF4;
-        uds_send_response(ctx, 6);
-        uds_internal_log(ctx, UDS_LOG_INFO, "Session changed to Extended");
-    } else {
-        ctx->active_session = 0x01;
+    uint8_t sub = data[1]; // No suppress bit mask for 0x10
+
+    /* C-01: Validate Sub-function */
+    if (sub == 0x01 || sub == 0x02 || sub == 0x03) {
+        
+        /* C-06: Security Reset on Transition */
+        if (ctx->active_session != sub) {
+            ctx->security_level = 0;
+            ctx->active_session = sub;
+            uds_internal_log(ctx, UDS_LOG_INFO, "Session Changed. Security Reset.");
+        }
+
+        /* C-19: Use Configured Timings (P2 in ms, P2* in 10ms resolution) */
+        uint16_t p2 = ctx->config->p2_ms;
+        uint16_t p2_star_10ms = ctx->config->p2_star_ms / 10;
+
         ctx->config->tx_buffer[0] = 0x50;
         ctx->config->tx_buffer[1] = sub;
-        uds_send_response(ctx, 2);
-    }
-    
-    /* NVM Persistence: Save State on Change */
-    if (ctx->config->fn_nvm_save) {
-        uint8_t state[2] = {ctx->active_session, ctx->security_level};
-        ctx->config->fn_nvm_save(ctx, state, 2);
+        ctx->config->tx_buffer[2] = (p2 >> 8) & 0xFF;
+        ctx->config->tx_buffer[3] = (p2 & 0xFF);
+        ctx->config->tx_buffer[4] = (p2_star_10ms >> 8) & 0xFF;
+        ctx->config->tx_buffer[5] = (p2_star_10ms & 0xFF);
+
+        uds_send_response(ctx, 6);
+
+        /* NVM Persistence: Save State on Change */
+        if (ctx->config->fn_nvm_save) {
+            uint8_t state[2] = {ctx->active_session, ctx->security_level};
+            ctx->config->fn_nvm_save(ctx, state, 2);
+        }
+
+        return UDS_OK;
     }
 
-    return UDS_OK;
+    return uds_send_nrc(ctx, 0x10, 0x12); /* SubFunction Not Supported */
 }
 
 int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
@@ -45,5 +55,6 @@ int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint
         }
         return UDS_OK;
     }
-    return -1; /* Subfunction not supported */
+    return uds_send_nrc(ctx, 0x3E, 0x12); /* Subfunction not supported */
 }
+

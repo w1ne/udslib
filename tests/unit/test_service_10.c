@@ -18,7 +18,7 @@ static void test_extended_session_success(void **state)
     expect_value(mock_tp_send, len, 6); /* 0x50 03 P2 P2 P2* P2* */
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
 
     assert_int_equal(ctx.active_session, 0x03);
     assert_int_equal(g_tx_buf[0], 0x50);
@@ -39,7 +39,7 @@ static void test_default_session_success(void **state)
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
 
-    uds_input_sdu(&ctx, request, sizeof(request));
+    uds_input_sdu(uds_input_sdu(&ctx, request, sizeof(request)ctx, request, sizeof(request, 0));
 
     assert_int_equal(ctx.active_session, 0x01);
     assert_int_equal(g_tx_buf[0], 0x50);

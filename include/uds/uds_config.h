@@ -78,7 +78,10 @@ typedef struct {
     uds_did_read_fn read;    /**< Optional: Dynamic read callback */
     uds_did_write_fn write;  /**< Optional: Dynamic write callback */
     void *storage;           /**< Optional: Direct data storage pointer */
+    uint8_t session_mask;    /**< Allowed sessions (e.g. UDS_SESSION_DEFAULT) */
+    uint16_t security_mask;  /**< Minimum security level */
 } uds_did_entry_t;
+
 
 /**
  * @brief DID Table Registry
@@ -108,6 +111,23 @@ typedef struct {
  */
 typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
 
+/* --- Network Addressing --- */
+
+/**
+ * @brief Network Addressing Type
+ */
+typedef enum {
+    UDS_NET_ADDR_PHYSICAL = 0,
+    UDS_NET_ADDR_FUNCTIONAL = 1
+} uds_net_addr_t;
+
+/**
+ * @brief Addressing Mask for Services
+ */
+#define UDS_ADDR_PHYSICAL_REQ    (1 << 0)
+#define UDS_ADDR_FUNCTIONAL_REQ  (1 << 1)
+#define UDS_ADDR_ALL_REQ         (UDS_ADDR_PHYSICAL_REQ | UDS_ADDR_FUNCTIONAL_REQ)
+
 /**
  * @brief UDS Service Registry Entry
  */
@@ -116,8 +136,10 @@ typedef struct {
     uint16_t min_len;        /**< Minimum required request length */
     uint8_t session_mask;    /**< Allowed sessions bitmask */
     uint16_t security_mask;  /**< Minimum security level required (bitmask or level) */
+    uint8_t addressing_mask; /**< Allowed addressing (Physical/Functional) */
     uds_service_handler_t handler; /**< Function pointer to handler */
 } uds_service_entry_t;
+
 
 /* --- Configuration Structure --- */
 
@@ -207,11 +229,22 @@ typedef struct {
      * @brief Optional: Read DTC Information (SID 0x19).
      * @param ctx       Pointer to context.
      * @param subfn     The 0x19 subfunction (e.g., 0x01, 0x02).
+     * @param mask      DTCStatusMask (if applicable, else 0).
      * @param out_buf   Buffer to write DTC info into.
      * @param max_len   Max buffer size.
      * @return          Number of bytes written, or negative NRC on failure.
      */
-    int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len);
+    int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, uint8_t mask, uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: Control DTC Setting (SID 0x85).
+     * @param ctx       Pointer to context.
+     * @param subfn     Subfunction (0x01=ON, 0x02=OFF).
+     * @param group     Group of DTCs (0xFFFFFF = All) or 0 if not specified.
+     * @return          UDS_OK or negative NRC.
+     */
+    int (*fn_control_dtc)(struct uds_ctx *ctx, uint8_t subfn, uint32_t group);
+
 
     /**
      * @brief Optional: Clear Diagnostic Information (SID 0x14).
@@ -333,6 +366,12 @@ typedef struct uds_ctx {
     uint8_t active_session;
     /** Current security level (0 = Locked) */
     uint8_t security_level;
+    /** Number of failed security access attempts */
+    uint8_t security_attempt_count;
+    /** Timestamp when security delay started */
+    uint32_t security_delay_start;
+    /** True if security access is currently locked out due to delay */
+    bool security_delay_active;
 
     /* --- Timing --- */
     /** Timestamp of last received valid message (for S3 timer) */
@@ -343,6 +382,8 @@ typedef struct uds_ctx {
     bool p2_msg_pending;
     /** True if we have already sent the first 0x78 NRC */
     bool p2_star_active;
+    /** Number of consecutive NRC 0x78 responses sent */
+    uint8_t p2_star_count;
 
     /* --- Processing --- */
     /** True if the application is processing a request asynchronously */
@@ -354,7 +395,11 @@ typedef struct uds_ctx {
 
     /** Communication control state for SID 0x28 (uds_comm_control_type_t) */
     uint8_t comm_state;
+
+    /** Expected Block Sequence Counter for 0x36 */
+    uint8_t transfer_sequence;
 } uds_ctx_t;
+
 
 #ifdef __cplusplus
 }
