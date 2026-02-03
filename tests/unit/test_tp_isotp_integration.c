@@ -16,43 +16,43 @@ static struct uds_ctx server_ctx;
 static uds_config_t server_config;
 static uint8_t server_rx_buffer[4096];
 
-/* We need separate ISOTP context for server? 
-   No, current implementation uses a global static `g_isotp_ctx`. 
+/* We need separate ISOTP context for server?
+   No, current implementation uses a global static `g_isotp_ctx`.
    This limits us to testing one active node at a time using `uds_tp_isotp_process`.
-   However, `uds_isotp_rx_callback` is stateless regarding *which* node calls it, 
+   However, `uds_isotp_rx_callback` is stateless regarding *which* node calls it,
    except it checks `g_isotp_ctx.rx_id`.
-   
+
    To test loopback properly with a SINGLE global context, we must:
    1. Configure global context as Client.
    2. Send Data (Client -> Server).
    3. "Network" captures frame.
    4. Reconfigure global context as Server (?) -> Impossible if we want full loop.
-   
+
    Alternative: Test "One Way" Integration.
-   We act as Sender. "Network" Mock receives frames and manually calls `uds_isotp_rx_callback` 
+   We act as Sender. "Network" Mock receives frames and manually calls `uds_isotp_rx_callback`
    injecting frames *as if* they came from the other side.
-   
+
    Wait, `uds_tp_isotp.c` has `static uds_isotp_ctx_t g_isotp_ctx`.
-   This means we CANNOT run two instances of ISO-TP logic (Client & Server) simultaneously 
+   This means we CANNOT run two instances of ISO-TP logic (Client & Server) simultaneously
    in the same process if they both rely on that static global.
-   
-   So "Loopback" in the sense of Client <-> Server communicating is impossible without refactoring 
+
+   So "Loopback" in the sense of Client <-> Server communicating is impossible without refactoring
    `uds_tp_isotp.c` to not use static global.
-   
+
    Scope for this task: Add CAN-FD support. Refactoring static global is out of scope.
-   
+
    Therefore, Integration Test will define:
    - "Self-Loopback"? No, TX ID != RX ID.
-   - We will test: 
+   - We will test:
      A) Send Flow: `uds_isotp_send` -> Mock Can -> Verify Frames.
      B) Receive Flow: Inject Frames -> `uds_isotp_rx_callback` -> Verify `uds_input_sdu`.
-     C) "Simulated Interaction": 
+     C) "Simulated Interaction":
         - Start Send.
-        - Mock Can catches FF. 
+        - Mock Can catches FF.
         - Test Logic manually injects FC (as if from remote).
         - Mock Can catches CFs.
         - Verify all.
-        
+
    This is what we did in `test_tp_flow_control.c` but we can make it more complex for FD.
 */
 
@@ -68,7 +68,7 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
 
 static void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
+    (void) ctx;
     check_expected(len);
     check_expected_ptr(data);
 }
@@ -76,14 +76,14 @@ static void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint1
 static int setup(void **state)
 {
     (void) state;
-    uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8); // TX=7E0, RX=7E8
+    uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);  // TX=7E0, RX=7E8
     uds_tp_isotp_set_fd(true);
-    
+
     // Setup server context for RX callbacks (though library doesn't strictly use it for state)
     server_config.rx_buffer = server_rx_buffer;
     server_config.rx_buffer_size = sizeof(server_rx_buffer);
     server_ctx.config = &server_config;
-    
+
     return 0;
 }
 
@@ -97,30 +97,30 @@ static int teardown(void **state)
 static void test_integration_large_transfer(void **state)
 {
     (void) state;
-    
+
     /* Data: 200 bytes */
     uint8_t tx_data[200];
-    for(int i=0; i<200; i++) tx_data[i] = (uint8_t)i;
-    
+    for (int i = 0; i < 200; i++) tx_data[i] = (uint8_t) i;
+
     /* 1. Start Transmission */
     /* FF: [10] [C8] [Data: 0..61 (62 bytes)] */
     /* Total 64 bytes */
     uint8_t expected_ff[64];
     expected_ff[0] = 0x10;
-    expected_ff[1] = 0xC8; // 200
+    expected_ff[1] = 0xC8;  // 200
     memcpy(&expected_ff[2], tx_data, 62);
-    
+
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_ff, 64);
-    
+
     uds_isotp_send(NULL, tx_data, 200);
-    
+
     /* 2. Inject Flow Control (CTS, BS=0, ST=0) from "Receiver" */
     /* FC: [30] [00] [00] ... */
     uint8_t rx_fc[8] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uds_isotp_rx_callback(&server_ctx, 0x7E8, rx_fc, 8);
-    
+
     /* 3. Verify Consecutive Frames */
     /* Remaining: 200 - 62 = 138 bytes */
     /* CF1: [21] [Data: 62..124 (63 bytes)] */

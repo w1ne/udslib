@@ -21,13 +21,13 @@ extern "C" {
 #define ISOTP_PCI_FC 0x30 /**< Flow Control Frame */
 
 /* --- Protocol Constants --- */
-#define ISOTP_MAX_DL_CAN        8u    /**< Max DLC for Classic CAN */
-#define ISOTP_MAX_DL_CANFD      64u   /**< Max DLC for CAN-FD */
-#define ISOTP_SF_MAX_DL_CAN     7u    /**< Max SF payload (Standard) */
-#define ISOTP_SF_MAX_DL_CANFD   62u   /**< Max SF payload (FD) */
-#define ISOTP_FF_MAX_DATA_CAN   6u    /**< Max FF payload (Standard) */
-#define ISOTP_FF_MAX_DATA_CANFD 62u   /**< Max FF payload (FD) */
-#define ISOTP_MAX_SDU_LEN_STD   4095u /**< Max SDU size with 12-bit length */
+#define ISOTP_MAX_DL_CAN 8u         /**< Max DLC for Classic CAN */
+#define ISOTP_MAX_DL_CANFD 64u      /**< Max DLC for CAN-FD */
+#define ISOTP_SF_MAX_DL_CAN 7u      /**< Max SF payload (Standard) */
+#define ISOTP_SF_MAX_DL_CANFD 62u   /**< Max SF payload (FD) */
+#define ISOTP_FF_MAX_DATA_CAN 6u    /**< Max FF payload (Standard) */
+#define ISOTP_FF_MAX_DATA_CANFD 62u /**< Max FF payload (FD) */
+#define ISOTP_MAX_SDU_LEN_STD 4095u /**< Max SDU size with 12-bit length */
 
 /* --- Flow Control Flags --- */
 
@@ -57,8 +57,8 @@ typedef enum
  */
 typedef struct
 {
-    uint32_t id;     /**< CAN Identifier (Standard or Extended) */
-    uint8_t len;     /**< Data Length Code (DLC) */
+    uint32_t id;                      /**< CAN Identifier (Standard or Extended) */
+    uint8_t len;                      /**< Data Length Code (DLC) */
     uint8_t data[ISOTP_MAX_DL_CANFD]; /**< Payload data (64 bytes max for CAN-FD) */
 } uds_can_frame_t;
 
