@@ -10,7 +10,7 @@ Portable, MISRA-aligned UDS (ISO 14229-1) stack with deterministic memory, Zephy
 ## Key Capabilities
 - **Services**: ISO 14229-1 core set (0x10/11/14/19/22/27/28/2E/31/34/36/37/3E/85).
 -, **Safety & Quality**: Deterministic, zero-malloc memory model; NRC priority enforcement; Safety Gate callbacks; MISRA-aligned codebase.
-- **Transports**: Zephyr ISO-TP sockets or built-in ISO-TP fallback (static buffers).
+- **Transports**: Zephyr ISO-TP sockets or built-in ISO-TP fallback (static buffers) with CAN-FD support.
 - **Tooling**: Host simulator, Wireshark dissector, Python `pyudslib` harness, Dockerized CI scripts.
 
 ## Quick Start (Linux)
@@ -31,6 +31,26 @@ Run host simulator:
 - Provide time source, TX/RX buffers, and transport send function via `uds_config_t`.
 - Call `uds_input_sdu()` with complete SDUs; call `uds_process()` periodically to drive timers.
 - For Zephyr, use the native ISO-TP wrapper; for bare metal, use the internal ISO-TP fallback.
+
+## Session Analysis & Reporting
+Generate a visual HTML dashboard to analyze UDS sessions (CAN-FD/ISO-TP):
+
+```bash
+# 1. Run simulation with capture (CAN-FD mode, Default)
+./run_capture.sh
+
+# Option: Run in Classic CAN mode (8-byte frames)
+./run_capture.sh classic
+
+# 2. View the generated report
+# Open 'session_report_fd.html' (or 'session_report_classic.html')
+```
+
+The analyzer includes:
+- **Visual Interface**: Dark-mode HTML dashboard.
+- **Rich Details**: Decodes timestamps, specific services, and raw payloads.
+- **Flow Analysis**: Visualizes TX/RX direction and ISO-TP frame types (SF/FF/CF/FC).
+
 
 ## Repository Structure
 - `include/uds/` public API headers

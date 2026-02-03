@@ -5,8 +5,8 @@ import time
 import os
 import signal
 
-# VCAN Packet Format: ID (4 bytes), Data (8 bytes), Len (1 byte)
-VCAN_FORMAT = "<I8sB"
+# VCAN Packet Format: ID (4 bytes), Data (64 bytes), Len (1 byte)
+VCAN_FORMAT = "<I64sB"
 
 class UDSTestClient:
     def __init__(self, target_ip="127.0.0.1", port=5000):
@@ -17,12 +17,28 @@ class UDSTestClient:
         self.rx_id = 0x7E8 # Server TX -> Client RX
 
     def send_can(self, can_id, data):
-        data = data.ljust(8, b'\x00')
-        pkt = struct.pack(VCAN_FORMAT, can_id, data, len(data.strip(b'\x00')) or len(data))
+        data = data.ljust(64, b'\x00')
+        pkt = struct.pack(VCAN_FORMAT, can_id, data[:64], len(data.strip(b'\x00')) or len(data))
         # Note: strip(b'\x00') might be wrong for data ending in 00, but for simple tests its ok.
-        # Let's fix it to use explicit length.
-        # Actually, let's just use the real length passed.
-        pkt = struct.pack(VCAN_FORMAT, can_id, data[:8], len(data))
+        # Let's fix it to use explicit payload length logic if we had one.
+        # But for request sending, usually we send exact bytes.
+        # The previous logic had a bug/feature using stripped len.
+        # Let's stick to using the length of the data passed in (before ljust).
+        can_dlc = len(data.rstrip(b'\x00')) # Use rstrip to be safer if needed, or just pass explicit len
+        # Actually, let's look at original logic:pkt = struct.pack(VCAN_FORMAT, can_id, data[:8], len(data))
+        # Original: len(data) was the len of the input 'data' (which was not stripped?).
+        # Wait, the original code had:
+        # data = data.ljust(8, b'\x00')
+        # pkt = struct.pack(..., len(data.strip(b'\x00')) or len(data))
+        # This is messy. Let's simplfy. ISO-TP sends specific frames.
+        # We should just send the length of the actual frame.
+        pass
+
+    def send_can(self, can_id, data):
+        # Data should be bytes of the CAN frame
+        real_len = len(data)
+        data_padded = data.ljust(64, b'\x00')
+        pkt = struct.pack(VCAN_FORMAT, can_id, data_padded, real_len)
         self.sock.sendto(pkt, self.target)
 
     def recv_can(self):
@@ -72,7 +88,12 @@ class UDSTestClient:
             cid, data = self.recv_can()
             if cid == self.rx_id:
                 print(f"  [RX] DATA: {data.hex()}")
-                if (data[0] & 0xF0) == 0x00: # Single Frame
+                # Handle CAN-FD Single Frame (Byte 0 is 0x00, Byte 1 is Len)
+                if data[0] == 0x00:
+                    data_len = data[1]
+                    return list(data[2:2 + data_len])
+                # Handle Standard Single Frame (Byte 0 is len, if 1..7)
+                elif (data[0] & 0xF0) == 0x00: 
                     return list(data[1:1 + (data[0] & 0x0F)])
                 elif (data[0] & 0xF0) == 0x10: # First Frame
                     expected_len = ((data[0] & 0x0F) << 8) | data[1]

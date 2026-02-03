@@ -36,6 +36,14 @@ UDSLib implements standard ISO-TP hardening features to ensure robust communicat
 - **Block Size (BS)**: Manages data flow by requiring Flow Control (FC) frames after a specified number of CFs.
 - **Dynamic Timing**: STmin and Block Size parameters are dynamically extracted from peer Flow Control frames during transmission.
 
-## 5. Virtual CAN (Host Simulation)
+## 5. CAN-FD Support
+
+The internal ISO-TP layer supports CAN-FD, enabling frames up to 64 bytes for higher throughput.
+- **Enable**: Call `uds_tp_isotp_set_fd(true)` after initialization.
+- **Single Frame (SF)**: Automatically uses CAN-FD SF format (`0x00 | DL`) for payloads > 7 bytes.
+- **Multi-Frame**: First Frame (FF) and Consecutive Frames (CF) utilize full 64-byte capacity (up to 62/63 bytes payload per frame).
+- **Compliance**: Adheres to ISO 15765-2 Table 9 for N_PCI bytes.
+
+## 6. Virtual CAN (Host Simulation)
 
 For PC-based verification, we encapsulate CAN frames in UDP packets. This allows full stack execution without physical hardware.

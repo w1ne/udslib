@@ -52,7 +52,7 @@ static uint32_t get_time_ms(void)
 typedef struct
 {
     uint32_t id;     /**< CAN ID */
-    uint8_t data[8]; /**< Payload */
+    uint8_t data[64]; /**< Payload (Max 64 for CAN-FD) */
     uint8_t len;     /**< Length */
 } vcan_packet_t;
 #pragma pack(pop)
@@ -265,11 +265,16 @@ static int mock_transfer_exit(struct uds_ctx *ctx)
 int main(int argc, char **argv)
 {
     int port = 5000;
+    int enable_fd = 1; /* Default to CAN-FD */
+
     if (argc > 1) {
         port = atoi(argv[1]);
     }
+    if (argc > 2) {
+        enable_fd = atoi(argv[2]);
+    }
 
-    printf("Starting UDS ECU Simulator (ISO-TP over UDP:%d)...\n", port);
+    printf("Starting UDS ECU Simulator (ISO-TP over UDP:%d) [CAN-FD: %d]...\n", port, enable_fd);
 
     /* Setup UDP Socket */
     g_server_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -285,6 +290,7 @@ int main(int argc, char **argv)
 
     /* Init Transport Layer (TX: 0x7E8, RX: 0x7E0) */
     uds_tp_isotp_init(mock_can_send, 0x7E8, 0x7E0);
+    uds_tp_isotp_set_fd(enable_fd != 0);
 
     /* Configure UDS Stack */
     uds_config_t cfg = {.ecu_address = 0x10,
