@@ -52,7 +52,7 @@ static uint32_t get_time_ms(void)
 typedef struct
 {
     uint32_t id;     /**< CAN ID */
-    uint8_t data[8]; /**< Payload */
+    uint8_t data[64]; /**< Payload (Max 64 for CAN-FD) */
     uint8_t len;     /**< Length */
 } vcan_packet_t;
 #pragma pack(pop)
