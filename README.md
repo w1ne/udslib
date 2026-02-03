@@ -32,6 +32,26 @@ Run host simulator:
 - Call `uds_input_sdu()` with complete SDUs; call `uds_process()` periodically to drive timers.
 - For Zephyr, use the native ISO-TP wrapper; for bare metal, use the internal ISO-TP fallback.
 
+## Session Analysis & Reporting
+Generate a visual HTML dashboard to analyze UDS sessions (CAN-FD/ISO-TP):
+
+```bash
+# 1. Run simulation with capture (CAN-FD mode, Default)
+./run_capture.sh
+
+# Option: Run in Classic CAN mode (8-byte frames)
+./run_capture.sh classic
+
+# 2. View the generated report
+# Open 'session_report_fd.html' (or 'session_report_classic.html')
+```
+
+The analyzer includes:
+- **Visual Interface**: Dark-mode HTML dashboard.
+- **Rich Details**: Decodes timestamps, specific services, and raw payloads.
+- **Flow Analysis**: Visualizes TX/RX direction and ISO-TP frame types (SF/FF/CF/FC).
+
+
 ## Repository Structure
 - `include/uds/` public API headers
 - `src/core/` protocol logic

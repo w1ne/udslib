@@ -127,37 +127,37 @@ static void test_integration_large_transfer(void **state)
     uint8_t expected_cf1[64];
     expected_cf1[0] = 0x21;
     memcpy(&expected_cf1[1], &tx_data[62], 63);
-    
+
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_cf1, 64);
-    
+
     uds_tp_isotp_process(100);
-    
+
     /* Remaining: 138 - 63 = 75 bytes */
     /* CF2: [22] [Data: 125..187 (63 bytes)] */
     uint8_t expected_cf2[64];
     expected_cf2[0] = 0x22;
     memcpy(&expected_cf2[1], &tx_data[125], 63);
-    
+
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_cf2, 64);
-    
-    uds_tp_isotp_process(100); // ST=0, so ready immediately? Timer logic resets to time_ms.
+
+    uds_tp_isotp_process(100); /* ST=0, so ready immediately? Timer logic resets to time_ms. */
     /* Logic: timer_st = 100. Call with 100. Elapsed=0. If ST=0, OK. */
-    
+
     /* Remaining: 75 - 63 = 12 bytes */
     /* CF3: [23] [Data: 188..199 (12 bytes)] */
     /* Length: 1 + 12 = 13 bytes. Aligns to 16. */
     uint8_t expected_cf3[16] = {0};
     expected_cf3[0] = 0x23;
     memcpy(&expected_cf3[1], &tx_data[188], 12);
-    
+
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 16);
     expect_memory(mock_can_send, data, expected_cf3, 16);
-    
+
     uds_tp_isotp_process(100);
 }
 
