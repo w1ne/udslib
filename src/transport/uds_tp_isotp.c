@@ -226,17 +226,6 @@ void uds_tp_isotp_process(uint32_t time_ms)
     }
 }
 
-// cppcheck-suppress unusedFunction
-void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *data, uint8_t len)
-{
-    (void) len;
-    if (id != g_isotp_ctx.rx_id) {
-        return;
-    }
-
-    uint8_t pci = data[0] & 0xF0;
-
-    switch (pci) {
 static void uds_rx_sf(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
 {
     /* Abort any active multi-frame on new Single Frame */
