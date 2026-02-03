@@ -20,6 +20,15 @@ extern "C" {
 #define ISOTP_PCI_CF 0x20 /**< Consecutive Frame */
 #define ISOTP_PCI_FC 0x30 /**< Flow Control Frame */
 
+/* --- Protocol Constants --- */
+#define ISOTP_MAX_DL_CAN        8u    /**< Max DLC for Classic CAN */
+#define ISOTP_MAX_DL_CANFD      64u   /**< Max DLC for CAN-FD */
+#define ISOTP_SF_MAX_DL_CAN     7u    /**< Max SF payload (Standard) */
+#define ISOTP_SF_MAX_DL_CANFD   62u   /**< Max SF payload (FD) */
+#define ISOTP_FF_MAX_DATA_CAN   6u    /**< Max FF payload (Standard) */
+#define ISOTP_FF_MAX_DATA_CANFD 62u   /**< Max FF payload (FD) */
+#define ISOTP_MAX_SDU_LEN_STD   4095u /**< Max SDU size with 12-bit length */
+
 /* --- Flow Control Flags --- */
 
 #define ISOTP_FC_CTS 0  /**< Continue To Send */
@@ -50,15 +59,15 @@ typedef struct
 {
     uint32_t id;     /**< CAN Identifier (Standard or Extended) */
     uint8_t len;     /**< Data Length Code (DLC) */
-    uint8_t data[8]; /**< Payload data (8 bytes max for Classical CAN) */
+    uint8_t data[ISOTP_MAX_DL_CANFD]; /**< Payload data (64 bytes max for CAN-FD) */
 } uds_can_frame_t;
 
 /**
  * @brief User-provided CAN Send Function.
  *
  * @param id   CAN ID to transmit.
- * @param data Pointer to the buffer containing the 8-byte frame payload.
- * @param len  Length of the data (usually 8 for ISO-TP).
+ * @param data Pointer to the buffer containing the frame payload.
+ * @param len  Length of the data (up to 64 for CAN-FD).
  * @return     0 on success, negative error code on failure.
  */
 typedef int (*uds_can_send_fn)(uint32_t id, const uint8_t *data, uint8_t len);
@@ -75,6 +84,7 @@ typedef struct
     uint32_t rx_id;     /**< CAN ID to listen for (Target) */
     uint8_t block_size; /**< BS: Number of blocks before next FC */
     uint8_t st_min;     /**< STmin: Minimum separation time between frames */
+    uint8_t use_can_fd; /**< Flag: Enable CAN-FD support (0=Standard, 1=FD) */
 
     /* --- State --- */
     uds_isotp_state_t state;  /**< Current state machine position */
@@ -87,6 +97,7 @@ typedef struct
     uint32_t timer_n_cr; /**< Timeout N_Cr (Reception) */
     uint32_t timer_n_bs; /**< Timeout N_Bs (Transmission) */
     uint32_t timer_st;   /**< Separation Time timer (STmin) */
+    uint8_t tx_dl;       /**< Transmit Data Length (Max frame size: 8 or 64) */
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
@@ -99,6 +110,13 @@ typedef struct
  * @param rx_id    CAN ID to filter for inbound frames.
  */
 void uds_tp_isotp_init(uds_can_send_fn can_send, uint32_t tx_id, uint32_t rx_id);
+
+/**
+ * @brief Enable or Disable CAN-FD support.
+ *
+ * @param enabled true to enable CAN-FD (64-byte frames), false for Classic CAN (8-byte).
+ */
+void uds_tp_isotp_set_fd(bool enabled);
 
 /**
  * @brief Send an SDU via ISO-TP.

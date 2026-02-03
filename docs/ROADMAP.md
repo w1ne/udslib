@@ -52,6 +52,7 @@
 ## Phase 9: Full ISO 14229-1 Compliance Alignment (Complete)
 - [x] **ISO-TP (ISO 15765-2)**: STmin & Block Size (BS) enforcement timers.
 - [x] **ISO-TP (ISO 15765-2)**: Wait Frame (FS=WT) & Overflow handling.
+- [x] **ISO-TP (ISO 15765-2)**: CAN-FD Support (Frames > 8 bytes, Up to 64 bytes).
 - [x] **Core (ISO 14229-1)**: Aligned NRC priorities with Figure 10 (Subfunction check priority).
 - [x] **Concurrency**: Explicit request blocking (NRC 0x21) even during `UDS_PENDING`.
 - [x] **Service Hardening**: 0x3D echoing, 0x22 multi-read overflow protection.
