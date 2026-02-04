@@ -1,6 +1,6 @@
 # Roadmap
 
-For current implemented service coverage, see `docs/SERVICE_COMPLIANCE.md`.
+For current implemented service coverage, see `SERVICE_COMPLIANCE.md`.
 
 ## Phase 1: Core Architecture (Complete)
 - [x] Basic Service Dispatcher (SID 0x10).

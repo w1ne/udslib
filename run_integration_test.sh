@@ -4,6 +4,8 @@
 # Get the script directory
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 PORT=5005
+ARTIFACT_DIR="$DIR/artifacts/integration"
+mkdir -p "$ARTIFACT_DIR"
 
 echo "--- Starting C-to-C Integration Test (Port $PORT) ---"
 
@@ -45,15 +47,15 @@ if [ -z "$CLIENT_BIN" ]; then
 fi
 
 # 1. Start Simulator in background
-$SIM_BIN $PORT > $DIR/sim_c.log 2>&1 &
+$SIM_BIN $PORT > "$ARTIFACT_DIR/sim_c.log" 2>&1 &
 SIM_PID=$!
 sleep 1
 
 # 2. Run Client
-$CLIENT_BIN 127.0.0.1 $PORT > $DIR/client_c.log 2>&1
+$CLIENT_BIN 127.0.0.1 $PORT > "$ARTIFACT_DIR/client_c.log" 2>&1
 
 # 3. Verify Output
-grep -q "Read Data OK" $DIR/client_c.log
+grep -q "Read Data OK" "$ARTIFACT_DIR/client_c.log"
 RESULT=$?
 
 # 4. Cleanup
@@ -63,13 +65,13 @@ wait $SIM_PID 2>/dev/null
 if [ $RESULT -eq 0 ]; then
     echo "SUCCESS: C Client to C Simulator communication verified!"
     echo "--- Client Log Output ---"
-    cat $DIR/client_c.log
+    cat "$ARTIFACT_DIR/client_c.log"
     exit 0
 else
     echo "FAILED: Integration test log did not contain success markers."
     echo "--- Simulator Log ---"
-    cat $DIR/sim_c.log
+    cat "$ARTIFACT_DIR/sim_c.log"
     echo "--- Client Log ---"
-    cat $DIR/client_c.log
+    cat "$ARTIFACT_DIR/client_c.log"
     exit 1
 fi

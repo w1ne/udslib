@@ -15,7 +15,7 @@ sudo apt-get install -y --no-install-recommends \
 
 # 2. Setup Venv
 echo "Setting up Python venv..."
-ZEPHYR_WORKSPACE="$HOME/Projects/mobile_3000/zephyr_workspace"
+ZEPHYR_WORKSPACE="${ZEPHYR_WORKSPACE:-$HOME/zephyr-workspace}"
 mkdir -p "$ZEPHYR_WORKSPACE"
 python3 -m venv "$ZEPHYR_WORKSPACE/.venv"
 source "$ZEPHYR_WORKSPACE/.venv/bin/activate"

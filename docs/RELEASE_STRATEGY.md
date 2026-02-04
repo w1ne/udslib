@@ -54,3 +54,29 @@ Pushes to `develop` or `main` trigger the CI pipeline.
    - Tag the release: `git tag -a vx.y.z -m "Release vx.y.z"`.
    - Merge `main` back into `develop`.
 5. **Artifacts**: GitHub Actions automatically packages headers and binaries for the release tag.
+
+## 5. Release Notes Standards
+
+Every GitHub release must include a "nice" changelog derived from `CHANGELOG.md` but presented in a user-friendly format.
+
+### Template
+```markdown
+## Release vX.Y.Z: [Short Punchy Title, e.g., "SIO Mode and Virtual Master Enhancements"]
+
+[Optional: A one-hero-sentence summary of the biggest value in this release]
+
+### Features
+- **Feature Name**: Brief description of the new capability.
+- **Service Support**: List new supported SIDs (e.g., `0x2A`, `0x2F`).
+
+### Improvements
+- **Component**: Description of hardening, optimization, or refactoring.
+- **Compliance**: Notes on MISRA-C or ISO-14229 updates.
+
+### Testing
+- **Validation**: Summary of test scope (e.g., "Verified with 100% Docker pass rate").
+- **Integration**: Mention of key integration tests or scenarios verified.
+
+### Assets
+- Source Code (zip/tar.gz)
+```

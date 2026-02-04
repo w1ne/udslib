@@ -41,7 +41,7 @@ Host-side simulation is used to validate end-to-end request/response behavior fo
 
 - Full service sequence (covers **all** services listed in the matrix above): `tests/integration/test_uds.py`
 - Short PCAP + HTML report demo (SessionControl + ReadDataByIdentifier/VIN): `run_capture.sh`
-- Example artifacts from the last local run (2026-02-04): `test_uds_output.txt`, `run_capture_output.txt`, `session_report_fd.html`, `sim_traffic_fd.pcap`
+- Outputs are written under `../artifacts/` (local-only).
 
 ## Future Services
 

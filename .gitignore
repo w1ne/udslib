@@ -47,6 +47,10 @@ Thumbs.db
 *.tmp
 *.bak
 
+# Local run artifacts (captures/logs/reports)
+artifacts/*
+!artifacts/README.md
+
 # Documentation
 ISO_14229-1_2013.en.PDF.pdf
 build_quality/

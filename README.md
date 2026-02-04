@@ -43,7 +43,7 @@ Generate a visual HTML dashboard to analyze UDS sessions (CAN-FD/ISO-TP):
 ./run_capture.sh classic
 
 # 2. View the generated report
-# Open 'session_report_fd.html' (or 'session_report_classic.html')
+# Open 'artifacts/capture/session_report_fd.html' (or '..._classic.html')
 ```
 
 The analyzer includes:
