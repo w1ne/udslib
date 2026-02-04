@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  Sample ODX File - Minimal Vehicle Diagnostic Database
+  For demonstration of odx_to_c.py code generation
+-->
+<ODX MODEL-VERSION="2.2.0">
+  <DIAG-DATA-DICTIONARY-SPEC>
+    <SHORT-NAME>SampleVehicleDatabase</SHORT-NAME>
+    
+    <!-- VIN - Vehicle Identification Number -->
+    <DATA-OBJECT-PROP>
+      <SHORT-NAME>VIN</SHORT-NAME>
+      <ID>0xF190</ID>
+      <BIT-LENGTH>136</BIT-LENGTH>
+      <DIAG-CODED-TYPE>
+        <BASE-DATA-TYPE>A_ASCIISTRING</BASE-DATA-TYPE>
+      </DIAG-CODED-TYPE>
+    </DATA-OBJECT-PROP>
+    
+    <!-- Active Diagnostic Session -->
+    <DATA-OBJECT-PROP>
+      <SHORT-NAME>ActiveDiagSession</SHORT-NAME>
+      <ID>0xF186</ID>
+      <BIT-LENGTH>8</BIT-LENGTH>
+      <DIAG-CODED-TYPE>
+        <BASE-DATA-TYPE>A_UINT32</BASE-DATA-TYPE>
+      </DIAG-CODED-TYPE>
+    </DATA-OBJECT-PROP>
+    
+    <!-- ECU Serial Number -->
+    <DATA-OBJECT-PROP>
+      <SHORT-NAME>ECUSerialNumber</SHORT-NAME>
+      <ID>0xF18C</ID>
+      <BIT-LENGTH>128</BIT-LENGTH>
+      <DIAG-CODED-TYPE>
+        <BASE-DATA-TYPE>A_ASCIISTRING</BASE-DATA-TYPE>
+      </DIAG-CODED-TYPE>
+    </DATA-OBJECT-PROP>
+    
+    <!-- Vehicle Speed -->
+    <DATA-OBJECT-PROP>
+      <SHORT-NAME>VehicleSpeed</SHORT-NAME>
+      <ID>0xF100</ID>
+      <BIT-LENGTH>16</BIT-LENGTH>
+      <DIAG-CODED-TYPE>
+        <BASE-DATA-TYPE>A_UINT32</BASE-DATA-TYPE>
+      </DIAG-CODED-TYPE>
+    </DATA-OBJECT-PROP>
+    
+    <!-- Engine RPM -->
+    <DATA-OBJECT-PROP>
+      <SHORT-NAME>EngineRPM</SHORT-NAME>
+      <ID>0xF101</ID>
+      <BIT-LENGTH>16</BIT-LENGTH>
+      <DIAG-CODED-TYPE>
+        <BASE-DATA-TYPE>A_UINT32</BASE-DATA-TYPE>
+      </DIAG-CODED-TYPE>
+    </DATA-OBJECT-PROP>
+    
+  </DIAG-DATA-DICTIONARY-SPEC>
+</ODX>
