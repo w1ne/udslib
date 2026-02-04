@@ -189,7 +189,8 @@ int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint1
                 if (ctx->periodic_ids[j] == 0u) {
                     ctx->periodic_ids[j] = id;
                     ctx->periodic_rates[j] = mode;
-                    ctx->periodic_timers[j] = ctx->config->get_time_ms(); /* Start immediately or after interval */
+                    ctx->periodic_timers[j] =
+                        ctx->config->get_time_ms(); /* Start immediately or after interval */
                     ctx->periodic_count++;
                     break;
                 }

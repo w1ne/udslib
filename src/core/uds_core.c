@@ -325,27 +325,32 @@ void uds_process(uds_ctx_t *ctx)
             ctx->p2_timer_start = now; /* Reset timer for P2* */
         }
     }
-    
+
     /* SID 0x2A: Periodic Data Transmission Scheduler */
     if (ctx->periodic_count > 0u) {
         for (uint8_t i = 0u; i < 8u; i++) {
             if (ctx->periodic_ids[i] != 0u) {
                 if (now >= ctx->periodic_timers[i]) {
                     uint8_t out_buf[UDS_MAX_PERIODIC_MSG_LEN];
-                    int written = ctx->config->fn_periodic_read(ctx, ctx->periodic_ids[i], out_buf, UDS_MAX_PERIODIC_MSG_LEN);
+                    int written = ctx->config->fn_periodic_read(ctx, ctx->periodic_ids[i], out_buf,
+                                                                UDS_MAX_PERIODIC_MSG_LEN);
                     if (written > 0) {
-                        /* Send periodic message as a raw CAN/ISO-TP response if needed, 
+                        /* Send periodic message as a raw CAN/ISO-TP response if needed,
                            or via a specialized periodic tx hook. For now, use fn_tp_send. */
                         ctx->config->tx_buffer[0] = ctx->periodic_ids[i];
                         memcpy(&ctx->config->tx_buffer[1], out_buf, written);
                         ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, written + 1);
                     }
-                    
+
                     /* Reset timer based on rate: Fast (100ms), Medium (500ms), Slow (2000ms) */
-                    uint32_t interval = 2000u;
-                    if (ctx->periodic_rates[i] == 0x01u) interval = 100u;
-                    else if (ctx->periodic_rates[i] == 0x02u) interval = 500u;
-                    
+                    uint32_t interval = UDS_PERIODIC_SLOW_INTERVAL_MS;
+                    if (ctx->periodic_rates[i] == UDS_PERIODIC_RATE_FAST) {
+                        interval = UDS_PERIODIC_FAST_INTERVAL_MS;
+                    }
+                    else if (ctx->periodic_rates[i] == UDS_PERIODIC_RATE_MEDIUM) {
+                        interval = UDS_PERIODIC_MEDIUM_INTERVAL_MS;
+                    }
+
                     ctx->periodic_timers[i] = now + interval;
                 }
             }

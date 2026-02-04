@@ -26,7 +26,7 @@ static void test_io_control_success(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    
+
     static const uds_did_entry_t dids[] = {
         {0x0123, 1, 0, 0, NULL, NULL, NULL},
     };

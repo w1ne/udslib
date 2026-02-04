@@ -8,7 +8,8 @@
 
 int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    /* ISO 14229-1: 0x2F [DID high] [DID low] [controlOptionRecord...] [controlEnableMaskRecord...] */
+    /* ISO 14229-1: 0x2F [DID high] [DID low] [controlOptionRecord...] [controlEnableMaskRecord...]
+     */
     if (len < 4u) {
         return uds_send_nrc(ctx, UDS_SID_IO_CONTROL_BY_ID, UDS_NRC_INCORRECT_LENGTH);
     }

@@ -62,10 +62,10 @@ void uds_tp_isotp_init(uds_can_send_fn can_send, uint32_t tx_id, uint32_t rx_id)
     g_isotp_ctx.can_send = can_send;
     g_isotp_ctx.tx_id = tx_id;
     g_isotp_ctx.rx_id = rx_id;
-    g_isotp_ctx.block_size = 8; /* Default Block Size */
-    g_isotp_ctx.st_min = 0;     /* Default No Delay */
-    g_isotp_ctx.use_can_fd = 0; /* Default: Classic CAN */
-    g_isotp_ctx.tx_dl = ISOTP_MAX_DL_CAN;      /* Default: 8 bytes */
+    g_isotp_ctx.block_size = 8;           /* Default Block Size */
+    g_isotp_ctx.st_min = 0;               /* Default No Delay */
+    g_isotp_ctx.use_can_fd = 0;           /* Default: Classic CAN */
+    g_isotp_ctx.tx_dl = ISOTP_MAX_DL_CAN; /* Default: 8 bytes */
 }
 
 void uds_tp_isotp_set_fd(bool enabled)
@@ -84,14 +84,15 @@ static int uds_send_sf(const uint8_t *data, uint16_t len)
     uint8_t dl = ISOTP_MAX_DL_CAN;
 
     if (len <= ISOTP_SF_MAX_DL_CAN) {
-            /* Standard SF: [PCI+DL] [Data...] */
+        /* Standard SF: [PCI+DL] [Data...] */
         frame[0] = (uint8_t) ((uint8_t) ISOTP_PCI_SF | (uint8_t) len);
         memcpy(&frame[1], data, len);
-        dl = ISOTP_MAX_DL_CAN; 
-    } else {
+        dl = ISOTP_MAX_DL_CAN;
+    }
+    else {
         /* CAN-FD SF: [00] [DL] [Data...] */
-        frame[0] = ISOTP_PCI_SF; /* 0x00 */
-        frame[1] = (uint8_t)len; /* Data Length */
+        frame[0] = ISOTP_PCI_SF;  /* 0x00 */
+        frame[1] = (uint8_t) len; /* Data Length */
         memcpy(&frame[2], data, len);
         /* Calculate valid DLC for FD */
         dl = uds_dlc_align(len + 2);
@@ -118,27 +119,29 @@ static int uds_send_mf(const uint8_t *data, uint16_t len)
 
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
     uint8_t dl = ISOTP_MAX_DL_CAN;
-    
+
     /* FF Header: [1n] [nn] */
     frame[0] = (uint8_t) ((uint8_t) ISOTP_PCI_FF | (uint8_t) ((len >> 8u) & 0x0Fu));
     frame[1] = (uint8_t) (len & 0xFFu);
-    
-    uint8_t max_data_in_ff = (g_isotp_ctx.use_can_fd) ? ISOTP_FF_MAX_DATA_CANFD : ISOTP_FF_MAX_DATA_CAN;
+
+    uint8_t max_data_in_ff =
+        (g_isotp_ctx.use_can_fd) ? ISOTP_FF_MAX_DATA_CANFD : ISOTP_FF_MAX_DATA_CAN;
 
     /* Copy as much as fits in FF */
-    uint8_t to_copy = (len > max_data_in_ff) ? max_data_in_ff : (uint8_t)len;
+    uint8_t to_copy = (len > max_data_in_ff) ? max_data_in_ff : (uint8_t) len;
     memcpy(&frame[2], data, to_copy);
-    
+
     g_isotp_ctx.bytes_processed = to_copy;
     g_isotp_ctx.sn = 1u;
 
     if (g_isotp_ctx.use_can_fd) {
-        /* FF in FD is usually full, unless minimal data? 
-                    But standard says FF_DL > 4095 uses escape. 
-                    If we use FD, we should use full frame capacity for efficiency 
+        /* FF in FD is usually full, unless minimal data?
+                    But standard says FF_DL > 4095 uses escape.
+                    If we use FD, we should use full frame capacity for efficiency
                     or at least align DLC. */
         dl = uds_dlc_align(2 + to_copy);
-    } else {
+    }
+    else {
         dl = ISOTP_MAX_DL_CAN;
     }
 
@@ -156,11 +159,11 @@ int uds_isotp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 
     /* Check if we can use Single Frame */
     uint8_t max_sf_len = (g_isotp_ctx.use_can_fd) ? ISOTP_SF_MAX_DL_CANFD : ISOTP_SF_MAX_DL_CAN;
-    
+
     if (len <= max_sf_len) {
         return uds_send_sf(data, len);
     }
-    
+
     return uds_send_mf(data, len);
 }
 
@@ -201,13 +204,15 @@ void uds_tp_isotp_process(uint32_t time_ms)
         }
 
         /* Calculate max payload per CF */
-        uint8_t max_cf_payload = (g_isotp_ctx.use_can_fd) ? (ISOTP_MAX_DL_CANFD - 1) : (ISOTP_MAX_DL_CAN - 1); /* Header is 1 byte (PCI+SN) */
-        
+        uint8_t max_cf_payload = (g_isotp_ctx.use_can_fd)
+                                     ? (ISOTP_MAX_DL_CANFD - 1)
+                                     : (ISOTP_MAX_DL_CAN - 1); /* Header is 1 byte (PCI+SN) */
+
         uint8_t to_copy = (remaining > max_cf_payload) ? max_cf_payload : (uint8_t) remaining;
         uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
         frame[0] = (uint8_t) (ISOTP_PCI_CF | g_isotp_ctx.sn);
         memcpy(&frame[1], &g_pending_tx_sdu[g_isotp_ctx.bytes_processed], to_copy);
-        
+
         uint8_t dl = ISOTP_MAX_DL_CAN;
         if (g_isotp_ctx.use_can_fd) {
             dl = uds_dlc_align(1 + to_copy);
@@ -245,7 +250,7 @@ static void uds_rx_sf(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
         /* Not enough data in frame */
         return;
     }
-    
+
     uds_input_sdu(uds_ctx, &data[data_offset], (uint16_t) sdu_len);
 }
 
@@ -261,17 +266,18 @@ static void uds_rx_ff(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
     }
 
     g_isotp_ctx.msg_len = sdu_len;
-    
+
     /* Determine data in FF */
     uint8_t data_in_ff;
     if (len > ISOTP_MAX_DL_CAN) {
         /* CAN-FD FF */
-        data_in_ff = len - 2; 
-    } else {
-        /* Classic CAN FF */
-            data_in_ff = ISOTP_FF_MAX_DATA_CAN;
+        data_in_ff = len - 2;
     }
-    
+    else {
+        /* Classic CAN FF */
+        data_in_ff = ISOTP_FF_MAX_DATA_CAN;
+    }
+
     g_isotp_ctx.bytes_processed = data_in_ff;
     g_isotp_ctx.sn = 1;
     g_isotp_ctx.state = ISOTP_RX_WAIT_CF;
@@ -304,11 +310,11 @@ static void uds_rx_cf(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
     g_isotp_ctx.sn = (g_isotp_ctx.sn + 1) & 0x0F;
 
     uint16_t remaining = g_isotp_ctx.msg_len - g_isotp_ctx.bytes_processed;
-    
+
     /* Max payload in CF depends on whether we received FD frame (len > 8) or not.
         Actually receiving node infers FD from frame length. */
     uint8_t data_capacity = len - 1; /* Byte 0 is PCI+SN */
-    
+
     uint8_t to_copy = (remaining > data_capacity) ? data_capacity : (uint8_t) remaining;
 
     memcpy(&uds_ctx->config->rx_buffer[g_isotp_ctx.bytes_processed], &data[1], to_copy);

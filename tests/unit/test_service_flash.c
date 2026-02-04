@@ -89,9 +89,10 @@ static void test_transfer_data_last_block_replay(void **state)
     uds_input_sdu(&ctx, req1, 4);
     assert_int_equal(ctx.flash_sequence, 0x01);
 
-    /* Repeat block (0x01) - Should be accepted without re-invoking callback increment or sequence error */
+    /* Repeat block (0x01) - Should be accepted without re-invoking callback increment or sequence
+     * error */
     uint8_t req2[] = {0x36, 0x01, 0xDE, 0xAD};
-    
+
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     expect_any(mock_tp_send, data);

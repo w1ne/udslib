@@ -69,13 +69,13 @@ For current implemented service coverage, see `docs/SERVICE_COMPLIANCE.md`.
 ## Phase 10: High-Priority Service Expansion (ISO 14229-1 Compliance)
 **Target**: Achieve 80%+ service coverage with critical diagnostic features.
 
-- [ ] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Periodic data streaming.
+- [x] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Periodic data streaming.
   - Sub-functions: sendAtSlowRate (0x01), sendAtMediumRate (0x02), sendAtFastRate (0x03), stopSending (0x04)
   - Periodic scheduler in `uds_process()` with configurable transmission rates
   - Active periodic identifier registry with automatic cleanup on session timeout
   - Conflict resolution with synchronous services
 
-- [ ] **Service 0x2F (InputOutputControlByIdentifier)**: Actuator control and testing.
+- [x] **Service 0x2F (InputOutputControlByIdentifier)**: Actuator control and testing.
   - Sub-functions: returnControlToECU (0x00), resetToDefault (0x01), freezeCurrentState (0x02), shortTermAdjustment (0x03)
   - IO control state machine per identifier
   - Application callback for actuator control (`fn_io_control`)
@@ -128,7 +128,7 @@ For current implemented service coverage, see `docs/SERVICE_COMPLIANCE.md`.
   - Composite DID construction from multiple sources
   - Memory allocation for dynamic definitions
 
-- [ ] **Service 0x35 (RequestUpload)**: ECU-to-tester data upload.
+- [x] **Service 0x35 (RequestUpload)**: ECU-to-tester data upload.
   - Mirror of 0x34 (RequestDownload) for upload direction
   - Upload state machine with 0x36/0x37 integration
   - Application callback for data source (`fn_upload_read`)
@@ -151,7 +151,7 @@ For current implemented service coverage, see `docs/SERVICE_COMPLIANCE.md`.
   - CRC32 accumulator updated per received block
   - Optional final verification step on 0x37 (or a dedicated 0x31 routine)
 
-- [ ] **Block Handling**: Robust 0x36 block sequence counter (BSC) policy.
+- [x] **Block Handling**: Robust 0x36 block sequence counter (BSC) policy.
   - Accept exact expected BSC; optionally accept last-BSC replay for retransmissions
   - Consistent NRC mapping (e.g., 0x73 for wrong BSC, 0x72 for programming failure)
   - Optional config flag to ACK a repeated last-BSC without re-processing data (interoperability)
@@ -203,9 +203,9 @@ For current implemented service coverage, see `docs/SERVICE_COMPLIANCE.md`.
 ## Phase 13: Parity with Commercial Stacks (Active)
 **Target**: Implement missing services identified
 
-- [ ] **Service 0x2F (InputOutputControlByIdentifier)**: Actuator control.
-- [ ] **Service 0x35 (RequestUpload)**: Symmetrical data provider flow.
-- [ ] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Core scheduler integration.
+- [x] **Service 0x2F (InputOutputControlByIdentifier)**: Actuator control.
+- [x] **Service 0x35 (RequestUpload)**: Symmetrical data provider flow.
+- [x] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Core scheduler integration.
 
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.

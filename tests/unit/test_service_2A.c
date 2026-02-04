@@ -9,7 +9,7 @@
 #include "test_helpers.h"
 
 static int mock_periodic_read(struct uds_ctx *ctx, uint8_t periodic_id, uint8_t *out_buf,
-                            uint16_t max_len)
+                              uint16_t max_len)
 {
     (void) ctx;
     (void) max_len;
@@ -38,7 +38,7 @@ static void test_periodic_read_setup(void **state)
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
-    
+
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 1); /* 6A */
     will_return(mock_tp_send, 0);
@@ -68,7 +68,7 @@ static void test_periodic_scheduler_trigger(void **state)
     will_return(mock_tp_send, 0);
 
     uds_process(&ctx);
-    
+
     /* Check timer reset */
     assert_int_equal(ctx.periodic_timers[0], 1100);
 }
@@ -77,7 +77,7 @@ static void test_periodic_read_stop(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    
+
     ctx.periodic_ids[0] = 0xE1;
     ctx.periodic_count = 1;
 
@@ -87,7 +87,7 @@ static void test_periodic_read_stop(void **state)
     /* 2 calls confirmed by failure analysis */
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
-    
+
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 1); /* 6A */
     will_return(mock_tp_send, 0);
