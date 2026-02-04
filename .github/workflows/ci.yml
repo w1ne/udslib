@@ -2,9 +2,13 @@ name: LibUDS CI
 
 on:
   push:
-    branches: [ main, develop, 'release/*' ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   static-analysis:
