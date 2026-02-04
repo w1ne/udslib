@@ -133,3 +133,71 @@ int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
 
     return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_CONDITIONS_NOT_CORRECT);
 }
+
+int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    /* ISO 14229-1: 0x2A [transmissionMode] [periodicDataIdentifier...] */
+    if (len < 2u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    uint8_t mode = data[1] & 0x0Fu; /* 1: Fast, 2: Medium, 3: Slow, 4: Stop */
+
+    if (mode == 0x04u) {
+        /* Stop Sending */
+        if (len == 2u) {
+            /* Stop all */
+            memset(ctx->periodic_ids, 0, sizeof(ctx->periodic_ids));
+            ctx->periodic_count = 0u;
+        }
+        else {
+            /* Stop specific IDs */
+            for (uint16_t i = 2u; i < len; i++) {
+                uint8_t id = data[i];
+                for (uint8_t j = 0u; j < 8u; j++) {
+                    if (ctx->periodic_ids[j] == id) {
+                        ctx->periodic_ids[j] = 0u;
+                        ctx->periodic_count--;
+                    }
+                }
+            }
+        }
+        ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_BY_PER_ID + UDS_RESPONSE_OFFSET);
+        return uds_send_response(ctx, 1u);
+    }
+
+    if (mode < 0x01u || mode > 0x03u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
+    }
+
+    /* Add/Update Periodic IDs */
+    for (uint16_t i = 2u; i < len; i++) {
+        uint8_t id = data[i];
+        bool found = false;
+        for (uint8_t j = 0u; j < 8u; j++) {
+            if (ctx->periodic_ids[j] == id) {
+                ctx->periodic_rates[j] = mode;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            if (ctx->periodic_count >= 8u) {
+                return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_RESPONSE_TOO_LONG);
+            }
+            for (uint8_t j = 0u; j < 8u; j++) {
+                if (ctx->periodic_ids[j] == 0u) {
+                    ctx->periodic_ids[j] = id;
+                    ctx->periodic_rates[j] = mode;
+                    ctx->periodic_timers[j] =
+                        ctx->config->get_time_ms(); /* Start immediately or after interval */
+                    ctx->periodic_count++;
+                    break;
+                }
+            }
+        }
+    }
+
+    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_BY_PER_ID + UDS_RESPONSE_OFFSET);
+    return uds_send_response(ctx, 1u);
+}

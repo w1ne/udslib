@@ -69,11 +69,46 @@ static void test_transfer_data_sequence_error(void **state)
     assert_int_equal(g_tx_buf[2], 0x24);
 }
 
+static void test_transfer_data_last_block_replay(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_transfer_data = mock_transfer_data;
+    cfg.transfer_accept_last_block_replay = true;
+
+    /* First block (0x01) */
+    uint8_t req1[] = {0x36, 0x01, 0xDE, 0xAD};
+    ctx.flash_sequence = 0;
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2); /* 76 01 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req1, 4);
+    assert_int_equal(ctx.flash_sequence, 0x01);
+
+    /* Repeat block (0x01) - Should be accepted without re-invoking callback increment or sequence
+     * error */
+    uint8_t req2[] = {0x36, 0x01, 0xDE, 0xAD};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2); /* 76 01 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req2, 4);
+    assert_int_equal(ctx.flash_sequence, 0x01);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_request_download_alfid_invalid),
         cmocka_unit_test(test_transfer_data_sequence_error),
+        cmocka_unit_test(test_transfer_data_last_block_replay),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

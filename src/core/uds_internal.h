@@ -34,9 +34,12 @@
 #define UDS_SID_SECURITY_ACCESS 0x27u
 #define UDS_SID_COMM_CONTROL 0x28u
 #define UDS_SID_AUTHENTICATION 0x29u
+#define UDS_SID_READ_BY_PER_ID 0x2Au
 #define UDS_SID_WRITE_DATA_BY_ID 0x2Eu
+#define UDS_SID_IO_CONTROL_BY_ID 0x2Fu
 #define UDS_SID_ROUTINE_CONTROL 0x31u
 #define UDS_SID_REQUEST_DOWNLOAD 0x34u
+#define UDS_SID_REQUEST_UPLOAD 0x35u
 #define UDS_SID_TRANSFER_DATA 0x36u
 #define UDS_SID_TRANSFER_EXIT 0x37u
 #define UDS_SID_WRITE_MEM_BY_ADDR 0x3Du
@@ -48,6 +51,15 @@
 #define UDS_P2_STAR_MIN_SAFE_MS 1000u
 
 #define UDS_RESPONSE_OFFSET 0x40u
+#define UDS_MAX_PERIODIC_MSG_LEN 8u
+
+#define UDS_PERIODIC_RATE_FAST 0x01u
+#define UDS_PERIODIC_RATE_MEDIUM 0x02u
+#define UDS_PERIODIC_RATE_SLOW 0x03u
+
+#define UDS_PERIODIC_FAST_INTERVAL_MS 100u
+#define UDS_PERIODIC_MEDIUM_INTERVAL_MS 500u
+#define UDS_PERIODIC_SLOW_INTERVAL_MS 1000u
 
 /* Protocol Bitmasks */
 #define UDS_MASK_NIBBLE 0x0Fu
@@ -93,6 +105,10 @@
     {                                                      \
         0x06u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+#define UDS_MASK_SUB_2A                                    \
+    {                                                      \
+        0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 
 const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id);
 bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr,
@@ -129,5 +145,10 @@ int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *dat
 /* Memory Services (0x23, 0x3D) */
 int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+
+/* New Services (0x2A, 0x2F, 0x35) */
+int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 #endif /* UDS_INTERNAL_H */

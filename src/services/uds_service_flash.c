@@ -108,6 +108,13 @@ int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint1
         uint8_t expected =
             (ctx->flash_sequence == 0xFFu) ? 0x00u : (uint8_t) (ctx->flash_sequence + 1u);
         if (sequence != expected) {
+            /* Optional interoperability: accept last-block replay without re-processing data. */
+            if (ctx->config->transfer_accept_last_block_replay &&
+                (sequence == ctx->flash_sequence)) {
+                ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_DATA + UDS_RESPONSE_OFFSET);
+                ctx->config->tx_buffer[1] = sequence;
+                return uds_send_response(ctx, 2u);
+            }
             return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_REQUEST_SEQUENCE_ERROR);
         }
     }
@@ -140,4 +147,41 @@ int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *dat
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_EXIT + UDS_RESPONSE_OFFSET);
     return uds_send_response(ctx, 1u);
+}
+
+int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    /* ISO 14229-1: 0x35 [dataFormatIdentifier] [addressAndLengthFormatIdentifier] [address...]
+     * [size...] */
+    if (len < 4u) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_UPLOAD, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    uint8_t addr_len_format = data[2];
+    uint32_t addr, size;
+
+    if (!uds_internal_parse_addr_len(&data[3], (uint16_t) (len - 3u), addr_len_format, &addr,
+                                     &size)) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_UPLOAD, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    if (ctx->config->fn_request_upload == NULL) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_UPLOAD, UDS_NRC_CONDITIONS_NOT_CORRECT);
+    }
+
+    int res = ctx->config->fn_request_upload(ctx, addr, size);
+    if (res < 0) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_UPLOAD, (uint8_t) - (int32_t) res);
+    }
+
+    /* Reset sequence counter for new transfer */
+    ctx->flash_sequence = 0u;
+
+    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_REQUEST_UPLOAD + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = 0x20u; /* Length format identifier (4 bytes) */
+    ctx->config->tx_buffer[2] = 0x00u; /* Placeholder max block length */
+    ctx->config->tx_buffer[3] = 0x00u;
+    ctx->config->tx_buffer[4] = 0x04u;
+    ctx->config->tx_buffer[5] = 0x00u;
+    return uds_send_response(ctx, 6u);
 }

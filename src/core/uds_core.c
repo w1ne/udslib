@@ -17,6 +17,7 @@ static const uint8_t mask_sub_28[] = UDS_MASK_SUB_28;
 static const uint8_t mask_sub_31[] = UDS_MASK_SUB_31;
 static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
+static const uint8_t mask_sub_2A[] = UDS_MASK_SUB_2A;
 
 static const uds_service_entry_t core_services[] = {
     {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
@@ -45,6 +46,10 @@ static const uds_service_entry_t core_services[] = {
      mask_sub_3E},
     {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_control_dtc_setting,
      mask_sub_85},
+    {UDS_SID_READ_BY_PER_ID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_periodic_read,
+     mask_sub_2A},
+    {UDS_SID_IO_CONTROL_BY_ID, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_io_control, NULL},
+    {UDS_SID_REQUEST_UPLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_upload, NULL},
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))
@@ -317,6 +322,37 @@ void uds_process(uds_ctx_t *ctx)
             ctx->rcrrp_count++;
             ctx->p2_star_active = true;
             ctx->p2_timer_start = now; /* Reset timer for P2* */
+        }
+    }
+
+    /* SID 0x2A: Periodic Data Transmission Scheduler */
+    if (ctx->periodic_count > 0u) {
+        for (uint8_t i = 0u; i < 8u; i++) {
+            if (ctx->periodic_ids[i] != 0u) {
+                if (now >= ctx->periodic_timers[i]) {
+                    uint8_t out_buf[UDS_MAX_PERIODIC_MSG_LEN];
+                    int written = ctx->config->fn_periodic_read(ctx, ctx->periodic_ids[i], out_buf,
+                                                                UDS_MAX_PERIODIC_MSG_LEN);
+                    if (written > 0) {
+                        /* Send periodic message as a raw CAN/ISO-TP response if needed,
+                           or via a specialized periodic tx hook. For now, use fn_tp_send. */
+                        ctx->config->tx_buffer[0] = ctx->periodic_ids[i];
+                        memcpy(&ctx->config->tx_buffer[1], out_buf, written);
+                        ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, written + 1);
+                    }
+
+                    /* Reset timer based on rate: Fast (100ms), Medium (500ms), Slow (2000ms) */
+                    uint32_t interval = UDS_PERIODIC_SLOW_INTERVAL_MS;
+                    if (ctx->periodic_rates[i] == UDS_PERIODIC_RATE_FAST) {
+                        interval = UDS_PERIODIC_FAST_INTERVAL_MS;
+                    }
+                    else if (ctx->periodic_rates[i] == UDS_PERIODIC_RATE_MEDIUM) {
+                        interval = UDS_PERIODIC_MEDIUM_INTERVAL_MS;
+                    }
+
+                    ctx->periodic_timers[i] = now + interval;
+                }
+            }
         }
     }
 

@@ -13,29 +13,10 @@ class UDSTestClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(2.0)
         self.target = (target_ip, port)
-        self.tx_id = 0x7E0 # Client TX -> Server RX
-        self.rx_id = 0x7E8 # Server TX -> Client RX
+        self.tx_id = 0x7E0  # Client TX -> Server RX
+        self.rx_id = 0x7E8  # Server TX -> Client RX
 
     def send_can(self, can_id, data):
-        data = data.ljust(64, b'\x00')
-        pkt = struct.pack(VCAN_FORMAT, can_id, data[:64], len(data.strip(b'\x00')) or len(data))
-        # Note: strip(b'\x00') might be wrong for data ending in 00, but for simple tests its ok.
-        # Let's fix it to use explicit payload length logic if we had one.
-        # But for request sending, usually we send exact bytes.
-        # The previous logic had a bug/feature using stripped len.
-        # Let's stick to using the length of the data passed in (before ljust).
-        can_dlc = len(data.rstrip(b'\x00')) # Use rstrip to be safer if needed, or just pass explicit len
-        # Actually, let's look at original logic:pkt = struct.pack(VCAN_FORMAT, can_id, data[:8], len(data))
-        # Original: len(data) was the len of the input 'data' (which was not stripped?).
-        # Wait, the original code had:
-        # data = data.ljust(8, b'\x00')
-        # pkt = struct.pack(..., len(data.strip(b'\x00')) or len(data))
-        # This is messy. Let's simplfy. ISO-TP sends specific frames.
-        # We should just send the length of the actual frame.
-        pass
-
-    def send_can(self, can_id, data):
-        # Data should be bytes of the CAN frame
         real_len = len(data)
         data_padded = data.ljust(64, b'\x00')
         pkt = struct.pack(VCAN_FORMAT, can_id, data_padded, real_len)
@@ -187,7 +168,26 @@ def test_full_sequence():
         # 23 12 00 10 01 (Read addr 0x0010 size 1 byte)
         assert client.uds_request(bytes([0x23, 0x12, 0x00, 0x10, 0x01])) == [0x63, 0xAB]
 
-        print("\n--- ALL 15 SERVICES (Including Memory) VERIFIED VIA INTEGRATION ---")
+        # Step 10: New Services (2A / 2F / 35)
+        print("[TEST] 10. New Services (2A / 2F / 35)")
+        # 2F 01 23 03 (IO Control Short Term Adjustment for DID 0x0123)
+        assert client.uds_request(bytes([0x2F, 0x01, 0x23, 0x03])) == [0x6F, 0x01, 0x23, 0x55]
+        
+        # 35 00 44 11 22 33 44 00 00 10 00 (Request Upload)
+        assert client.uds_request(bytes([0x35, 0x00, 0x44, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x10, 0x00])) == [0x75, 0x20, 0x00, 0x00, 0x04, 0x00]
+        
+        # 2A 01 F1 90 (Periodic Read Fast Rate for 0xF190 - Note: Simulator mock just returns 0xAA 0xBB)
+        assert client.uds_request(bytes([0x2A, 0x01, 0xF1])) == [0x6A]
+        # Wait for at least one periodic message
+        cid, data = client.recv_can()
+        print(f"  [DEBUG] Received for Periodic: CID={hex(cid) if cid else 'None'} Data={data.hex() if data else 'None'}")
+        # Standard UDS periodic Messages sent via ISO-TP will have an SF byte (0x03 for 3 bytes: ID + 2 data)
+        assert cid == client.rx_id
+        # Standard UDS periodic Messages sent via ISO-TP will have an SF byte (0x03) + 3 bytes (ID+Data)
+        # The frame might be padded with zeros to 8 bytes.
+        assert list(data[:4]) == [0x03, 0xF1, 0xAA, 0xBB]
+
+        print("\n--- ALL 17 IMPLEMENTED SERVICES VERIFIED VIA INTEGRATION ---")
 
     finally:
         os.kill(sim_proc.pid, signal.SIGTERM)
