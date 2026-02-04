@@ -29,5 +29,8 @@ lcov --remove coverage.info "$PROJECT_ROOT/tests/*" "$PROJECT_ROOT/examples/*" -
 echo "=== Generating HTML Report ==="
 genhtml coverage_filtered.info --output-directory coverage_report
 
+echo "=== Generating Text Summary ==="
+lcov --summary coverage_filtered.info > coverage_summary.txt
+
 echo ""
 echo "✅ Coverage report generated at: $BUILD_DIR/coverage_report/index.html"
