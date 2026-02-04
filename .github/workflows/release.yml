@@ -93,7 +93,7 @@ jobs:
           echo "" >> release-notes.md
           echo "---" >> release-notes.md
           echo "" >> release-notes.md
-          echo "## 📊 Code Coverage" >> release-notes.md
+          echo "## Code Coverage" >> release-notes.md
           echo "" >> release-notes.md
           echo "**Line Coverage**: ${{ steps.coverage.outputs.coverage }}%" >> release-notes.md
           echo "" >> release-notes.md

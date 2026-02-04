@@ -17,13 +17,13 @@ fi
 
 # Header
 cat << EOF
-# 🚀 UDSLib v${VERSION}
+# UDSLib v${VERSION}
 
 **Universal Diagnostics Stack for Embedded Systems**
 
 ---
 
-## 📋 What's New
+## What's New
 
 EOF
 
@@ -47,7 +47,7 @@ cat << 'EOF'
 
 ---
 
-## ✅ Test Results
+## Test Results
 
 EOF
 
@@ -57,17 +57,17 @@ if [ -f "build/test-results.xml" ]; then
     PASSED=$((TOTAL - FAILURES))
     
     if [ "$FAILURES" -eq 0 ]; then
-        STATUS="✅ **All Tests Passed**"
+        STATUS="**All Tests Passed**"
     else
-        STATUS="⚠️ **Some Tests Failed**"
+        STATUS="**Some Tests Failed**"
     fi
     
     cat << EOF
 $STATUS
 
 - **Total Tests**: ${TOTAL}
-- **Passed**: ${PASSED} ✅
-- **Failed**: ${FAILURES} ❌
+- **Passed**: ${PASSED}
+- **Failed**: ${FAILURES}
 
 EOF
 elif [ -f "test-output.txt" ]; then
@@ -75,11 +75,11 @@ elif [ -f "test-output.txt" ]; then
     if grep -q "100% tests passed" test-output.txt; then
         TOTAL=$(grep -oP '\d+(?= tests passed)' test-output.txt | tail -1 || echo "0")
         cat << EOF
-✅ **All Tests Passed**
+**All Tests Passed**
 
 - **Total Tests**: ${TOTAL}
-- **Passed**: ${TOTAL} ✅
-- **Failed**: 0 ❌
+- **Passed**: ${TOTAL}
+- **Failed**: 0
 
 EOF
     else
@@ -94,14 +94,14 @@ cat << EOF
 
 ---
 
-## 📦 Build Information
+## Build Information
 
 - **Version**: ${VERSION}
 - **Build Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 - **Compliance**: ISO 14229-1 (UDS)
 - **Platform Support**: Bare Metal, FreeRTOS, Zephyr, Linux, Windows
 
-## 🎯 Supported Services
+## Supported Services
 
 UDSLib v${VERSION} implements **16 ISO 14229-1 services**:
 
@@ -127,7 +127,7 @@ UDSLib v${VERSION} implements **16 ISO 14229-1 services**:
 
 ---
 
-## 📥 Installation
+## Installation
 
 ### Download Pre-built Binaries
 
@@ -138,7 +138,7 @@ Download the attached artifacts:
 ### Build from Source
 
 \`\`\`bash
-git clone https://github.com/yourusername/udslib.git
+git clone https://github.com/w1ne/udslib.git
 cd udslib
 git checkout v${VERSION}
 mkdir build && cd build
@@ -149,7 +149,7 @@ ctest
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - [Architecture Guide](docs/ARCHITECTURE.md)
 - [API Documentation](docs/CLIENT_API.md)
@@ -157,7 +157,7 @@ ctest
 - [Porting Guide](README.md#4-porting-guide)
 - [Commercial Licensing](docs/COMMERCIAL_STRATEGY.md)
 
-## 💼 Licensing
+## Licensing
 
 - **Community**: PolyForm Noncommercial 1.0.0 (noncommercial use). See LICENSE.
 - **Commercial**: 5,000 EUR for production/commercial use, includes integration + 1 year support.
@@ -165,11 +165,11 @@ ctest
 
 ---
 
-## 🐛 Report Issues
+## Report Issues
 
-Found a bug? [Open an issue](https://github.com/yourusername/udslib/issues)
+Found a bug? [Open an issue](https://github.com/w1ne/udslib/issues)
 
-## 📜 Full Changelog
+## Full Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for complete version history.
 EOF
