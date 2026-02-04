@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file uds_service_flash.c
  * @brief Flash Engine Services: RoutineControl (0x31), RequestDownload (0x34),

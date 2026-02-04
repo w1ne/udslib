@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file uds_version.h
  * @brief UDSLib Version Information
@@ -14,13 +19,13 @@ extern "C" {
 #define UDS_VERSION_MAJOR 1
 
 /** Minor version number (backward-compatible functionality) */
-#define UDS_VERSION_MINOR 10
+#define UDS_VERSION_MINOR 11
 
 /** Patch version number (backward-compatible bug fixes) */
 #define UDS_VERSION_PATCH 0
 
 /** Full version string */
-#define UDS_VERSION_STR "1.10.0"
+#define UDS_VERSION_STR "1.11.0"
 
 /** Version as a single integer for comparison (MMmmpp format) */
 #define UDS_VERSION_INT \

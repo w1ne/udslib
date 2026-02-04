@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file pro_flash_tool.c
  * @brief Enterprise Example: Orchestrating an OTA Update (0x34, 0x36, 0x37)

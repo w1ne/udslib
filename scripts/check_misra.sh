@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # scripts/check_misra.sh
 # Automated MISRA-C:2012 baseline compliance checker for UDSLib.
 

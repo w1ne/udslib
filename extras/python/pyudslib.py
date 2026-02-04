@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 import ctypes
 import os
 

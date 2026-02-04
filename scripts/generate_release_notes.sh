@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # Generate release notes for UDSLib releases
 # Usage: ./generate_release_notes.sh <version>
 
