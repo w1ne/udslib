@@ -5,24 +5,21 @@ import time
 import os
 import signal
 
-# VCAN Packet Format: ID (4 bytes), Data (8 bytes), Len (1 byte)
-VCAN_FORMAT = "<I8sB"
+# VCAN Packet Format: ID (4 bytes), Data (64 bytes), Len (1 byte)
+VCAN_FORMAT = "<I64sB"
 
 class UDSTestClient:
     def __init__(self, target_ip="127.0.0.1", port=5000):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(2.0)
         self.target = (target_ip, port)
-        self.tx_id = 0x7E0 # Client TX -> Server RX
-        self.rx_id = 0x7E8 # Server TX -> Client RX
+        self.tx_id = 0x7E0  # Client TX -> Server RX
+        self.rx_id = 0x7E8  # Server TX -> Client RX
 
     def send_can(self, can_id, data):
-        data = data.ljust(8, b'\x00')
-        pkt = struct.pack(VCAN_FORMAT, can_id, data, len(data.strip(b'\x00')) or len(data))
-        # Note: strip(b'\x00') might be wrong for data ending in 00, but for simple tests its ok.
-        # Let's fix it to use explicit length.
-        # Actually, let's just use the real length passed.
-        pkt = struct.pack(VCAN_FORMAT, can_id, data[:8], len(data))
+        real_len = len(data)
+        data_padded = data.ljust(64, b'\x00')
+        pkt = struct.pack(VCAN_FORMAT, can_id, data_padded, real_len)
         self.sock.sendto(pkt, self.target)
 
     def recv_can(self):
@@ -72,7 +69,12 @@ class UDSTestClient:
             cid, data = self.recv_can()
             if cid == self.rx_id:
                 print(f"  [RX] DATA: {data.hex()}")
-                if (data[0] & 0xF0) == 0x00: # Single Frame
+                # Handle CAN-FD Single Frame (Byte 0 is 0x00, Byte 1 is Len)
+                if data[0] == 0x00:
+                    data_len = data[1]
+                    return list(data[2:2 + data_len])
+                # Handle Standard Single Frame (Byte 0 is len, if 1..7)
+                elif (data[0] & 0xF0) == 0x00: 
                     return list(data[1:1 + (data[0] & 0x0F)])
                 elif (data[0] & 0xF0) == 0x10: # First Frame
                     expected_len = ((data[0] & 0x0F) << 8) | data[1]
@@ -166,7 +168,26 @@ def test_full_sequence():
         # 23 12 00 10 01 (Read addr 0x0010 size 1 byte)
         assert client.uds_request(bytes([0x23, 0x12, 0x00, 0x10, 0x01])) == [0x63, 0xAB]
 
-        print("\n--- ALL 15 SERVICES (Including Memory) VERIFIED VIA INTEGRATION ---")
+        # Step 10: New Services (2A / 2F / 35)
+        print("[TEST] 10. New Services (2A / 2F / 35)")
+        # 2F 01 23 03 (IO Control Short Term Adjustment for DID 0x0123)
+        assert client.uds_request(bytes([0x2F, 0x01, 0x23, 0x03])) == [0x6F, 0x01, 0x23, 0x55]
+        
+        # 35 00 44 11 22 33 44 00 00 10 00 (Request Upload)
+        assert client.uds_request(bytes([0x35, 0x00, 0x44, 0x11, 0x22, 0x33, 0x44, 0x00, 0x00, 0x10, 0x00])) == [0x75, 0x20, 0x00, 0x00, 0x04, 0x00]
+        
+        # 2A 01 F1 90 (Periodic Read Fast Rate for 0xF190 - Note: Simulator mock just returns 0xAA 0xBB)
+        assert client.uds_request(bytes([0x2A, 0x01, 0xF1])) == [0x6A]
+        # Wait for at least one periodic message
+        cid, data = client.recv_can()
+        print(f"  [DEBUG] Received for Periodic: CID={hex(cid) if cid else 'None'} Data={data.hex() if data else 'None'}")
+        # Standard UDS periodic Messages sent via ISO-TP will have an SF byte (0x03 for 3 bytes: ID + 2 data)
+        assert cid == client.rx_id
+        # Standard UDS periodic Messages sent via ISO-TP will have an SF byte (0x03) + 3 bytes (ID+Data)
+        # The frame might be padded with zeros to 8 bytes.
+        assert list(data[:4]) == [0x03, 0xF1, 0xAA, 0xBB]
+
+        print("\n--- ALL 17 IMPLEMENTED SERVICES VERIFIED VIA INTEGRATION ---")
 
     finally:
         os.kill(sim_proc.pid, signal.SIGTERM)

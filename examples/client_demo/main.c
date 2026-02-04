@@ -17,7 +17,7 @@
 typedef struct
 {
     uint32_t id;
-    uint8_t data[8];
+    uint8_t data[64];
     uint8_t len;
 } vcan_packet_t;
 #pragma pack(pop)
@@ -58,10 +58,13 @@ int main(int argc, char** argv)
 {
     const char* target_ip = "127.0.0.1";
     int port = 5000;
+    int enable_fd = 1; /* Default to CAN-FD */
+
     if (argc > 1) target_ip = argv[1];
     if (argc > 2) port = atoi(argv[2]);
+    if (argc > 3) enable_fd = atoi(argv[3]);
 
-    printf("UDS Client starting (Target: %s:%d)\n", target_ip, port);
+    printf("UDS Client starting (Target: %s:%d) [CAN-FD: %d]\n", target_ip, port, enable_fd);
 
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
     server_addr.sin_family = AF_INET;
@@ -70,6 +73,7 @@ int main(int argc, char** argv)
 
     // TX: 0x7E0, RX: 0x7E8
     uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);
+    uds_tp_isotp_set_fd(enable_fd != 0);
 
     uint8_t rx_buf[1024], tx_buf[1024];
     uds_config_t cfg = {.get_time_ms = get_time_ms,
