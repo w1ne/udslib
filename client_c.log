@@ -1,4 +1,4 @@
-UDS Client starting (Target: 127.0.0.1:5005) [CAN-FD: 0]
+UDS Client starting (Target: 127.0.0.1:5005) [CAN-FD: 1]
 [CLIENT] Sending DiagnosticSessionControl (Extended)...
 [CLIENT] Response Received: SID=50, Len=5
 [CLIENT] Data: 03 00 32 01 F4

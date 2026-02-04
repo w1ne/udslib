@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UDSLib Session Analyzer</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #252526;
+            --header-bg: #333333;
+            --text-color: #d4d4d4;
+            --accent: #007acc;
+            --highlight: #264f78;
+            --border: #3e3e42;
+            --row-hover: #2a2d2e;
+            --tx-color: #c586c0; /* Purple-ish */
+            --rx-color: #4ec9b0; /* Teal-ish */
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Consolas', 'Monaco', monospace;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+        header {
+            background-color: var(--header-bg);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 { margin: 0; font-size: 16px; color: #569cd6; }
+        .meta { font-size: 12px; color: #858585; }
+        
+        #main-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        #table-container {
+            flex: 1;
+            overflow-y: auto;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            background-color: var(--panel-bg);
+            position: sticky;
+            top: 0;
+            text-align: left;
+            padding: 5px 10px;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            color: #dcdcaa;
+        }
+        td {
+            padding: 4px 10px;
+            border-right: 1px solid #2d2d2d;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        tr:hover { background-color: var(--row-hover); }
+        tr.selected { background-color: var(--highlight) !important; color: white; }
+        
+        .tx { color: var(--tx-color); }
+        .rx { color: var(--rx-color); }
+        
+        #details-panel {
+            height: 200px;
+            background-color: var(--panel-bg);
+            padding: 15px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+        }
+        
+        .detail-row { margin-bottom: 8px; font-size: 13px; }
+        .label { color: #569cd6; width: 120px; display: inline-block; }
+        .value { color: #ce9178; }
+        .desc { color: #6a9955; font-style: italic; margin-left: 10px; }
+        
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+        
+        .badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .badge-req { background-color: #007acc; color: white; }
+        .badge-res { background-color: #007acc; color: white; opacity: 0.8; }
+        .badge-neg { background-color: #f44336; color: white; }
+        
+    </style>
+</head>
+<body>
+    <header>
+        <h1>UDSLib Session Analyzer <span style="font-size:0.8em; opacity:0.7">v1.9.0-dev</span></h1>
+        <div class="meta">Capture: <span id="filename">sim_traffic_fd.pcap</span> | <span id="pkt-count">0</span> packets</div>
+    </header>
+    
+    <div id="main-container">
+        <div id="table-container">
+            <table id="packet-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px">Time</th>
+                        <th style="width: 60px">Dir</th>
+                        <th style="width: 60px">ID</th>
+                        <th style="width: 150px">Type</th>
+                        <th style="width: 200px">Service / Info</th>
+                        <th>Payload</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- JS will populate -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="details-panel">
+            <h3 style="margin-top:0; color: #dcdcaa; font-size:14px; border-bottom:1px solid #3e3e42; padding-bottom:5px;">Packet Details</h3>
+            <div id="details-content">
+                <div style="color: grey; padding: 20px;">Select a packet to view details.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const packets = [{"time": 0.0, "can_id": 2016, "dir": "TX", "dir_desc": "Client -> Simulator", "data_len": 8, "frame_type": "SF", "frame_type_desc": "Single Frame", "info": "DiagnosticSessionControl", "payload_str": "02 10 03 00 00 00 00 00", "analysis": {"SF_DL": 2}, "service_name": "DiagnosticSessionControl", "is_response": false}, {"time": 0.0008070468902587891, "can_id": 2024, "dir": "RX", "dir_desc": "Simulator -> Client", "data_len": 8, "frame_type": "SF", "frame_type_desc": "Single Frame", "info": "DiagnosticSessionControl", "payload_str": "06 50 03 00 32 01 F4 00", "analysis": {"SF_DL": 6}, "service_name": "DiagnosticSessionControl", "is_response": true}, {"time": 1.0019190311431885, "can_id": 2016, "dir": "TX", "dir_desc": "Client -> Simulator", "data_len": 8, "frame_type": "SF", "frame_type_desc": "Single Frame", "info": "ReadDataByIdentifier", "payload_str": "03 22 F1 90 00 00 00 00", "analysis": {"SF_DL": 3}, "service_name": "ReadDataByIdentifier", "is_response": false}, {"time": 1.002216100692749, "can_id": 2024, "dir": "RX", "dir_desc": "Simulator -> Client", "data_len": 20, "frame_type": "SF", "frame_type_desc": "Single Frame", "info": "ReadDataByIdentifier", "payload_str": "00 11 62 F1 90 55 44 53 4C 49 42 5F 53 49 4D 5F 30 30 31 00", "analysis": {"SF_DL": 17}, "service_name": "ReadDataByIdentifier", "is_response": true}];
+        
+        const tableBody = document.querySelector("#packet-table tbody");
+        const detailsContent = document.getElementById("details-content");
+        const pktCountEl = document.getElementById("pkt-count");
+        
+        pktCountEl.textContent = packets.length;
+        
+        function renderTable() {
+            let html = "";
+            packets.forEach((pkt, index) => {
+                const dirClass = pkt.dir === "TX" ? "tx" : "rx";
+                const arrow = pkt.dir === "TX" ? "&rarr;" : "&larr;";
+                
+                let serviceLabel = pkt.info;
+                let badgeClass = "";
+                
+                if (pkt.service_name) {
+                    serviceLabel = `<span class="badge badge-req">${pkt.service_name}</span>`;
+                    if (pkt.is_response) {
+                        serviceLabel = `<span class="badge badge-res">${pkt.service_name} Resp</span>`;
+                    }
+                    if (pkt.nrc) {
+                        serviceLabel = `<span class="badge badge-neg">Neg Resp (0x7F)</span>`;
+                    }
+                }
+                
+                html += `<tr onclick="selectPacket(${index})" id="row-${index}">
+                    <td>${pkt.time.toFixed(6)}</td>
+                    <td class="${dirClass}" style="text-align:center">${arrow}</td>
+                    <td>0x${pkt.can_id.toString(16).toUpperCase()}</td>
+                    <td>${pkt.frame_type}</td>
+                    <td>${serviceLabel} ${pkt.extra_info || ""}</td>
+                    <td style="font-family: monospace; font-size: 12px; opacity: 0.8">${pkt.payload_str}</td>
+                </tr>`;
+            });
+            tableBody.innerHTML = html;
+        }
+        
+        function selectPacket(index) {
+            // Highlight row
+            document.querySelectorAll("tr.selected").forEach(r => r.classList.remove("selected"));
+            const row = document.getElementById(`row-${index}`);
+            if (row) row.classList.add("selected");
+            
+            const pkt = packets[index];
+            
+            let html = `
+                <div class="detail-row"><span class="label">Time:</span> <span class="value">${pkt.time.toFixed(6)} s</span></div>
+                <div class="detail-row"><span class="label">CAN ID:</span> <span class="value">0x${pkt.can_id.toString(16).toUpperCase()}</span> <span class="desc">(${pkt.dir_desc})</span></div>
+                <div class="detail-row"><span class="label">Frame Type:</span> <span class="value">${pkt.frame_type}</span> <span class="desc">${pkt.frame_type_desc}</span></div>
+                <div class="detail-row"><span class="label">DLC / Length:</span> <span class="value">${pkt.data_len} bytes</span></div>
+                <div class="detail-row"><span class="label">Payload:</span> <span class="value" style="font-family:monospace">${pkt.payload_str}</span></div>
+            `;
+            
+            if (pkt.analysis) {
+                 html += `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #3e3e42">`;
+                 for (const [key, val] of Object.entries(pkt.analysis)) {
+                     html += `<div class="detail-row"><span class="label">${key}:</span> <span class="value">${val}</span></div>`;
+                 }
+                 html += `</div>`;
+            }
+            
+            detailsContent.innerHTML = html;
+        }
+        
+        renderTable();
+    </script>
+</body>
+</html>

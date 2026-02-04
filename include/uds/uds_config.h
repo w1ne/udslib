@@ -216,6 +216,18 @@ typedef struct
     /** ISO 14229-1: Max allowed NRC 0x78 (ResponsePending) repetitions. 0=Infinite (C-07) */
     uint16_t rcrrp_limit;
 
+    /**
+     * @brief Flash transfer robustness: accept last-block replay (SID 0x36).
+     *
+     * When true, the server will accept a repeated BlockSequenceCounter equal to the
+     * most recently accepted block and respond positively without re-invoking the
+     * application transfer callback. This can help interoperability with clients
+     * that retry after a lost positive response.
+     *
+     * Default: false (strict sequence enforcement).
+     */
+    bool transfer_accept_last_block_replay;
+
     /* --- Data Identifiers (SID 0x22 / 0x2E) --- */
     /** Mandatory for RDBI/WDBI: Table of supported DIDs */
     uds_did_table_t did_table;
@@ -332,16 +344,18 @@ typedef struct
      */
     int (*fn_mem_read)(struct uds_ctx *ctx, uint32_t addr, uint32_t size, uint8_t *out_buf);
 
-    /**
-     * @brief Callback for Write Memory By Address (0x3D)
-     *
-     * @param[in] ctx Pointer to UDS context.
-     * @param[in] addr Memory address to write.
-     * @param[in] size Number of bytes to write.
-     * @param[in] data Data to write.
-     * @return 0 on success, negative for UDS NRC (e.g. -0x31 for out of range).
-     */
+    /** Callback for Write Memory By Address (0x3D) */
     int (*fn_mem_write)(struct uds_ctx *ctx, uint32_t addr, uint32_t size, const uint8_t *data);
+
+    /* --- New Service Callbacks (0x2A, 0x2F, 0x35) --- */
+    /** Optional: IO Control callback (SID 0x2F) */
+    int (*fn_io_control)(struct uds_ctx *ctx, uint16_t id, uint8_t type, const uint8_t *data,
+                         uint16_t len, uint8_t *out_buf, uint16_t max_len);
+    /** Optional: Request Upload callback (SID 0x35) */
+    int (*fn_request_upload)(struct uds_ctx *ctx, uint32_t addr, uint32_t size);
+    /** Optional: Periodic Data Read (Used for SID 0x2A) */
+    int (*fn_periodic_read)(struct uds_ctx *ctx, uint8_t periodic_id, uint8_t *out_buf,
+                            uint16_t max_len);
 
     /* --- OS Abstraction Layer (OSAL) --- */
 
@@ -429,6 +443,12 @@ typedef struct uds_ctx
 
     /** ISO 14229-1: Counter for NRC 0x78 repetitions (C-07) */
     uint16_t rcrrp_count;
+
+    /* --- Periodic Data State (SID 0x2A) --- */
+    uint8_t periodic_ids[8];     /**< Active periodic IDs */
+    uint8_t periodic_rates[8];   /**< Subfunction rates (1-3) */
+    uint32_t periodic_timers[8]; /**< Next transmission deadline */
+    uint8_t periodic_count;      /**< Number of active periodic IDs */
 } uds_ctx_t;
 
 #ifdef __cplusplus

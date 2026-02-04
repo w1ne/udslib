@@ -1,5 +1,7 @@
 # Roadmap
 
+For current implemented service coverage, see `docs/SERVICE_COMPLIANCE.md`.
+
 ## Phase 1: Core Architecture (Complete)
 - [x] Basic Service Dispatcher (SID 0x10).
 - [x] Dependency Injection Architecture.
@@ -142,6 +144,35 @@
   - 0x10: reportMirrorMemoryDTCByStatusMask
   - 0x13: reportMirrorMemoryDTCExtDataRecordByDTCNumber
 
+## Phase 11b: Embedded ECU Update Workflow (Planned)
+**Target**: Provide a reference-grade, production-friendly flashing workflow on top of 0x31/0x34/0x36/0x37.
+
+- [ ] **Transfer Integrity**: Rolling checksum/CRC across 0x36 blocks.
+  - CRC32 accumulator updated per received block
+  - Optional final verification step on 0x37 (or a dedicated 0x31 routine)
+
+- [ ] **Block Handling**: Robust 0x36 block sequence counter (BSC) policy.
+  - Accept exact expected BSC; optionally accept last-BSC replay for retransmissions
+  - Consistent NRC mapping (e.g., 0x73 for wrong BSC, 0x72 for programming failure)
+  - Optional config flag to ACK a repeated last-BSC without re-processing data (interoperability)
+
+- [ ] **Block Size Strategy (CAN-FD)**: Optimize transfer payload sizes for CAN-FD (up to 64-byte frames).
+  - Default “large block” streaming mode for fast links
+  - Configurable max block size to match flash page/buffer constraints
+
+- [ ] **Memory Region Policy**: First-class support for multiple programmable regions (e.g., boot/app/staging).
+  - Region allowlist with bounds checks
+  - Region-specific erase/write alignment requirements
+
+- [ ] **Update Lifecycle**: Optional “verify + activate” flow.
+  - Store update flags/state in app-provided NVM
+  - Post-download checksum verification
+  - Optional A/B activation and reboot policy hooks
+
+- [ ] **Embedded Super-Loop Profile**: Reference integration for a 1ms tick loop.
+  - Guidance for calling `uds_process()` and transport processing from a periodic tick
+  - Recommended strategy for feeding frames from ISR → queue → UDS task/loop
+
 ## Phase 12: Advanced & Niche Features
 **Target**: Full ISO 14229-1 compliance (100% service coverage).
 
@@ -169,8 +200,14 @@
   - Safety System Session (0x04) for ISO 26262
   - Manufacturer-specific sessions (0x40-0x5F) framework
 
+## Phase 13: Parity with Commercial Stacks (Active)
+**Target**: Implement missing services identified
+
+- [ ] **Service 0x2F (InputOutputControlByIdentifier)**: Actuator control.
+- [ ] **Service 0x35 (RequestUpload)**: Symmetrical data provider flow.
+- [ ] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Core scheduler integration.
+
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.
 - **Certification**: Preparation for ISO 26262 and ASPICE compliance.
 - **Service Coverage**: 26/26 services (100% ISO 14229-1 compliance).
-
