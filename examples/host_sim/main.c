@@ -259,6 +259,40 @@ static int mock_transfer_exit(struct uds_ctx *ctx)
     return UDS_OK;
 }
 
+static int mock_io_control(struct uds_ctx *ctx, uint16_t id, uint8_t type, const uint8_t *data,
+                           uint16_t len, uint8_t *out_buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    (void) max_len;
+    printf("[APP] IO CONTROL: ID 0x%04X Type 0x%02X\n", id, type);
+    if (id == 0x0123) {
+        /* Success, echo some state */
+        out_buf[0] = 0x55;
+        return 1;
+    }
+    return -0x31;
+}
+
+static int mock_request_upload(struct uds_ctx *ctx, uint32_t addr, uint32_t size)
+{
+    (void) ctx;
+    printf("[APP] REQUEST UPLOAD: Addr 0x%08X Size 0x%08X\n", addr, size);
+    return UDS_OK;
+}
+
+static int mock_periodic_read(struct uds_ctx *ctx, uint8_t periodic_id, uint8_t *out_buf,
+                              uint16_t max_len)
+{
+    (void) ctx;
+    (void) max_len;
+    printf("[APP] PERIODIC READ: ID 0x%02X\n", periodic_id);
+    out_buf[0] = 0xAA;
+    out_buf[1] = 0xBB;
+    return 2;
+}
+
 /**
  * @brief Main Entry Point for ECU Simulator.
  */
@@ -309,6 +343,9 @@ int main(int argc, char **argv)
                         .fn_transfer_exit = mock_transfer_exit,
                         .fn_mem_read = fn_mem_read,
                         .fn_mem_write = fn_mem_write,
+                        .fn_io_control = mock_io_control,
+                        .fn_request_upload = mock_request_upload,
+                        .fn_periodic_read = mock_periodic_read,
 
                         .did_table = g_ecu_did_table,
                         .rx_buffer = g_rx_buf,
