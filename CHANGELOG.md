@@ -1,14 +1,5 @@
 # Changelog
 
-## [1.11.0] - 2026-02-04
-
-### Added
-- **Copyright Headers**: Added standard license headers to all source, include, test, and script files.
-- **License**: Switched to `PolyForm-Noncommercial-1.0.0` for all core library components.
-
-### Fixed
-- **CI/CD**: Resolved issue in release workflow where `coverage_summary.txt` was not generated.
-
 ## [1.10.0] - 2026-02-04
 
 ### Added
