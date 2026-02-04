@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # run_capture.sh
 # Runs the simulation while capturing traffic to a PCAP and generating an HTML report.
 # Usage: ./run_capture.sh [classic]

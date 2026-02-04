@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file test_timing.c
  * @brief Unit tests for UDSLib Timing Engine (P2/P2* and S3)

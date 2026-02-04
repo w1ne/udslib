@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 #include "test_helpers.h"
 
 static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)

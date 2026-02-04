@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # Scripts to setup minimal Zephyr environment for Simulation
 # Based on Zephyr generic installation guide
 

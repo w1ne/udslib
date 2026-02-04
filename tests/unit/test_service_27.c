@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 #include "test_helpers.h"
 
 static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf,

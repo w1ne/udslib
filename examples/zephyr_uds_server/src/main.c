@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include "uds/uds_core.h"

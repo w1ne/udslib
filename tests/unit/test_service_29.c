@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file test_service_29.c
  * @brief Unit tests for Authentication (SID 0x29)

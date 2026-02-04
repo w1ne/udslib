@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # UDSLib Comprehensive Test Suite Runner
 # Executes all test tiers: Unit → Integration → System Validation
 

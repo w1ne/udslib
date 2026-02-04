@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # Build script for iso14229 external validator
 
 set -e

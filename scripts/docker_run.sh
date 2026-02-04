@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright (c) 2026 Andrii Shylenko
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 # Build and run UDSLib tests in a standardized Docker container
 
 set -e

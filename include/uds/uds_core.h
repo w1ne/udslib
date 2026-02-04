@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file uds_core.h
  * @brief ISO-14229 UDS Protocol Stack Core API

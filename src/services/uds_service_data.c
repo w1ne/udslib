@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file uds_service_data.c
  * @brief Read Data By ID (0x22) & Write Data By ID (0x2E)

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+
 /**
  * @file uds_service_session.c
  * @brief Diagnostic Session Control (0x10) & Tester Present (0x3E)
