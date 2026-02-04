@@ -3,15 +3,19 @@
 ## [1.10.0] - 2026-02-04
 
 ### Added
+- **Copyright Headers**: Added standard license headers to all source, include, test, and script files.
+- **License**: Switched to `PolyForm-Noncommercial-1.0.0` for all core library components.
 - **Service 0x2A (ReadDataByPeriodicIdentifier)**: Integrated scheduler supporting Fast, Medium, and Slow rates.
 - **Service 0x2F (InputOutputControlByIdentifier)**: Full support for actuator control with security and session validation.
 - **Service 0x35 (RequestUpload)**: Symmetrical data provider flow for ECU memory upload.
 - **TransferData (0x36) Robustness**: Added `transfer_accept_last_block_replay` configuration to gracefully handle lost positive responses.
+- **CAN-FD Support**: Native support for 64-byte frames and DLC alignment in ISO-TP layer.
 
 ### Changed
 - Updated internal dispatcher to support subfunction-less services with manual validation (0x2F).
 
 ### Fixed
+- **CI/CD**: Improved release workflow reliability by generating coverage summaries.
 - Improved unit test coverage for memory and flash services.
 - Corrected ISO-TP frame padding handling in integration tests.
 
