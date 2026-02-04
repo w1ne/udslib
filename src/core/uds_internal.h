@@ -109,10 +109,6 @@
     {                                                      \
         0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
-#define UDS_MASK_SUB_2F                                    \
-    {                                                      \
-        0x0Fu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
-    }
 
 const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id);
 bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr,

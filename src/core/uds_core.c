@@ -18,7 +18,6 @@ static const uint8_t mask_sub_31[] = UDS_MASK_SUB_31;
 static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
 static const uint8_t mask_sub_2A[] = UDS_MASK_SUB_2A;
-static const uint8_t mask_sub_2F[] = UDS_MASK_SUB_2F;
 
 static const uds_service_entry_t core_services[] = {
     {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
