@@ -6,23 +6,16 @@
 /**
  * @file uds_tp_isotp.c
  * @brief Lightweight ISO-TP Implementation (Zephyr-Ready Fallback)
+ *
+ * Fully instance-based: all state lives in a caller-owned uds_isotp_ctx_t and
+ * the SDU TX cache is a caller-provided buffer. Multiple channels may run
+ * concurrently without shared state.
  */
 
 #include <string.h>
 
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
-
-/* --- Internal State --- */
-
-/** Static ISO-TP context instance */
-static uds_isotp_ctx_t g_isotp_ctx;
-
-/** Cache for multi-frame transmission */
-static uint8_t g_pending_tx_sdu[1024];
-
-/** Length of cached multi-frame SDU */
-static uint16_t g_pending_tx_len = 0;
 
 /* --- Internal Helpers --- */
 
@@ -61,29 +54,39 @@ static uint8_t uds_dlc_align(uint8_t len)
 /* --- Public API --- */
 
 // cppcheck-suppress unusedFunction
-void uds_tp_isotp_init(uds_can_send_fn can_send, uint32_t tx_id, uint32_t rx_id)
+void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t tx_id,
+                       uint32_t rx_id, uint8_t *tx_sdu_buf, uint16_t tx_sdu_size)
 {
-    memset(&g_isotp_ctx, 0, sizeof(g_isotp_ctx));
-    g_isotp_ctx.can_send = can_send;
-    g_isotp_ctx.tx_id = tx_id;
-    g_isotp_ctx.rx_id = rx_id;
-    g_isotp_ctx.block_size = 8;           /* Default Block Size */
-    g_isotp_ctx.st_min = 0;               /* Default No Delay */
-    g_isotp_ctx.use_can_fd = 0;           /* Default: Classic CAN */
-    g_isotp_ctx.tx_dl = ISOTP_MAX_DL_CAN; /* Default: 8 bytes */
-}
-
-void uds_tp_isotp_set_fd(bool enabled)
-{
-    g_isotp_ctx.use_can_fd = enabled ? 1 : 0;
-    g_isotp_ctx.tx_dl = enabled ? ISOTP_MAX_DL_CANFD : ISOTP_MAX_DL_CAN;
+    if (!iso) {
+        return;
+    }
+    memset(iso, 0, sizeof(*iso));
+    iso->can_send = can_send;
+    iso->tx_id = tx_id;
+    iso->rx_id = rx_id;
+    iso->block_size = 8;           /* Default Block Size */
+    iso->st_min = 0;               /* Default No Delay */
+    iso->use_can_fd = 0;           /* Default: Classic CAN */
+    iso->tx_dl = ISOTP_MAX_DL_CAN; /* Default: 8 bytes */
+    iso->tx_sdu_buf = tx_sdu_buf;
+    iso->tx_sdu_size = tx_sdu_size;
+    iso->tx_sdu_len = 0;
 }
 
 // cppcheck-suppress unusedFunction
+void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled)
+{
+    if (!iso) {
+        return;
+    }
+    iso->use_can_fd = enabled ? 1 : 0;
+    iso->tx_dl = enabled ? ISOTP_MAX_DL_CANFD : ISOTP_MAX_DL_CAN;
+}
+
 /**
  * @brief Internal: Send Single Frame.
  */
-static int uds_send_sf(const uint8_t *data, uint16_t len)
+static int uds_send_sf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
     uint8_t dl = ISOTP_MAX_DL_CAN;
@@ -103,24 +106,24 @@ static int uds_send_sf(const uint8_t *data, uint16_t len)
         dl = uds_dlc_align(len + 2);
     }
 
-    return uds_internal_tp_send_frame(&g_isotp_ctx, frame, dl);
+    return uds_internal_tp_send_frame(iso, frame, dl);
 }
 
 /**
  * @brief Internal: Start Multi-Frame Transmission.
  */
-static int uds_send_mf(const uint8_t *data, uint16_t len)
+static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
-    if (len > ISOTP_MAX_SDU_LEN_STD || len > sizeof(g_pending_tx_sdu)) {
+    if (len > ISOTP_MAX_SDU_LEN_STD || len > iso->tx_sdu_size) {
         return -2;
     }
 
-    memcpy(g_pending_tx_sdu, data, len);
-    g_pending_tx_len = len;
+    memcpy(iso->tx_sdu_buf, data, len);
+    iso->tx_sdu_len = len;
 
-    g_isotp_ctx.msg_len = len;
-    g_isotp_ctx.bytes_processed = 0;
-    g_isotp_ctx.state = ISOTP_TX_WAIT_FC;
+    iso->msg_len = len;
+    iso->bytes_processed = 0;
+    iso->state = ISOTP_TX_WAIT_FC;
 
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
     uint8_t dl = ISOTP_MAX_DL_CAN;
@@ -129,28 +132,23 @@ static int uds_send_mf(const uint8_t *data, uint16_t len)
     frame[0] = (uint8_t) ((uint8_t) ISOTP_PCI_FF | (uint8_t) ((len >> 8u) & 0x0Fu));
     frame[1] = (uint8_t) (len & 0xFFu);
 
-    uint8_t max_data_in_ff =
-        (g_isotp_ctx.use_can_fd) ? ISOTP_FF_MAX_DATA_CANFD : ISOTP_FF_MAX_DATA_CAN;
+    uint8_t max_data_in_ff = (iso->use_can_fd) ? ISOTP_FF_MAX_DATA_CANFD : ISOTP_FF_MAX_DATA_CAN;
 
     /* Copy as much as fits in FF */
     uint8_t to_copy = (len > max_data_in_ff) ? max_data_in_ff : (uint8_t) len;
     memcpy(&frame[2], data, to_copy);
 
-    g_isotp_ctx.bytes_processed = to_copy;
-    g_isotp_ctx.sn = 1u;
+    iso->bytes_processed = to_copy;
+    iso->sn = 1u;
 
-    if (g_isotp_ctx.use_can_fd) {
-        /* FF in FD is usually full, unless minimal data?
-                    But standard says FF_DL > 4095 uses escape.
-                    If we use FD, we should use full frame capacity for efficiency
-                    or at least align DLC. */
+    if (iso->use_can_fd) {
         dl = uds_dlc_align(2 + to_copy);
     }
     else {
         dl = ISOTP_MAX_DL_CAN;
     }
 
-    if (uds_internal_tp_send_frame(&g_isotp_ctx, frame, dl) != 0) {
+    if (uds_internal_tp_send_frame(iso, frame, dl) != 0) {
         return -1;
     }
 
@@ -158,33 +156,39 @@ static int uds_send_mf(const uint8_t *data, uint16_t len)
 }
 
 // cppcheck-suppress unusedFunction
-int uds_isotp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
-    (void) ctx;
-
-    /* Check if we can use Single Frame */
-    uint8_t max_sf_len = (g_isotp_ctx.use_can_fd) ? ISOTP_SF_MAX_DL_CANFD : ISOTP_SF_MAX_DL_CAN;
-
-    if (len <= max_sf_len) {
-        return uds_send_sf(data, len);
+    if (!iso) {
+        return -1;
     }
 
-    return uds_send_mf(data, len);
+    /* Check if we can use Single Frame */
+    uint8_t max_sf_len = (iso->use_can_fd) ? ISOTP_SF_MAX_DL_CANFD : ISOTP_SF_MAX_DL_CAN;
+
+    if (len <= max_sf_len) {
+        return uds_send_sf(iso, data, len);
+    }
+
+    return uds_send_mf(iso, data, len);
 }
 
 // cppcheck-suppress unusedFunction
-void uds_tp_isotp_process(uint32_t time_ms)
+void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
 {
-    if (g_isotp_ctx.state == ISOTP_TX_SENDING_CF) {
-        uint16_t remaining = g_isotp_ctx.msg_len - g_isotp_ctx.bytes_processed;
+    if (!iso) {
+        return;
+    }
+
+    if (iso->state == ISOTP_TX_SENDING_CF) {
+        uint16_t remaining = iso->msg_len - iso->bytes_processed;
         if (remaining == 0) {
-            g_isotp_ctx.state = ISOTP_IDLE;
+            iso->state = ISOTP_IDLE;
             return;
         }
 
         /* Check STmin (Separation Time) */
-        uint32_t elapsed = time_ms - g_isotp_ctx.timer_st;
-        uint32_t required_st = g_isotp_ctx.st_min;
+        uint32_t elapsed = time_ms - iso->timer_st;
+        uint32_t required_st = iso->st_min;
 
         /* Decode ISO-TP STmin:
            0x00 - 0x7F: 0ms - 127ms
@@ -202,50 +206,50 @@ void uds_tp_isotp_process(uint32_t time_ms)
         }
 
         /* Check Block Size (BS) */
-        if (g_isotp_ctx.block_size > 0 && g_isotp_ctx.bs_counter >= g_isotp_ctx.block_size) {
-            g_isotp_ctx.state = ISOTP_TX_WAIT_FC;
-            g_isotp_ctx.bs_counter = 0;
+        if (iso->block_size > 0 && iso->bs_counter >= iso->block_size) {
+            iso->state = ISOTP_TX_WAIT_FC;
+            iso->bs_counter = 0;
             return;
         }
 
         /* Calculate max payload per CF */
-        uint8_t max_cf_payload = (g_isotp_ctx.use_can_fd)
-                                     ? (ISOTP_MAX_DL_CANFD - 1)
-                                     : (ISOTP_MAX_DL_CAN - 1); /* Header is 1 byte (PCI+SN) */
+        uint8_t max_cf_payload = (iso->use_can_fd) ? (ISOTP_MAX_DL_CANFD - 1)
+                                                   : (ISOTP_MAX_DL_CAN - 1); /* Header is 1 byte */
 
         uint8_t to_copy = (remaining > max_cf_payload) ? max_cf_payload : (uint8_t) remaining;
         uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
-        frame[0] = (uint8_t) (ISOTP_PCI_CF | g_isotp_ctx.sn);
-        memcpy(&frame[1], &g_pending_tx_sdu[g_isotp_ctx.bytes_processed], to_copy);
+        frame[0] = (uint8_t) (ISOTP_PCI_CF | iso->sn);
+        memcpy(&frame[1], &iso->tx_sdu_buf[iso->bytes_processed], to_copy);
 
         uint8_t dl = ISOTP_MAX_DL_CAN;
-        if (g_isotp_ctx.use_can_fd) {
+        if (iso->use_can_fd) {
             dl = uds_dlc_align(1 + to_copy);
         }
 
-        if (uds_internal_tp_send_frame(&g_isotp_ctx, frame, dl) == 0) {
-            g_isotp_ctx.bytes_processed += to_copy;
-            g_isotp_ctx.sn = (g_isotp_ctx.sn + 1) & 0x0F;
-            g_isotp_ctx.bs_counter++;
-            g_isotp_ctx.timer_st = time_ms; /* Reset ST timer */
+        if (uds_internal_tp_send_frame(iso, frame, dl) == 0) {
+            iso->bytes_processed += to_copy;
+            iso->sn = (iso->sn + 1) & 0x0F;
+            iso->bs_counter++;
+            iso->timer_st = time_ms; /* Reset ST timer */
 
-            if (g_isotp_ctx.bytes_processed >= g_isotp_ctx.msg_len) {
-                g_isotp_ctx.state = ISOTP_IDLE;
+            if (iso->bytes_processed >= iso->msg_len) {
+                iso->state = ISOTP_IDLE;
             }
         }
     }
 }
 
-static void uds_rx_sf(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
+static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
 {
     /* Abort any active multi-frame on new Single Frame */
-    g_isotp_ctx.state = ISOTP_IDLE;
+    iso->state = ISOTP_IDLE;
 
     uint8_t sdu_len = (uint8_t) (data[0] & 0x0Fu);
     uint8_t data_offset = 1;
 
     if (sdu_len == 0u) {
         /* CAN-FD SF: Byte 0 is 0x00, Byte 1 is Length */
+        if (len < 2u) return; /* Not enough data for the FD length byte */
         sdu_len = data[1];
         data_offset = 2;
         if (sdu_len == 0) return; /* Invalid */
@@ -256,13 +260,17 @@ static void uds_rx_sf(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
         return;
     }
 
-    uds_input_sdu(uds_ctx, &data[data_offset], (uint16_t) sdu_len);
+    uds_input_sdu(uds, &data[data_offset], (uint16_t) sdu_len);
 }
 
-static void uds_rx_ff(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
+static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
 {
     /* Abort any active multi-frame on new First Frame */
-    g_isotp_ctx.state = ISOTP_IDLE;
+    iso->state = ISOTP_IDLE;
+
+    if (len < 2u) {
+        return; /* FF requires at least PCI + length byte */
+    }
 
     uint16_t sdu_len =
         (uint16_t) ((uint16_t) ((uint16_t) data[0] & 0x0Fu) << 8u) | (uint16_t) data[1];
@@ -270,7 +278,7 @@ static void uds_rx_ff(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
         return; /* Multi-frame must be > 7 bytes (Standard) or handled by SF */
     }
 
-    g_isotp_ctx.msg_len = sdu_len;
+    iso->msg_len = sdu_len;
 
     /* Determine data in FF */
     uint8_t data_in_ff;
@@ -283,73 +291,80 @@ static void uds_rx_ff(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
         data_in_ff = ISOTP_FF_MAX_DATA_CAN;
     }
 
-    g_isotp_ctx.bytes_processed = data_in_ff;
-    g_isotp_ctx.sn = 1;
-    g_isotp_ctx.state = ISOTP_RX_WAIT_CF;
+    iso->bytes_processed = data_in_ff;
+    iso->sn = 1;
+    iso->state = ISOTP_RX_WAIT_CF;
+    iso->timer_n_cr = uds->config->get_time_ms ? uds->config->get_time_ms() : 0u;
 
-    if (uds_ctx->config->rx_buffer_size < sdu_len) {
-        g_isotp_ctx.state = ISOTP_IDLE;
+    if (uds->config->rx_buffer_size < sdu_len) {
+        iso->state = ISOTP_IDLE;
         return;
     }
-    memcpy(uds_ctx->config->rx_buffer, &data[2], data_in_ff);
+    memcpy(uds->config->rx_buffer, &data[2], data_in_ff);
 
     /* Send Flow Control (CTS) */
     uint8_t fc[8] = {0};
     fc[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_CTS);
-    fc[1] = g_isotp_ctx.block_size;
-    fc[2] = g_isotp_ctx.st_min;
-    uds_internal_tp_send_frame(&g_isotp_ctx, fc, 8);
+    fc[1] = iso->block_size;
+    fc[2] = iso->st_min;
+    uds_internal_tp_send_frame(iso, fc, 8);
 }
 
-static void uds_rx_cf(struct uds_ctx *uds_ctx, const uint8_t *data, uint8_t len)
+static void uds_rx_cf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
 {
-    if (g_isotp_ctx.state != ISOTP_RX_WAIT_CF) {
+    if (iso->state != ISOTP_RX_WAIT_CF) {
         return;
     }
 
     uint8_t sn = data[0] & 0x0F;
-    if (sn != g_isotp_ctx.sn) {
-        g_isotp_ctx.state = ISOTP_IDLE;
+    if (sn != iso->sn) {
+        iso->state = ISOTP_IDLE;
         return;
     }
-    g_isotp_ctx.sn = (g_isotp_ctx.sn + 1) & 0x0F;
+    iso->sn = (iso->sn + 1) & 0x0F;
 
-    uint16_t remaining = g_isotp_ctx.msg_len - g_isotp_ctx.bytes_processed;
+    uint16_t remaining = iso->msg_len - iso->bytes_processed;
 
-    /* Max payload in CF depends on whether we received FD frame (len > 8) or not.
-        Actually receiving node infers FD from frame length. */
+    /* Max payload in CF depends on whether we received FD frame (len > 8) or not. */
     uint8_t data_capacity = len - 1; /* Byte 0 is PCI+SN */
 
     uint8_t to_copy = (remaining > data_capacity) ? data_capacity : (uint8_t) remaining;
 
-    memcpy(&uds_ctx->config->rx_buffer[g_isotp_ctx.bytes_processed], &data[1], to_copy);
-    g_isotp_ctx.bytes_processed += to_copy;
+    memcpy(&uds->config->rx_buffer[iso->bytes_processed], &data[1], to_copy);
+    iso->bytes_processed += to_copy;
+    iso->timer_n_cr = uds->config->get_time_ms ? uds->config->get_time_ms() : 0u;
 
-    if (g_isotp_ctx.bytes_processed >= g_isotp_ctx.msg_len) {
-        g_isotp_ctx.state = ISOTP_IDLE;
-        uds_input_sdu(uds_ctx, uds_ctx->config->rx_buffer, g_isotp_ctx.msg_len);
+    if (iso->bytes_processed >= iso->msg_len) {
+        iso->state = ISOTP_IDLE;
+        uds_input_sdu(uds, uds->config->rx_buffer, iso->msg_len);
     }
 }
 
-static void uds_rx_fc(const uint8_t *data)
+static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
 {
-    if (g_isotp_ctx.state != ISOTP_TX_WAIT_FC) {
+    if (iso->state != ISOTP_TX_WAIT_FC) {
         return;
+    }
+    if (len < 3u) {
+        return; /* FC requires flow status, block size and STmin */
     }
 
     uint8_t fs = data[0] & 0x0F;
     if (fs == ISOTP_FC_CTS) {
-        g_isotp_ctx.state = ISOTP_TX_SENDING_CF;
-        g_isotp_ctx.block_size = data[1];
-        g_isotp_ctx.st_min = data[2];
+        iso->state = ISOTP_TX_SENDING_CF;
+        iso->block_size = data[1];
+        iso->st_min = data[2];
     }
 }
 
 // cppcheck-suppress unusedFunction
-void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *data, uint8_t len)
+void uds_isotp_rx_callback(uds_isotp_ctx_t *iso, struct uds_ctx *uds, uint32_t id,
+                           const uint8_t *data, uint8_t len)
 {
-    (void) len;
-    if (id != g_isotp_ctx.rx_id) {
+    if (!iso || !data || len == 0u) {
+        return;
+    }
+    if (id != iso->rx_id) {
         return;
     }
 
@@ -357,19 +372,19 @@ void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *
 
     switch (pci) {
         case ISOTP_PCI_SF:
-            uds_rx_sf(uds_ctx, data, len);
+            uds_rx_sf(iso, uds, data, len);
             break;
 
         case ISOTP_PCI_FF:
-            uds_rx_ff(uds_ctx, data, len);
+            uds_rx_ff(iso, uds, data, len);
             break;
 
         case ISOTP_PCI_CF:
-            uds_rx_cf(uds_ctx, data, len);
+            uds_rx_cf(iso, uds, data, len);
             break;
 
         case ISOTP_PCI_FC:
-            uds_rx_fc(data);
+            uds_rx_fc(iso, data, len);
             break;
 
         default:

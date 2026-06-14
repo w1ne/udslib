@@ -131,6 +131,17 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
     return 0;
 }
 
+/** ISO-TP transport instance and its multi-frame TX cache. */
+static uds_isotp_ctx_t g_isotp;
+static uint8_t g_isotp_tx_sdu[1024];
+
+/** Adapter binding the core's fn_tp_send contract to this ISO-TP instance. */
+static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    return uds_isotp_send(&g_isotp, data, len);
+}
+
 /* --- Simulation State --- */
 
 /** Receive buffer (1KB) */
@@ -328,14 +339,14 @@ int main(int argc, char **argv)
     }
 
     /* Init Transport Layer (TX: 0x7E8, RX: 0x7E0) */
-    uds_tp_isotp_init(mock_can_send, 0x7E8, 0x7E0);
-    uds_tp_isotp_set_fd(enable_fd != 0);
+    uds_tp_isotp_init(&g_isotp, mock_can_send, 0x7E8, 0x7E0, g_isotp_tx_sdu, sizeof(g_isotp_tx_sdu));
+    uds_tp_isotp_set_fd(&g_isotp, enable_fd != 0);
 
     /* Configure UDS Stack */
     uds_config_t cfg = {.ecu_address = 0x10,
                         .get_time_ms = get_time_ms,
                         .fn_log = log_event,
-                        .fn_tp_send = uds_isotp_send,
+                        .fn_tp_send = isotp_send_adapter,
                         .fn_reset = mock_reset,
                         .fn_dtc_read = mock_dtc_read,
                         .fn_dtc_clear = mock_dtc_clear,
@@ -370,7 +381,7 @@ int main(int argc, char **argv)
     while (1) {
         uint32_t now = get_time_ms();
         uds_process(&ctx);
-        uds_tp_isotp_process(now);
+        uds_tp_isotp_process(&g_isotp, now);
 
         /* Mock "Long Running" Async Operation for SID 0x31 */
         if (ctx.p2_msg_pending && ctx.pending_sid == 0x31 && slow_op_start == 0) {
@@ -394,7 +405,7 @@ int main(int argc, char **argv)
         ssize_t n = recvfrom(g_server_fd, &pkt, sizeof(pkt), 0, (struct sockaddr *) &g_client_addr,
                              &g_client_len);
         if (n > 0) {
-            uds_isotp_rx_callback(&ctx, pkt.id, pkt.data, pkt.len);
+            uds_isotp_rx_callback(&g_isotp, &ctx, pkt.id, pkt.data, pkt.len);
         }
 
         usleep(100);

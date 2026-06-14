@@ -319,6 +319,9 @@ void uds_process(uds_ctx_t *ctx)
             if (ctx->config->rcrrp_limit > 0u && ctx->rcrrp_count >= ctx->config->rcrrp_limit) {
                 uds_send_nrc(ctx, ctx->pending_sid, UDS_NRC_CONDITIONS_NOT_CORRECT);
                 ctx->rcrrp_count = 0u;
+                if (ctx->config->fn_mutex_unlock) {
+                    ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+                }
                 return;
             }
 

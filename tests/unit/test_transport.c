@@ -31,10 +31,13 @@ void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len
     check_expected(len);
 }
 
+static uds_isotp_ctx_t g_iso;
+static uint8_t g_iso_sdu[1024];
+
 static int setup(void **state)
 {
     (void) state;
-    uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);
+    uds_tp_isotp_init(&g_iso, mock_can_send, 0x7E0, 0x7E8, g_iso_sdu, sizeof(g_iso_sdu));
     return 0;
 }
 
@@ -58,7 +61,7 @@ static void test_send_sf(void **state)
     expect_memory(mock_can_send, data, expected_frame, 8);
     will_return(mock_can_send, 0);
 
-    int ret = uds_isotp_send(NULL, data, 3);
+    int ret = uds_isotp_send(&g_iso, data, 3);
     assert_int_equal(ret, 0);
 }
 
@@ -74,7 +77,7 @@ static void test_send_ff(void **state)
     expect_memory(mock_can_send, data, expected_ff, 8);
     will_return(mock_can_send, 0);
 
-    int ret = uds_isotp_send(NULL, data, 10);
+    int ret = uds_isotp_send(&g_iso, data, 10);
     assert_int_equal(ret, 0);
     /* Note: State is now ISOTP_TX_WAIT_FC */
 }
@@ -92,7 +95,7 @@ static void test_recv_fc_send_cf(void **state)
     expect_memory(mock_can_send, data, expected_ff, 8);
     will_return(mock_can_send, 0);
 
-    uds_isotp_send(NULL, data, 10);
+    uds_isotp_send(&g_iso, data, 10);
 
     /* Now Receive FC (CTS, BlockSize=0, STmin=0) */
     /* FC Frame: 30 00 00 ... */
@@ -119,10 +122,10 @@ static void test_recv_fc_send_cf(void **state)
     will_return(mock_can_send, 0);
 
     /* Call RX Callback with FC */
-    uds_isotp_rx_callback(NULL, 0x7E8, fc_frame, 8);
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_frame, 8);
 
     /* Call process to send CF */
-    uds_tp_isotp_process(0);
+    uds_tp_isotp_process(&g_iso, 0);
 }
 
 /* 4. Receive Single Frame (SF) */
@@ -136,7 +139,7 @@ static void test_recv_sf(void **state)
     expect_memory(__wrap_uds_input_sdu, data, expected_payload, 3);
     expect_value(__wrap_uds_input_sdu, len, 3);
 
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, sf_frame, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, sf_frame, 8);
 }
 
 /* 5. Receive Multi-Frame (FF + CF) */
@@ -166,7 +169,7 @@ static void test_recv_multiframe(void **state)
     expect_memory(mock_can_send, data, expected_fc, 8);
     will_return(mock_can_send, 0);
 
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, ff_frame, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, ff_frame, 8);
 
     /* CF: SN=1. Data: 07 08 09 0A */
     /* Frame: 21 07 08 09 0A ... */
@@ -177,7 +180,7 @@ static void test_recv_multiframe(void **state)
     expect_memory(__wrap_uds_input_sdu, data, expected_total, 10);
     expect_value(__wrap_uds_input_sdu, len, 10);
 
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, cf_frame, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, cf_frame, 8);
 }
 
 int main(void)

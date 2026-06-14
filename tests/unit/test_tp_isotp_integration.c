@@ -71,18 +71,21 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
     return 0;
 }
 
-static void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     check_expected(len);
     check_expected_ptr(data);
 }
 
+static uds_isotp_ctx_t g_iso;
+static uint8_t g_iso_sdu[1024];
+
 static int setup(void **state)
 {
     (void) state;
-    uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);  // TX=7E0, RX=7E8
-    uds_tp_isotp_set_fd(true);
+    uds_tp_isotp_init(&g_iso, mock_can_send, 0x7E0, 0x7E8, g_iso_sdu, sizeof(g_iso_sdu));  // TX=7E0, RX=7E8
+    uds_tp_isotp_set_fd(&g_iso, true);
 
     // Setup server context for RX callbacks (though library doesn't strictly use it for state)
     server_config.rx_buffer = server_rx_buffer;
@@ -119,12 +122,12 @@ static void test_integration_large_transfer(void **state)
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_ff, 64);
 
-    uds_isotp_send(NULL, tx_data, 200);
+    uds_isotp_send(&g_iso, tx_data, 200);
 
     /* 2. Inject Flow Control (CTS, BS=0, ST=0) from "Receiver" */
     /* FC: [30] [00] [00] ... */
     uint8_t rx_fc[8] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uds_isotp_rx_callback(&server_ctx, 0x7E8, rx_fc, 8);
+    uds_isotp_rx_callback(&g_iso, &server_ctx, 0x7E8, rx_fc, 8);
 
     /* 3. Verify Consecutive Frames */
     /* Remaining: 200 - 62 = 138 bytes */
@@ -137,7 +140,7 @@ static void test_integration_large_transfer(void **state)
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_cf1, 64);
 
-    uds_tp_isotp_process(100);
+    uds_tp_isotp_process(&g_iso, 100);
 
     /* Remaining: 138 - 63 = 75 bytes */
     /* CF2: [22] [Data: 125..187 (63 bytes)] */
@@ -149,7 +152,7 @@ static void test_integration_large_transfer(void **state)
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_cf2, 64);
 
-    uds_tp_isotp_process(100); /* ST=0, so ready immediately? Timer logic resets to time_ms. */
+    uds_tp_isotp_process(&g_iso, 100); /* ST=0, so ready immediately? Timer logic resets to time_ms. */
     /* Logic: timer_st = 100. Call with 100. Elapsed=0. If ST=0, OK. */
 
     /* Remaining: 75 - 63 = 12 bytes */
@@ -163,7 +166,7 @@ static void test_integration_large_transfer(void **state)
     expect_value(mock_can_send, len, 16);
     expect_memory(mock_can_send, data, expected_cf3, 16);
 
-    uds_tp_isotp_process(100);
+    uds_tp_isotp_process(&g_iso, 100);
 }
 
 int main(void)

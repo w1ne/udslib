@@ -58,3 +58,9 @@ build_quality/
 zephyr-workspace-local/
 zephyr-sdk-*.tar.xz
 zephyr-sdk-*/
+
+# Compiled test binaries
+tests/unit/test_*
+!tests/unit/test_*.c
+!tests/unit/test_*.h
+examples/client_demo/uds_client_demo
