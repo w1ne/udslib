@@ -17,6 +17,10 @@ static const struct device *g_can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
 /** Pointer to the current UDS context (for RX callback matching) */
 static struct uds_ctx *g_current_uds_ctx = NULL;
 
+/** ISO-TP transport instance and its multi-frame TX cache. */
+static uds_isotp_ctx_t g_isotp;
+static uint8_t g_isotp_tx_sdu[CONFIG_UDSLIB_TX_BUFFER_SIZE];
+
 /**
  * @brief Internal Helper: Zephyr CAN Transmission Wrapper.
  *
@@ -50,7 +54,7 @@ static void uds_internal_zephyr_can_rx_cb(const struct device *dev, struct can_f
     (void)dev;
     (void)user_data;
     if (g_current_uds_ctx) {
-        uds_isotp_rx_callback(g_current_uds_ctx, frame->id, frame->data, frame->dlc);
+        uds_isotp_rx_callback(&g_isotp, g_current_uds_ctx, frame->id, frame->data, frame->dlc);
     }
 }
 
@@ -70,7 +74,8 @@ int uds_zephyr_tp_fallback_init(struct uds_ctx *uds_ctx, uint32_t rx_id, uint32_
     }
 
     g_current_uds_ctx = uds_ctx;
-    uds_tp_isotp_init(uds_internal_zephyr_can_send, tx_id, rx_id);
+    uds_tp_isotp_init(&g_isotp, uds_internal_zephyr_can_send, tx_id, rx_id, g_isotp_tx_sdu,
+                      sizeof(g_isotp_tx_sdu));
 
     struct can_filter filter = {.id = rx_id, .mask = CAN_STD_ID_MASK, .flags = 0};
 

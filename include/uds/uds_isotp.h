@@ -18,6 +18,9 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+/* Forward declaration of the opaque core context. */
+struct uds_ctx;
+
 /* --- ISO-TP Frame Types (PCI) --- */
 
 #define ISOTP_PCI_SF 0x00 /**< Single Frame */
@@ -103,57 +106,76 @@ typedef struct
     uint32_t timer_n_bs; /**< Timeout N_Bs (Transmission) */
     uint32_t timer_st;   /**< Separation Time timer (STmin) */
     uint8_t tx_dl;       /**< Transmit Data Length (Max frame size: 8 or 64) */
+
+    /* --- Multi-frame TX cache (caller-provided, zero-malloc) --- */
+    uint8_t *tx_sdu_buf;  /**< Buffer caching the SDU during multi-frame TX */
+    uint16_t tx_sdu_size; /**< Capacity of tx_sdu_buf in bytes */
+    uint16_t tx_sdu_len;  /**< Length of the SDU currently being transmitted */
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
 
 /**
- * @brief Initialize the ISO-TP Layer.
+ * @brief Initialize an ISO-TP instance.
  *
- * @param can_send Pointer to the user's CAN send implementation.
- * @param tx_id    CAN ID to use for outbound frames.
- * @param rx_id    CAN ID to filter for inbound frames.
+ * The instance is fully caller-owned; multiple independent channels may run
+ * concurrently, each with its own context and TX cache buffer.
+ *
+ * @param iso         Pointer to a caller-allocated ISO-TP context.
+ * @param can_send    Pointer to the user's CAN send implementation.
+ * @param tx_id       CAN ID to use for outbound frames.
+ * @param rx_id       CAN ID to filter for inbound frames.
+ * @param tx_sdu_buf  Caller-provided buffer used to cache the SDU during
+ *                    multi-frame transmission (sized to the largest SDU sent).
+ * @param tx_sdu_size Capacity of tx_sdu_buf in bytes.
  */
-void uds_tp_isotp_init(uds_can_send_fn can_send, uint32_t tx_id, uint32_t rx_id);
+void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t tx_id,
+                       uint32_t rx_id, uint8_t *tx_sdu_buf, uint16_t tx_sdu_size);
 
 /**
- * @brief Enable or Disable CAN-FD support.
+ * @brief Enable or Disable CAN-FD support for an instance.
  *
+ * @param iso     Pointer to the ISO-TP context.
  * @param enabled true to enable CAN-FD (64-byte frames), false for Classic CAN (8-byte).
  */
-void uds_tp_isotp_set_fd(bool enabled);
+void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled);
 
 /**
  * @brief Send an SDU via ISO-TP.
  *
  * This function handles segmentation into SF or FF/CF frames.
  *
- * @param ctx  Pointer to the core UDS context.
+ * @param iso  Pointer to the ISO-TP context.
  * @param data Pointer to the buffer containing the SDU to send.
  * @param len  Length of the SDU in bytes.
- * @return     0 on success, or -1 on failure.
+ * @return     0 on success, or a negative error code on failure.
  */
-int uds_isotp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
+int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len);
 
 /**
  * @brief CAN Receive Callback.
  *
- * Feeds a raw CAN frame into the ISO-TP engine for reassembly.
+ * Feeds a raw CAN frame into the ISO-TP engine for reassembly. Completed SDUs
+ * are delivered to the core via uds_input_sdu(uds, ...).
  *
- * @param uds_ctx Pointer to the main stack context.
- * @param id      CAN ID of the received frame.
- * @param data    Pointer to the 8-byte CAN payload.
- * @param len     Length of the CAN payload (DLC).
+ * @param iso  Pointer to the ISO-TP context.
+ * @param uds  Pointer to the core stack context that receives reassembled SDUs.
+ * @param id   CAN ID of the received frame.
+ * @param data Pointer to the CAN payload.
+ * @param len  Length of the CAN payload (DLC).
  */
-void uds_isotp_rx_callback(struct uds_ctx *uds_ctx, uint32_t id, const uint8_t *data, uint8_t len);
+void uds_isotp_rx_callback(uds_isotp_ctx_t *iso, struct uds_ctx *uds, uint32_t id,
+                           const uint8_t *data, uint8_t len);
 
 /**
- * @brief Process ISO-TP periodic tasks.
+ * @brief Process ISO-TP periodic tasks for an instance.
  *
  * Must be called frequently to handle multi-frame timing and transmission.
+ *
+ * @param iso     Pointer to the ISO-TP context.
  * @param time_ms Current system time in milliseconds.
  */
-void uds_tp_isotp_process(uint32_t time_ms);
+void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms);
 
 #ifdef __cplusplus
 }

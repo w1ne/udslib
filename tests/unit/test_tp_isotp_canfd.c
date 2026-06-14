@@ -23,12 +23,23 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
     return (int) mock();
 }
 
+/* Mock Input SDU (captures reassembled RX payloads) */
+void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    check_expected_ptr(data);
+    check_expected(len);
+}
+
+static uds_isotp_ctx_t g_iso;
+static uint8_t g_iso_sdu[1024];
+
 static int setup(void **state)
 {
     (void) state;
-    uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);
+    uds_tp_isotp_init(&g_iso, mock_can_send, 0x7E0, 0x7E8, g_iso_sdu, sizeof(g_iso_sdu));
     // Explicitly enable FD
-    uds_tp_isotp_set_fd(true);
+    uds_tp_isotp_set_fd(&g_iso, true);
     return 0;
 }
 
@@ -68,7 +79,7 @@ static void test_tp_canfd_sf(void **state)
     expect_memory(mock_can_send, data, expected_frame_aligned, 16);
     will_return(mock_can_send, 0);
 
-    uds_isotp_send(NULL, data, 12);
+    uds_isotp_send(&g_iso, data, 12);
 }
 
 /* 2. Verify CAN-FD First Frame and Consecutive Frame */
@@ -95,11 +106,11 @@ static void test_tp_canfd_ff_cf(void **state)
     expect_memory(mock_can_send, data, expected_ff, 64);
     will_return(mock_can_send, 0);
 
-    uds_isotp_send(NULL, data, 100);
+    uds_isotp_send(&g_iso, data, 100);
 
     /* Receive FC (CTS) */
     uint8_t fc_frame[] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uds_isotp_rx_callback(NULL, 0x7E8, fc_frame, 8);
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_frame, 8);
 
     /* Expected CF */
     /* Len 39 -> Aligned to 48 */
@@ -112,7 +123,7 @@ static void test_tp_canfd_ff_cf(void **state)
     expect_memory(mock_can_send, data, expected_cf, 48);
     will_return(mock_can_send, 0);
 
-    uds_tp_isotp_process(100);
+    uds_tp_isotp_process(&g_iso, 100);
 }
 
 /* 3. Verify CAN-FD RX Processing (SF) */
@@ -133,7 +144,7 @@ static void test_tp_canfd_rx_sf(void **state)
     expect_memory(__wrap_uds_input_sdu, data, expected_payload, 12);
     expect_value(__wrap_uds_input_sdu, len, 12);
 
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, rx_frame, 14);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, rx_frame, 14);
 }
 
 /* 4. Boundary Test: SF exactly 62 bytes (Max SF for FD) */
@@ -151,7 +162,7 @@ static void test_tp_canfd_sf_boundary(void **state)
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
 
-    uds_isotp_send(NULL, data, 62);
+    uds_isotp_send(&g_iso, data, 62);
 }
 
 /* 5. Boundary Test: Multi-Frame just above SF limit (63 bytes) */
@@ -168,11 +179,11 @@ static void test_tp_canfd_mf_boundary(void **state)
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
 
-    uds_isotp_send(NULL, data, 63);
+    uds_isotp_send(&g_iso, data, 63);
 
     /* Receive FC */
     uint8_t fc[] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uds_isotp_rx_callback(NULL, 0x7E8, fc, 8);
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc, 8);
 
     /* CF: [21] [Data (1 byte)] -> 2 bytes frame usually, padded?
        Our implementation sends len = 1 + remaining.
@@ -182,7 +193,7 @@ static void test_tp_canfd_mf_boundary(void **state)
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
 
-    uds_tp_isotp_process(100);
+    uds_tp_isotp_process(&g_iso, 100);
 }
 
 /* 6. Verify DLC Alignment Boundaries */
@@ -196,21 +207,21 @@ static void test_dlc_alignment_boundaries(void **state)
     expect_value(mock_can_send, len, 12);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_send(NULL, data, 9);  // SF: 2 header + 9 data = 11 -> 12
+    uds_isotp_send(&g_iso, data, 9);  // SF: 2 header + 9 data = 11 -> 12
 
     // Test 17 bytes -> Aligns to 20
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 20);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_send(NULL, data, 17);  // SF: 2 header + 17 data = 19 -> 20
+    uds_isotp_send(&g_iso, data, 17);  // SF: 2 header + 17 data = 19 -> 20
 
     // Test 33 bytes -> Aligns to 48
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 48);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_send(NULL, data, 33);  // SF: 2 header + 33 data = 35 -> 48
+    uds_isotp_send(&g_iso, data, 33);  // SF: 2 header + 33 data = 35 -> 48
 }
 
 /* 7. Verify Error Handling: Invalid Frames */
@@ -224,19 +235,19 @@ static void test_rx_error_cases(void **state)
     frame[0] = 0x00;
     frame[1] = 0x00;
     // Should NOT call uds_input_sdu
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, frame, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, frame, 8);
 
     // Case B: SF with length > DLC
     frame[0] = 0x00;
     frame[1] = 60;  // Claim 60 bytes
     // Actual DLC is 8. Error. Should return.
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, frame, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, frame, 8);
 
     // Case C: FF with length < 8
     frame[0] = 0x10;
     frame[1] = 0x07;  // 7 bytes total length
     // Should be SF. Ignore.
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, frame, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, frame, 8);
 }
 
 /* 8. Verify State Reset on Interruption */
@@ -246,7 +257,7 @@ static void test_state_reset(void **state)
     // Simulate receiving FF
     uint8_t ff[8] = {0x10, 0x14, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06};  // Len 20
     uds_ctx_t dummy_ctx;
-    uds_config_t config;
+    uds_config_t config = {0};
     uint8_t buffer[64];
     dummy_ctx.config = &config;
     config.rx_buffer = buffer;
@@ -257,7 +268,7 @@ static void test_state_reset(void **state)
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, ff, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, ff, 8);
 
     // Send unexpected SF
     uint8_t sf[8] = {0x03, 0xAA, 0xBB, 0xCC, 0x00, 0x00, 0x00, 0x00};
@@ -266,7 +277,7 @@ static void test_state_reset(void **state)
     // Should abort FF reception and process SF
     expect_memory(__wrap_uds_input_sdu, data, expected_sdu, 3);
     expect_value(__wrap_uds_input_sdu, len, 3);
-    uds_isotp_rx_callback(&dummy_ctx, 0x7E8, sf, 8);
+    uds_isotp_rx_callback(&g_iso, &dummy_ctx, 0x7E8, sf, 8);
 }
 
 /* 9. Verify Mixed Mode Switching */
@@ -281,10 +292,10 @@ static void test_mixed_fd_std(void **state)
     expect_value(mock_can_send, len, 12);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_send(NULL, data, 8);
+    uds_isotp_send(&g_iso, data, 8);
 
     // Switch to Classic CAN
-    uds_tp_isotp_set_fd(false);
+    uds_tp_isotp_set_fd(&g_iso, false);
 
     // Send same 8 bytes.
     // Must be Multi-Frame bc SF max is 7 in Std.
@@ -293,10 +304,10 @@ static void test_mixed_fd_std(void **state)
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_send(NULL, data, 8);
+    uds_isotp_send(&g_iso, data, 8);
 
     // Set back to FD for teardown consistency
-    uds_tp_isotp_set_fd(true);
+    uds_tp_isotp_set_fd(&g_iso, true);
 }
 
 int main(void)

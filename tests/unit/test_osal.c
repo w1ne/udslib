@@ -26,6 +26,20 @@ static uint32_t get_time_ms(void)
 }
 
 static int g_lock_count = 0;
+static uint32_t g_osal_time = 0;
+
+static uint32_t get_time_mutable(void)
+{
+    return g_osal_time;
+}
+
+static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    return UDS_PENDING;
+}
 
 static void mock_mutex_lock(void *handle)
 {
@@ -86,10 +100,61 @@ static void test_osal_locking(void **state)
     assert_int_equal(g_mutex_val, 0);
 }
 
+/* The RCRRP-limit branch in uds_process() must release the mutex before
+   returning. Otherwise the stack deadlocks the first time the 0x78 repeat
+   limit is reached. */
+static void test_osal_unlocks_on_rcrrp_limit(void **state)
+{
+    (void) state;
+
+    static const uds_service_entry_t services[] = {
+        {0x99, 1, UDS_SESSION_ALL, 0, mock_pending_handler, NULL}};
+
+    memset(&ctx, 0, sizeof(ctx));
+    memset(&cfg, 0, sizeof(cfg));
+    g_mutex_val = 0;
+    g_lock_count = 0;
+    g_osal_time = 0;
+
+    cfg.fn_tp_send = mock_can_send;
+    cfg.get_time_ms = get_time_mutable;
+    cfg.mutex_handle = &g_mutex_val;
+    cfg.fn_mutex_lock = mock_mutex_lock;
+    cfg.fn_mutex_unlock = mock_mutex_unlock;
+    cfg.rx_buffer = rx_buf;
+    cfg.rx_buffer_size = sizeof(rx_buf);
+    cfg.tx_buffer = tx_buf;
+    cfg.tx_buffer_size = sizeof(tx_buf);
+    cfg.p2_ms = 50;
+    cfg.p2_star_ms = 100;
+    cfg.rcrrp_limit = 1;
+    cfg.user_services = services;
+    cfg.user_service_count = 1;
+
+    uds_init(&ctx, &cfg);
+
+    /* Start the async request: handler returns UDS_PENDING -> first 0x78. */
+    uint8_t req[] = {0x99};
+    uds_input_sdu(&ctx, req, 1);
+    assert_true(ctx.p2_msg_pending);
+
+    /* First P2* expiry: sends a repeated 0x78, rcrrp_count -> 1. */
+    g_osal_time = 200;
+    uds_process(&ctx);
+    assert_int_equal(g_mutex_val, 0);
+
+    /* Second P2* expiry: rcrrp_count (1) >= limit (1) -> abort branch.
+       Must still unlock before returning. */
+    g_osal_time = 400;
+    uds_process(&ctx);
+    assert_int_equal(g_mutex_val, 0); /* mutex must be released */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup(test_osal_locking, setup),
+        cmocka_unit_test(test_osal_unlocks_on_rcrrp_limit),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
