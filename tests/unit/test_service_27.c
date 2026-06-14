@@ -59,19 +59,27 @@ static void test_security_access_key_success(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_seed = mock_security_seed;
     cfg.fn_security_key = mock_security_key;
 
-    /** Mock Key based on Seed DE AD BE EF is DF AE BF F0 */
+    /* 1. Request a seed first to arm the requestSeed -> sendKey sequence. */
+    uint8_t seed_req[] = {0x27, 0x01};
+    will_return(mock_get_time, 2000);
+    will_return(mock_get_time, 2000);
+    will_return(mock_get_time, 2000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 6); /* 0x67 01 + Seed(4) */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, seed_req, sizeof(seed_req));
+
+    /* 2. Send the matching key. (Key for seed DE AD BE EF is DF AE BF F0.) */
     uint8_t request[] = {0x27, 0x02, 0xDF, 0xAE, 0xBF, 0xF0};
-
     will_return(mock_get_time, 2000);
     will_return(mock_get_time, 2000);
     will_return(mock_get_time, 2000);
-
     expect_any(mock_tp_send, data);
     expect_value(mock_tp_send, len, 2); /* 0x67 02 */
     will_return(mock_tp_send, 0);
-
     uds_input_sdu(&ctx, request, sizeof(request));
 
     assert_int_equal(ctx.security_level, 1);
@@ -79,16 +87,71 @@ static void test_security_access_key_success(void **state)
     assert_int_equal(g_tx_buf[1], 0x02);
 }
 
+/* The key verifier must receive the exact seed the server issued. */
+static int g_seed_seen_by_key = 0;
+static int mock_key_inspects_seed(struct uds_ctx *ctx, uint8_t level, const uint8_t *seed,
+                                  const uint8_t *key, uint16_t key_len)
+{
+    (void) ctx;
+    (void) level;
+    (void) key;
+    (void) key_len;
+    if (seed && seed[0] == 0xDE && seed[1] == 0xAD && seed[2] == 0xBE && seed[3] == 0xEF) {
+        g_seed_seen_by_key = 1;
+    }
+    return 0;
+}
+
+static void test_security_key_receives_issued_seed(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_seed = mock_security_seed;
+    cfg.fn_security_key = mock_key_inspects_seed;
+    g_seed_seen_by_key = 0;
+
+    uint8_t seed_req[] = {0x27, 0x01};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 6);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, seed_req, sizeof(seed_req));
+
+    uint8_t key_req[] = {0x27, 0x02, 0x11, 0x22, 0x33, 0x44};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, key_req, sizeof(key_req));
+
+    assert_int_equal(g_seed_seen_by_key, 1);
+}
+
 static void test_security_access_delay_timer(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_seed = mock_security_seed;
     cfg.fn_security_key = mock_security_key;
     cfg.security_max_attempts = 1;
     cfg.security_delay_ms = 1000;
 
+    uint8_t seed_req[] = {0x27, 0x01};
     uint8_t request_fail[] = {0x27, 0x02, 0x00, 0x00, 0x00, 0x00};
     uint8_t request_ok[] = {0x27, 0x02, 0xDF, 0xAE, 0xBF, 0xF0};
+
+    /* 0. Request a seed to arm the sequence. */
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 6);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, seed_req, sizeof(seed_req));
 
     /* 1. Fail first attempt */
     will_return(mock_get_time, 1000);
@@ -122,12 +185,40 @@ static void test_security_access_delay_timer(void **state)
     assert_int_equal(g_tx_buf[0], 0x67);
 }
 
+/* ISO 14229-1: sendKey without a preceding requestSeed must be rejected with
+   NRC 0x24 (requestSequenceError), and must not unlock anything. */
+static void test_security_access_key_without_seed_rejected(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_seed = mock_security_seed;
+    cfg.fn_security_key = mock_security_key;
+
+    uint8_t key_req[] = {0x27, 0x02, 0xDF, 0xAE, 0xBF, 0xF0};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 27 24 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, key_req, sizeof(key_req));
+
+    assert_int_equal(g_tx_buf[0], 0x7F);
+    assert_int_equal(g_tx_buf[1], 0x27);
+    assert_int_equal(g_tx_buf[2], 0x24);
+    assert_int_equal(ctx.security_level, 0);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_security_access_seed),
         cmocka_unit_test(test_security_access_key_success),
+        cmocka_unit_test(test_security_key_receives_issued_seed),
         cmocka_unit_test(test_security_access_delay_timer),
+        cmocka_unit_test(test_security_access_key_without_seed_rejected),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

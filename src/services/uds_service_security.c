@@ -8,6 +8,8 @@
  * @brief Security Access (0x27) & Authentication (0x29)
  */
 
+#include <string.h>
+
 #include "uds_internal.h"
 
 int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
@@ -35,15 +37,25 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
             return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_CONDITIONS_NOT_CORRECT);
         }
 
+        uint8_t level = (uint8_t) (((uint16_t) sub + 1u) / 2u);
+
         ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_SECURITY_ACCESS + UDS_RESPONSE_OFFSET);
         ctx->config->tx_buffer[1] = sub_raw;
 
-        int seed_len = ctx->config->fn_security_seed(ctx, (uint8_t) (((uint16_t) sub + 1u) / 2u),
-                                                     &ctx->config->tx_buffer[2],
+        int seed_len = ctx->config->fn_security_seed(ctx, level, &ctx->config->tx_buffer[2],
                                                      (uint16_t) (ctx->config->tx_buffer_size - 2u));
         if (seed_len < 0) {
             return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, (uint8_t) - (int32_t) seed_len);
         }
+
+        /* Cache the issued seed so the key verifier can validate against it,
+           and arm the requestSeed -> sendKey sequence for this level. */
+        uint8_t cache_len = (seed_len > (int) UDS_SECURITY_SEED_MAX) ? UDS_SECURITY_SEED_MAX
+                                                                     : (uint8_t) seed_len;
+        memcpy(ctx->security_seed, &ctx->config->tx_buffer[2], cache_len);
+        ctx->security_seed_len = cache_len;
+        ctx->security_seed_level = level;
+
         return uds_send_response(ctx, (uint16_t) ((uint16_t) seed_len + 2u));
     }
     else { /* Send Key (Even subfunctions: 0x02, 0x04...) */
@@ -51,13 +63,23 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
             return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_CONDITIONS_NOT_CORRECT);
         }
 
+        uint8_t level = (uint8_t) (sub / 2u);
+
+        /* ISO 14229-1: a key must be preceded by a requestSeed for the same
+           level, otherwise it is an out-of-sequence request. */
+        if (ctx->security_seed_level == 0u || ctx->security_seed_level != level) {
+            return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_REQUEST_SEQUENCE_ERROR);
+        }
+
         /* Standard assumes key is passed in the request after SID and subfn */
-        int res = ctx->config->fn_security_key(ctx, (uint8_t) (sub / 2u), NULL, &data[2],
+        int res = ctx->config->fn_security_key(ctx, level, ctx->security_seed, &data[2],
                                                (uint16_t) (len - 2u));
         if (res == 0) {
-            /* Success! Reset attempts */
+            /* Success! Reset attempts and consume the outstanding seed. */
             ctx->security_attempts = 0u;
-            ctx->security_level = (uint8_t) (sub / 2u);
+            ctx->security_seed_level = 0u;
+            ctx->security_seed_len = 0u;
+            ctx->security_level = level;
 
             /* NVM Persistence: Save State */
             if (ctx->config->fn_nvm_save) {
