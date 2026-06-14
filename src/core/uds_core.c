@@ -305,6 +305,8 @@ void uds_process(uds_ctx_t *ctx)
         if ((now - ctx->last_msg_time) > UDS_S3_TIMEOUT_MS) {
             ctx->active_session = UDS_SESSION_ID_DEFAULT;
             ctx->security_level = 0u;
+            ctx->security_seed_level = 0u;
+            ctx->security_seed_len = 0u;
             uds_internal_log(ctx, UDS_LOG_INFO, "S3 Timeout: Reverted to Default Session");
         }
     }
