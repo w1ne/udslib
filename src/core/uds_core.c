@@ -294,10 +294,6 @@ void uds_process(uds_ctx_t *ctx)
         ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
     }
 
-    if (ctx->p2_msg_pending) {
-        /* If we are waiting for the app to finish a routine, do nothing in tick */
-    }
-
     uint32_t now = ctx->config->get_time_ms();
 
     /* S3 Timer: Revert to Default Session if no activity */
@@ -339,7 +335,9 @@ void uds_process(uds_ctx_t *ctx)
     if (ctx->periodic_count > 0u) {
         for (uint8_t i = 0u; i < 8u; i++) {
             if (ctx->periodic_ids[i] != 0u) {
-                if (now >= ctx->periodic_timers[i]) {
+                /* Wrap-safe deadline check (signed delta), mirroring the S3/P2
+                   timers; a plain >= breaks across the 32-bit ms rollover. */
+                if ((int32_t) (now - ctx->periodic_timers[i]) >= 0) {
                     uint8_t out_buf[UDS_MAX_PERIODIC_MSG_LEN];
                     int written = ctx->config->fn_periodic_read(ctx, ctx->periodic_ids[i], out_buf,
                                                                 UDS_MAX_PERIODIC_MSG_LEN);
