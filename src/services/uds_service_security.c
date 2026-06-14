@@ -50,8 +50,8 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
 
         /* Cache the issued seed so the key verifier can validate against it,
            and arm the requestSeed -> sendKey sequence for this level. */
-        uint8_t cache_len = (seed_len > (int) UDS_SECURITY_SEED_MAX) ? UDS_SECURITY_SEED_MAX
-                                                                     : (uint8_t) seed_len;
+        uint8_t cache_len =
+            (seed_len > (int) UDS_SECURITY_SEED_MAX) ? UDS_SECURITY_SEED_MAX : (uint8_t) seed_len;
         memcpy(ctx->security_seed, &ctx->config->tx_buffer[2], cache_len);
         ctx->security_seed_len = cache_len;
         ctx->security_seed_level = level;

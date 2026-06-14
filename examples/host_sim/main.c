@@ -339,7 +339,8 @@ int main(int argc, char **argv)
     }
 
     /* Init Transport Layer (TX: 0x7E8, RX: 0x7E0) */
-    uds_tp_isotp_init(&g_isotp, mock_can_send, 0x7E8, 0x7E0, g_isotp_tx_sdu, sizeof(g_isotp_tx_sdu));
+    uds_tp_isotp_init(&g_isotp, mock_can_send, 0x7E8, 0x7E0, g_isotp_tx_sdu,
+                      sizeof(g_isotp_tx_sdu));
     uds_tp_isotp_set_fd(&g_isotp, enable_fd != 0);
 
     /* Configure UDS Stack */
