@@ -88,7 +88,8 @@ int main(int argc, char** argv)
     inet_pton(AF_INET, target_ip, &server_addr.sin_addr);
 
     // TX: 0x7E0, RX: 0x7E8
-    uds_tp_isotp_init(&g_isotp, mock_can_send, 0x7E0, 0x7E8, g_isotp_tx_sdu, sizeof(g_isotp_tx_sdu));
+    uds_tp_isotp_init(&g_isotp, mock_can_send, 0x7E0, 0x7E8, g_isotp_tx_sdu,
+                      sizeof(g_isotp_tx_sdu));
     uds_tp_isotp_set_fd(&g_isotp, enable_fd != 0);
 
     uint8_t rx_buf[1024], tx_buf[1024];
