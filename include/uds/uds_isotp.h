@@ -37,6 +37,10 @@ struct uds_ctx;
 #define ISOTP_FF_MAX_DATA_CANFD 62u /**< Max FF payload (FD) */
 #define ISOTP_MAX_SDU_LEN_STD 4095u /**< Max SDU size with 12-bit length */
 
+/* --- Timeout Defaults (ISO 15765-2, milliseconds) --- */
+#define ISOTP_N_CR_DEFAULT_MS 1000u /**< Max wait for a consecutive frame (RX) */
+#define ISOTP_N_BS_DEFAULT_MS 1000u /**< Max wait for flow control after FF (TX) */
+
 /* --- Flow Control Flags --- */
 
 #define ISOTP_FC_CTS 0  /**< Continue To Send */
@@ -102,10 +106,14 @@ typedef struct
     uint8_t bs_counter;       /**< Counter tracking blocks sent/received */
 
     /* --- Timers --- */
-    uint32_t timer_n_cr; /**< Timeout N_Cr (Reception) */
-    uint32_t timer_n_bs; /**< Timeout N_Bs (Transmission) */
+    uint32_t timer_n_cr; /**< Timestamp of last RX progress (N_Cr deadline base) */
+    uint32_t timer_n_bs; /**< Timestamp FF was sent (N_Bs deadline base, 0 = unarmed) */
     uint32_t timer_st;   /**< Separation Time timer (STmin) */
     uint8_t tx_dl;       /**< Transmit Data Length (Max frame size: 8 or 64) */
+
+    /* --- Timeout limits (ms); defaulted at init, overridable by the caller --- */
+    uint32_t n_cr_ms; /**< Max wait for a consecutive frame during reception */
+    uint32_t n_bs_ms; /**< Max wait for flow control after sending a First Frame */
 
     /* --- Multi-frame TX cache (caller-provided, zero-malloc) --- */
     uint8_t *tx_sdu_buf;  /**< Buffer caching the SDU during multi-frame TX */
