@@ -78,6 +78,31 @@ static void test_periodic_scheduler_trigger(void **state)
     assert_int_equal(ctx.periodic_timers[0], 1100);
 }
 
+/* The scheduler deadline comparison must survive a 32-bit millisecond wrap:
+   a deadline set just before rollover is still "due" once the clock wraps. */
+static void test_periodic_scheduler_wraparound(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_periodic_read = mock_periodic_read;
+
+    ctx.periodic_ids[0] = 0xE1;
+    ctx.periodic_rates[0] = 0x01;          /* Fast: 100ms */
+    ctx.periodic_timers[0] = 0xFFFFFF00u;  /* deadline just before wrap */
+    ctx.periodic_count = 1;
+
+    /* Clock has wrapped past the deadline. */
+    will_return(mock_get_time, 0x00000100u);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* E1 11 22 */
+    will_return(mock_tp_send, 0);
+
+    uds_process(&ctx);
+
+    /* Fired despite the wrap; next deadline = now + 100ms. */
+    assert_int_equal(ctx.periodic_timers[0], 0x00000100u + 100u);
+}
+
 static void test_periodic_read_stop(void **state)
 {
     (void) state;
@@ -107,6 +132,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_periodic_read_setup),
         cmocka_unit_test(test_periodic_scheduler_trigger),
+        cmocka_unit_test(test_periodic_scheduler_wraparound),
         cmocka_unit_test(test_periodic_read_stop),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
