@@ -71,6 +71,8 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
     iso->tx_sdu_buf = tx_sdu_buf;
     iso->tx_sdu_size = tx_sdu_size;
     iso->tx_sdu_len = 0;
+    iso->n_cr_ms = ISOTP_N_CR_DEFAULT_MS;
+    iso->n_bs_ms = ISOTP_N_BS_DEFAULT_MS;
 }
 
 // cppcheck-suppress unusedFunction
@@ -124,6 +126,7 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     iso->msg_len = len;
     iso->bytes_processed = 0;
     iso->state = ISOTP_TX_WAIT_FC;
+    iso->timer_n_bs = 0u; /* armed on the first process() tick in WAIT_FC */
 
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
     uint8_t dl = ISOTP_MAX_DL_CAN;
@@ -176,6 +179,27 @@ int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
 {
     if (!iso) {
+        return;
+    }
+
+    /* N_Cr: reception stalls if a consecutive frame never arrives. */
+    if (iso->state == ISOTP_RX_WAIT_CF) {
+        if ((time_ms - iso->timer_n_cr) >= iso->n_cr_ms) {
+            iso->state = ISOTP_IDLE;
+        }
+        return;
+    }
+
+    /* N_Bs: transmission stalls if flow control never arrives after the FF. */
+    if (iso->state == ISOTP_TX_WAIT_FC) {
+        if (iso->timer_n_bs == 0u) {
+            /* Arm on first observation; avoid 0 which means "unarmed". */
+            iso->timer_n_bs = (time_ms == 0u) ? 1u : time_ms;
+        }
+        else if ((time_ms - iso->timer_n_bs) >= iso->n_bs_ms) {
+            iso->state = ISOTP_IDLE;
+            iso->timer_n_bs = 0u;
+        }
         return;
     }
 
@@ -354,6 +378,7 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
         iso->state = ISOTP_TX_SENDING_CF;
         iso->block_size = data[1];
         iso->st_min = data[2];
+        iso->timer_n_bs = 0u; /* FC arrived: disarm N_Bs */
     }
 }
 
