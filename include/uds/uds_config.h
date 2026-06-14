@@ -22,6 +22,11 @@ extern "C" {
 /* Forward declaration of the opaque context */
 struct uds_ctx;
 
+/** Max issued-seed length cached for the key verifier (SID 0x27). */
+#ifndef UDS_SECURITY_SEED_MAX
+#define UDS_SECURITY_SEED_MAX 16u
+#endif
+
 /* --- Log Levels --- */
 
 /** Error level logging */
@@ -445,6 +450,12 @@ typedef struct uds_ctx
     uint32_t security_delay_end;
     /** Counter for failed security attempts */
     uint8_t security_attempts;
+    /** Level for which a seed is currently outstanding (0 = none requested) */
+    uint8_t security_seed_level;
+    /** Length of the issued seed cached in security_seed */
+    uint8_t security_seed_len;
+    /** Copy of the last issued seed, passed back to the key verifier */
+    uint8_t security_seed[UDS_SECURITY_SEED_MAX];
 
     /** ISO 14229-1: Counter for NRC 0x78 repetitions (C-07) */
     uint16_t rcrrp_count;
