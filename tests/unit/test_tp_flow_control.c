@@ -23,10 +23,13 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
     return (int) mock();
 }
 
+static uds_isotp_ctx_t g_iso;
+static uint8_t g_iso_sdu[1024];
+
 static int setup(void **state)
 {
     (void) state;
-    uds_tp_isotp_init(mock_can_send, 0x7E0, 0x7E8);
+    uds_tp_isotp_init(&g_iso, mock_can_send, 0x7E0, 0x7E8, g_iso_sdu, sizeof(g_iso_sdu));
     return 0;
 }
 
@@ -50,11 +53,11 @@ static void test_tp_stmin_enforcement(void **state)
     expect_memory(mock_can_send, data, expected_ff, 8);
     will_return(mock_can_send, 0);
 
-    uds_isotp_send(NULL, data, 20);
+    uds_isotp_send(&g_iso, data, 20);
 
     /* Receive FC (CTS, BS=0, STmin=50ms) */
     uint8_t fc_frame[] = {0x30, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00};  // 0x32 = 50ms
-    uds_isotp_rx_callback(NULL, 0x7E8, fc_frame, 8);
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_frame, 8);
 
     /* Process at T=0. Should NOT send CF because STmin might need a baseline.
        Actually, the first CF after FC should probably be sent immediately or wait?
@@ -74,10 +77,10 @@ static void test_tp_stmin_enforcement(void **state)
     expect_memory(mock_can_send, data, expected_cf1, 8);
     will_return(mock_can_send, 0);
 
-    uds_tp_isotp_process(100); /* Send first CF */
+    uds_tp_isotp_process(&g_iso, 100); /* Send first CF */
 
     /* Process at T=120 (Elapsed=20ms). Should NOT send next CF (STmin=50). */
-    uds_tp_isotp_process(120);
+    uds_tp_isotp_process(&g_iso, 120);
 
     /* Process at T=155 (Elapsed=55ms). SHOULD send next CF. */
     uint8_t expected_cf2[] = {0x22, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
@@ -86,7 +89,7 @@ static void test_tp_stmin_enforcement(void **state)
     expect_memory(mock_can_send, data, expected_cf2, 8);
     will_return(mock_can_send, 0);
 
-    uds_tp_isotp_process(155);
+    uds_tp_isotp_process(&g_iso, 155);
 }
 
 /* 2. Verify Block Size (BS) Enforcement */
@@ -101,45 +104,45 @@ static void test_tp_bs_enforcement(void **state)
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_isotp_send(NULL, data, 30);
+    uds_isotp_send(&g_iso, data, 30);
 
     /* Receive FC (CTS, BS=2, STmin=0ms) */
     uint8_t fc_frame[] = {0x30, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uds_isotp_rx_callback(NULL, 0x7E8, fc_frame, 8);
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_frame, 8);
 
     /* Send CF 1 */
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_tp_isotp_process(200);
+    uds_tp_isotp_process(&g_iso, 200);
 
     /* Send CF 2 (BS limit reached) */
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_tp_isotp_process(201);
+    uds_tp_isotp_process(&g_iso, 201);
 
     /* Process again. Should be in ISOTP_TX_WAIT_FC. No CF sent. */
-    uds_tp_isotp_process(202);
+    uds_tp_isotp_process(&g_iso, 202);
 
     /* Receive another FC (CTS, BS=0, STmin=0) */
     uint8_t fc_frame2[] = {0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uds_isotp_rx_callback(NULL, 0x7E8, fc_frame2, 8);
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_frame2, 8);
 
     /* Now it should send remaining 2 CFs */
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_tp_isotp_process(300);
+    uds_tp_isotp_process(&g_iso, 300);
 
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
     expect_any(mock_can_send, data);
     will_return(mock_can_send, 0);
-    uds_tp_isotp_process(301);
+    uds_tp_isotp_process(&g_iso, 301);
 }
 
 int main(void)
