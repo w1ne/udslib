@@ -1,54 +1,78 @@
-# ISO 14229-1 (UDS) Service Compliance
+# ISO 14229-1 (UDS) Compliance
 
-This document tracks the compliance and support level for UDS services.
+Single source of truth for what LibUDS supports against the standard. Every row
+below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 
-## Compliance Matrix
+- **Standard:** ISO 14229-1:2013, with selected 2020 additions (e.g. 0x29 Authentication).
+- **Transport:** ISO 15765-2 (ISO-TP) over CAN and CAN-FD.
+- **Role:** Server (ECU) stack. A generic client requester (`uds_client_request`) is also provided.
+- **Coverage:** **20 of 27** application services implemented.
+- **Last updated:** 2026-06-15 (v1.12.0).
 
-| SID | Service Name | Status | Notes |
-| :--- | :--- | :--- | :--- |
-| **0x10** | **Diagnostic Session Control** | ✅ Supported | Default, Extended, Programming. |
-| **0x11** | **ECU Reset** | ✅ Supported | Hard, Soft, KeyOffOn. |
-| **0x14** | **Clear Diagnostic Information** | ✅ Supported | Supports optional memory selection byte. |
-| **0x19** | **Read DTC Information** | ✅ Supported | Masks: 0x01, 0x02, 0x04, 0x06, 0x0A. |
-| **0x22** | **Read Data By Identifier** | ✅ Supported | Multi-DID with tx_buffer overflow protection. |
-| **0x23** | **Read Memory By Address** | ✅ Supported | Address/Length parsing + bounds check. |
-| **0x27** | **Security Access** | ✅ Supported | App-defined seed/key callbacks. |
-| **0x28** | **Communication Control** | ✅ Supported | Subfunctions 0x00-0x05 + validation. |
-| **0x29** | **Authentication** | ✅ Supported | Certificate Exchange (ISO 14229-1:2020). |
-| **0x2A** | **Read Data By Identifier Periodic** | ✅ Supported | Integrated scheduler (Fast, Medium, Slow). |
-| **0x2E** | **Write Data By Identifier** | ✅ Supported | Table-driven registry. |
-| **0x2F** | **Input Output Control By ID** | ✅ Supported | Actuator control with SID 0x22 integration. |
-| **0x31** | **Routine Control** | ✅ Supported | Start, Stop, Request Results. |
-| **0x34** | **Request Download** | ✅ Supported | Flexible format identification support. |
-| **0x35** | **Request Upload** | ✅ Supported | Symmetrical data provider flow. |
-| **0x36** | **Transfer Data** | ✅ Supported | Block streaming. |
-| **0x37** | **Request Transfer Exit** | ✅ Supported | Completion logic. |
-| **0x3D** | **Write Memory By Address** | ✅ Supported | Echoes address/size in response. |
-| **0x3E** | **Tester Present** | ✅ Supported | Busy-relaxed NRC 0x21 logic. |
-| **0x85** | **Control DTC Setting** | ✅ Supported | DTC ON/OFF control. |
+## Implemented services (20)
 
-## Safeguards
+| SID | Service | Notes |
+| :--- | :--- | :--- |
+| 0x10 | DiagnosticSessionControl | Default / Programming / Extended; returns configured P2/P2*; re-locks security on transition. |
+| 0x11 | ECUReset | Hard, Soft, KeyOffOn; SuppressPosMsg supported. |
+| 0x14 | ClearDiagnosticInformation | Optional memory-selection byte. |
+| 0x19 | ReadDTCInformation | DTCStatusMask validation; subfunctions 0x01/0x02/0x04/0x06/0x0A. |
+| 0x22 | ReadDataByIdentifier | Multi-DID; per-DID session/security gating; tx-buffer overflow protection. |
+| 0x23 | ReadMemoryByAddress | ALFID parsing + bounds/length checks. |
+| 0x27 | SecurityAccess | App seed/key callbacks; requestSeed→sendKey sequencing (NRC 0x24); attempt counter + delay (NRC 0x36/0x37). |
+| 0x28 | CommunicationControl | Subfunctions 0x00–0x05 + validation. |
+| 0x29 | Authentication | Certificate exchange (ISO 14229-1:2020). |
+| 0x2A | ReadDataByPeriodicIdentifier | Integrated scheduler (Fast / Medium / Slow / Stop). |
+| 0x2E | WriteDataByIdentifier | Table-driven registry; per-DID session/security gating. |
+| 0x2F | InputOutputControlByIdentifier | Actuator control; subfunction-less validation. |
+| 0x31 | RoutineControl | Start / Stop / RequestResults. |
+| 0x34 | RequestDownload | ALFID-based address/size parsing. |
+| 0x35 | RequestUpload | Symmetrical data-provider flow. |
+| 0x36 | TransferData | Block-sequence-counter tracking + rollover; optional last-block replay. |
+| 0x37 | RequestTransferExit | Completion logic. |
+| 0x3D | WriteMemoryByAddress | Echoes address/size in the positive response. |
+| 0x3E | TesterPresent | Busy-relaxed NRC 0x21 handling; suppressed TP keeps S3 alive. |
+| 0x85 | ControlDTCSetting | DTC ON/OFF; SuppressPosMsg. |
 
-- **Service Registry**: Decoupled, table-driven dispatcher.
-- **Verification Priority**: Enforces ISO 14229-1 NRC priorities (Session -> Subfunction -> Length -> Security -> Safety).
-- **Safety Gates**: Application callbacks block destructive services (Reset, Write, Download) when unsafe.
-- **Asynchronous Processing**: Support for `UDS_PENDING` (NRC 0x78) enables non-blocking integration with slow hardware/flash operations.
-- **MISRA-C:2012**: Core logic audited for baseline MISRA-C:2012 compliance (Rules 10.x, 17.x, 21.x).
+## Not yet implemented (7)
 
-## Simulation & Tests
+`0x24` ReadScalingDataByIdentifier · `0x2C` DynamicallyDefineDataIdentifier ·
+`0x38` RequestFileTransfer · `0x83` AccessTimingParameter ·
+`0x84` SecuredDataTransmission · `0x86` ResponseOnEvent · `0x87` LinkControl.
 
-Host-side simulation is used to validate end-to-end request/response behavior for the implemented services.
+Unknown/unsupported SIDs are rejected with NRC 0x11 (serviceNotSupported).
 
-- Full service sequence (covers **all** services listed in the matrix above): `tests/integration/test_uds.py`
-- Short PCAP + HTML report demo (SessionControl + ReadDataByIdentifier/VIN): `run_capture.sh`
-- Outputs are written under `../artifacts/` (local-only).
+## Transport conformance (ISO 15765-2)
 
-## Future Services
+- Frame types: Single (SF), First (FF), Consecutive (CF), Flow Control (FC).
+- Classic CAN (8-byte) and CAN-FD (up to 64-byte, DLC-aligned) framing.
+- Flow control: BlockSize and STmin honored; STmin 0x00–0x7F (ms) and 0xF1–0xF9 (sub-ms) decoded.
+- Timeouts: **N_Cr** (reception) and **N_Bs** (flow-control wait) abort a stalled transfer instead of wedging the engine (configurable per instance; default 1000 ms).
+- Short/malformed frames (truncated SF/FF/FC, NULL/zero-length) are rejected.
 
-- **0x24**: Read Scaling Data By Identifier.
-- **0x2C**: Dynamically Define Data Identifier.
-- **0x38**: Request File Transfer.
-- **0x83**: Access Timing Parameter.
-- **0x84**: Secured Data Transmission.
-- **0x86**: Response On Event.
-- **0x87**: Link Control.
+## Conformance safeguards
+
+- **NRC priority:** Session → Subfunction → Length → Security → Safety, per ISO 14229-1.
+- **SecurityAccess:** seed cached and passed to the key verifier; key requires a prior requestSeed at the same level (else NRC 0x24); configurable attempt limit and delay timer.
+- **Session/security reset:** security level and outstanding seed cleared on session change and S3 timeout.
+- **RCRRP limit:** configurable cap on NRC 0x78 (ResponsePending) repetitions to prevent infinite loops.
+- **Safety gates:** application callback can block destructive services (Reset, Write, Download) with NRC 0x22.
+- **Async:** `UDS_PENDING` (NRC 0x78) supports non-blocking integration with slow flash/hardware.
+- **MISRA-C:2012:** core logic audited for baseline compliance (Rules 10.x, 17.x, 21.x).
+
+## Verification
+
+- Full server request/response sequence over ISO-TP (all services above): `tests/integration/test_uds.py`.
+- Unit suite per service under `tests/unit/` (run via `ctest`).
+- PCAP + HTML session-report demo (SessionControl + ReadDataByIdentifier/VIN): `run_capture.sh`.
+
+## Remediation history
+
+A 2026-02 audit against ISO 14229-1:2013 identified 20 deviations (C-01…C-20)
+in the then-implemented services — invalid-session acceptance, NRC-priority
+ordering, ALFID validation, security reset, RCRRP looping, DID buffer bounds,
+response echoing, and others. **All C-01…C-20 were remediated in v1.9.0.**
+
+Since then: per-DID session gating corrected (programming/extended were
+swapped — v1.12.0), SecurityAccess requestSeed→sendKey sequencing added
+(v1.12.0), and ISO-TP N_Cr/N_Bs timeouts added (v1.12.0).
