@@ -20,6 +20,8 @@ jobs:
       - name: Run Static Analysis in Docker
         run: |
           ./scripts/docker_run.sh bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=unmatchedSuppression --suppress=checkersReport --inconclusive --inline-suppr --error-exitcode=1 -I include -I src/core src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+      - name: Run MISRA-C:2012 Baseline in Docker
+        run: ./scripts/docker_run.sh ./scripts/check_misra.sh
 
   build-posix:
     runs-on: ubuntu-latest
@@ -55,9 +57,12 @@ jobs:
             source .venv_zephyr/bin/activate
             pip install jsonschema west
             
-            # Initialize workspace if not present (caching is handled by runner)
+            # Initialize workspace if not present (caching is handled by runner).
+            # Pin to a Zephyr release rather than 'main' so the build is
+            # deterministic. v4.4.1 matches the image's Zephyr SDK (1.0.1) and
+            # Python 3.12; bump this tag (and the SDK in the Dockerfile) together.
             if [ ! -d zephyr-workspace ]; then
-              west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
+              west init -m https://github.com/zephyrproject-rtos/zephyr --mr v4.4.1 zephyr-workspace
               cd zephyr-workspace
               west update --narrow -o=--depth=1
               west zephyr-export

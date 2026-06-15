@@ -152,12 +152,48 @@ uint8_t uds_internal_session_bit(uint8_t session)
     }
 }
 
+/* Built-in ISO-sensible session policy applied when config.restrict_sessions
+   is set (and only to services left fully permissive). */
+uint8_t uds_internal_strict_session_mask(uint8_t sid)
+{
+    switch (sid) {
+        /* Reprogramming services: programming session only. */
+        case UDS_SID_REQUEST_DOWNLOAD:
+        case UDS_SID_REQUEST_UPLOAD:
+        case UDS_SID_TRANSFER_DATA:
+        case UDS_SID_TRANSFER_EXIT:
+        case UDS_SID_LINK_CONTROL:
+        case UDS_SID_WRITE_MEM_BY_ADDR:
+            return (uint8_t) UDS_SESSION_PROGRAMMING;
+
+        /* Other privileged services: extended or programming (not default). */
+        case UDS_SID_SECURITY_ACCESS:
+        case UDS_SID_ECU_RESET:
+        case UDS_SID_COMM_CONTROL:
+        case UDS_SID_AUTHENTICATION:
+        case UDS_SID_WRITE_DATA_BY_ID:
+        case UDS_SID_IO_CONTROL_BY_ID:
+        case UDS_SID_ROUTINE_CONTROL:
+        case UDS_SID_ACCESS_TIMING:
+        case UDS_SID_CONTROL_DTC_SETTING:
+        case UDS_SID_READ_MEM_BY_ADDR:
+            return (uint8_t) (UDS_SESSION_EXTENDED | UDS_SESSION_PROGRAMMING);
+
+        default:
+            return (uint8_t) UDS_SESSION_ALL;
+    }
+}
+
 /* --- Validation Helpers --- */
 
 static bool is_session_supported(const uds_ctx_t *ctx, const uds_service_entry_t *service)
 {
+    uint8_t mask = service->session_mask;
+    if (ctx->config->restrict_sessions && (mask == (uint8_t) UDS_SESSION_ALL)) {
+        mask = uds_internal_strict_session_mask(service->sid);
+    }
     uint8_t sess_bit = uds_internal_session_bit(ctx->active_session);
-    return (service->session_mask & (uint16_t) sess_bit) != 0u;
+    return ((uint16_t) mask & (uint16_t) sess_bit) != 0u;
 }
 
 static bool is_subfunction_supported(const uds_service_entry_t *service, uint8_t sub)
