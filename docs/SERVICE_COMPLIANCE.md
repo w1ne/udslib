@@ -54,6 +54,7 @@ Unknown/unsupported SIDs are rejected with NRC 0x11 (serviceNotSupported).
 ## Conformance safeguards
 
 - **NRC priority:** Session → Subfunction → Length → Security → Safety, per ISO 14229-1.
+- **Session policy:** by default every service is reachable in every session (the integrator enforces policy via `fn_is_safe` or per-service `session_mask`). Set `config.restrict_sessions` for a built-in ISO-sensible default: reprogramming services (0x34/0x35/0x36/0x37/0x87/0x3D) → programming session; other privileged services (0x27/0x11/0x28/0x29/0x2E/0x2F/0x31/0x83/0x85/0x23) → extended or programming. Disallowed-session requests return NRC 0x7F.
 - **SecurityAccess:** seed cached and passed to the key verifier; key requires a prior requestSeed at the same level (else NRC 0x24); configurable attempt limit and delay timer.
 - **Session/security reset:** security level and outstanding seed cleared on session change and S3 timeout.
 - **RCRRP limit:** configurable cap on NRC 0x78 (ResponsePending) repetitions to prevent infinite loops.

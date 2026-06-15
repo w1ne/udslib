@@ -212,6 +212,23 @@ typedef struct
     bool strict_compliance;
 
     /**
+     * @brief Apply a built-in session policy to the core services.
+     *
+     * When true, core services that would otherwise be reachable in every
+     * session are restricted to ISO-sensible sessions: reprogramming services
+     * (0x34/0x35/0x36/0x37/0x87/0x3D) to the programming session, and other
+     * privileged services (0x27/0x11/0x28/0x29/0x2E/0x2F/0x31/0x83/0x85/0x23)
+     * to extended or programming. Requests in a disallowed session return
+     * NRC 0x7F (serviceNotSupportedInActiveSession).
+     *
+     * Default false (every core service is reachable in every session).
+     * The policy is applied only to services left fully permissive
+     * (session_mask == UDS_SESSION_ALL); give a service an explicit
+     * session_mask to opt it out.
+     */
+    bool restrict_sessions;
+
+    /**
      * @brief Global log level filter for the stack.
      * Logs below this level will be suppressed before the callback is called.
      */
