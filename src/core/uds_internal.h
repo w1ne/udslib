@@ -126,6 +126,7 @@
     }
 
 uint8_t uds_internal_session_bit(uint8_t session);
+uint8_t uds_internal_strict_session_mask(uint8_t sid);
 const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id);
 bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr,
                                  uint32_t *size);
