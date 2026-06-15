@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.13.0] - 2026-06-15
+
+### Added
+- **LinkControl (0x87)** and **AccessTimingParameter (0x83)** — completes the reprogramming-negotiation flow; **22 of 27** services now implemented.
+- **Opt-in session policy** (`config.restrict_sessions`): when enabled, reprogramming services are gated to the programming session and other privileged services to extended/programming. Default off (behavior unchanged).
+- **End-to-end reprogramming example** (`examples/pro_flash_tool/`): a flash tool driving a LibUDS ECU through the full session → security → link/timing → erase → download → transfer → checksum flow; smoke-tested in CI.
+- **Real fuzzers** for both untrusted-input boundaries (the core SDU dispatcher and the ISO-TP frame parser).
+
+### Fixed
+- **Periodic-scheduler NULL dereference**: ReadDataByPeriodicIdentifier (0x2A) registered an entry even with no `fn_periodic_read` configured, which `uds_process()` then called as a NULL pointer (found by the new fuzzer). The handler now returns NRC 0x22 and the scheduler is guarded.
+
+### CI / Quality
+- Pinned the Zephyr build to release **v4.4.1** (was `main`) for a deterministic gate.
+- **MISRA-C:2012** enforced via cppcheck's addon against a documented deviation baseline (no mandatory-rule violations); see `docs/MISRA.md`.
+
+### Docs
+- Consolidated the two diverging compliance documents into a single, accurate `SERVICE_COMPLIANCE.md` (22/27 matrix + ISO 15765-2 transport conformance).
+- Freshened the integrator guides for the instance-based ISO-TP API and the new features.
+
 ## [1.12.0] - 2026-06-15
 
 ### Added
