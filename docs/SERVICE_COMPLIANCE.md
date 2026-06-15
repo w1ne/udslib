@@ -64,6 +64,7 @@ Unknown/unsupported SIDs are rejected with NRC 0x11 (serviceNotSupported).
 
 ## Verification
 
+- End-to-end reprogramming reference (session → security → link/timing → download → transfer → checksum), smoke-tested in CI: `examples/pro_flash_tool/`.
 - Full server request/response sequence over ISO-TP (all services above): `tests/integration/test_uds.py`.
 - Unit suite per service under `tests/unit/` (run via `ctest`).
 - PCAP + HTML session-report demo (SessionControl + ReadDataByIdentifier/VIN): `run_capture.sh`.

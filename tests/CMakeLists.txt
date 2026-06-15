@@ -51,6 +51,9 @@ add_uds_test(test_service_2A unit/test_service_2A.c)
 add_uds_test(test_service_87 unit/test_service_87.c)
 add_uds_test(test_service_83 unit/test_service_83.c)
 add_uds_test(test_session_policy unit/test_session_policy.c)
+
+# Smoke-test the end-to-end reprogramming demo (built in examples/).
+add_test(NAME flash_demo COMMAND pro_flash_tool)
 add_uds_test(test_service_2F unit/test_service_2F.c)
 add_uds_test(test_service_35 unit/test_service_35.c)
 
