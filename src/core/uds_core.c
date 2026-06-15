@@ -133,7 +133,7 @@ static const uds_service_entry_t *find_service(uds_ctx_t *ctx, uint8_t sid)
     return NULL;
 }
 
-static uint8_t get_session_bit(uint8_t session)
+uint8_t uds_internal_session_bit(uint8_t session)
 {
     switch (session) {
         case UDS_SESSION_ID_DEFAULT:
@@ -151,7 +151,7 @@ static uint8_t get_session_bit(uint8_t session)
 
 static bool is_session_supported(const uds_ctx_t *ctx, const uds_service_entry_t *service)
 {
-    uint8_t sess_bit = get_session_bit(ctx->active_session);
+    uint8_t sess_bit = uds_internal_session_bit(ctx->active_session);
     return (service->session_mask & (uint16_t) sess_bit) != 0u;
 }
 
