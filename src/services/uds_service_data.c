@@ -26,7 +26,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
             /* C-18: Security & Session Validation per DID */
             /* Session Check */
             if ((entry->session_mask != 0u) &&
-                !((1u << (ctx->active_session - 1u)) & entry->session_mask)) {
+                !(uds_internal_session_bit(ctx->active_session) & entry->session_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_REQUEST_OUT_OF_RANGE; /* 0x31 per ISO 14229-1 */
                 break;
@@ -103,7 +103,7 @@ int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
     /* C-18: Security & Session Validation per DID */
     /* Session Check */
     if ((entry->session_mask != 0u) &&
-        !((1u << (ctx->active_session - 1u)) & entry->session_mask)) {
+        !(uds_internal_session_bit(ctx->active_session) & entry->session_mask)) {
         return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
     }
 
