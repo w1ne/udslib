@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.11.0] - 2026-06-15
+
+### Added
+- **ISO-TP transfer timeouts**: N_Cr (reception) and N_Bs (transmission) deadlines abort a stalled multi-frame transfer instead of wedging the engine; configurable per instance.
+- **SecurityAccess sequence enforcement (0x27)**: sendKey without a preceding requestSeed is rejected with NRC 0x24; the issued seed is now passed to the key verifier.
+
+### Changed
+- **BREAKING (transport)**: the bundled ISO-TP layer is now fully instance-based. `uds_tp_isotp_init/set_fd/process`, `uds_isotp_send`, and `uds_isotp_rx_callback` take an explicit `uds_isotp_ctx_t *` and a caller-provided TX buffer (no file-global state); multiple channels can run concurrently. Wire `fn_tp_send` to a small adapter that forwards to the instance.
+
+### Fixed
+- **Mutex deadlock**: `uds_process` held the lock on the RCRRP-limit abort path.
+- **Client/server state**: a finished asynchronous server request could swallow a later request as a stale client response; pending state is now split into server/client fields.
+- **DID session gating**: per-DID programming and extended sessions were mapped to each other's bits (access-control flaw in 0x22/0x2E).
+- **Periodic scheduler (0x2A)**: deadline comparison is now wrap-safe across the 32-bit millisecond rollover.
+- **ISO-TP framing**: reject short SF/FF/FC frames and NULL/zero-length payloads.
+- **Zephyr**: example and module now build (added missing `uds_service_io.c`; completed the instance-based transport migration).
+
+### CI
+- Fixed `docker_run.sh`, which ran `bash -c "bash"` and left static-analysis, build-posix, and build-zephyr as silent no-ops.
+- Upgraded the toolchain to Ubuntu 24.04 (Python 3.12) with Zephyr SDK 1.0.1; made the coverage script lcov 2.x compatible.
+
 ## [1.10.0] - 2026-02-04
 
 ### Added
