@@ -18,6 +18,8 @@ extern int uds_zephyr_isotp_send(struct uds_ctx* ctx, const uint8_t* data, uint1
 extern int uds_zephyr_isotp_recv(uint8_t* buf, uint16_t size);
 #elif defined(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
 extern int uds_zephyr_tp_fallback_init(struct uds_ctx* uds_ctx, uint32_t rx_id, uint32_t tx_id);
+extern int uds_zephyr_tp_fallback_send(struct uds_ctx* uds_ctx, const uint8_t* data, uint16_t len);
+extern void uds_zephyr_tp_fallback_process(uint32_t time_ms);
 #endif
 
 /* Buffers */
@@ -43,7 +45,7 @@ int main(void)
         printk("Failed to init Fallback ISO-TP shim\n");
         return -1;
     }
-    tp_send_func = uds_isotp_send;
+    tp_send_func = uds_zephyr_tp_fallback_send;
 #endif
 
     uds_config_t config = {.rx_buffer = uds_rx_buf,
@@ -72,7 +74,7 @@ int main(void)
         }
 #elif defined(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
         /* ISO-TP is handled in interrupt callbacks, but we need to process timers/CFs */
-        uds_tp_isotp_process(uds_get_time_ms_zephyr());
+        uds_zephyr_tp_fallback_process(uds_get_time_ms_zephyr());
 #endif
         uds_process(&uds_ctx);
         k_sleep(K_MSEC(1));
