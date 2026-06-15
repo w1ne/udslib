@@ -175,6 +175,11 @@ int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint1
         return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
     }
 
+    /* Cannot schedule periodic reads without a reader callback. */
+    if (ctx->config->fn_periodic_read == NULL) {
+        return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_CONDITIONS_NOT_CORRECT);
+    }
+
     /* Add/Update Periodic IDs */
     for (uint16_t i = 2u; i < len; i++) {
         uint8_t id = data[i];

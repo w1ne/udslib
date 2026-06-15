@@ -371,7 +371,7 @@ void uds_process(uds_ctx_t *ctx)
     }
 
     /* SID 0x2A: Periodic Data Transmission Scheduler */
-    if (ctx->periodic_count > 0u) {
+    if (ctx->periodic_count > 0u && ctx->config->fn_periodic_read != NULL) {
         for (uint8_t i = 0u; i < 8u; i++) {
             if (ctx->periodic_ids[i] != 0u) {
                 /* Wrap-safe deadline check (signed delta), mirroring the S3/P2
