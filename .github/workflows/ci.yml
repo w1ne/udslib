@@ -55,9 +55,12 @@ jobs:
             source .venv_zephyr/bin/activate
             pip install jsonschema west
             
-            # Initialize workspace if not present (caching is handled by runner)
+            # Initialize workspace if not present (caching is handled by runner).
+            # Pin to a Zephyr release rather than 'main' so the build is
+            # deterministic. v4.4.1 matches the image's Zephyr SDK (1.0.1) and
+            # Python 3.12; bump this tag (and the SDK in the Dockerfile) together.
             if [ ! -d zephyr-workspace ]; then
-              west init -m https://github.com/zephyrproject-rtos/zephyr --mr main zephyr-workspace
+              west init -m https://github.com/zephyrproject-rtos/zephyr --mr v4.4.1 zephyr-workspace
               cd zephyr-workspace
               west update --narrow -o=--depth=1
               west zephyr-export
