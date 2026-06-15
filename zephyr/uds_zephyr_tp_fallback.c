@@ -82,4 +82,26 @@ int uds_zephyr_tp_fallback_init(struct uds_ctx *uds_ctx, uint32_t rx_id, uint32_
     return can_add_rx_filter(g_can_dev, uds_internal_zephyr_can_rx_cb, NULL, &filter);
 }
 
+/**
+ * @brief fn_tp_send adapter binding the core contract to this instance.
+ *
+ * The ISO-TP context is owned privately by this module, so the application
+ * wires this function (which matches uds_tp_send_fn) as config.fn_tp_send.
+ */
+int uds_zephyr_tp_fallback_send(struct uds_ctx *uds_ctx, const uint8_t *data, uint16_t len)
+{
+    (void) uds_ctx;
+    return uds_isotp_send(&g_isotp, data, len);
+}
+
+/**
+ * @brief Drive the fallback ISO-TP timers/CF transmission.
+ *
+ * @param time_ms Current system time in milliseconds.
+ */
+void uds_zephyr_tp_fallback_process(uint32_t time_ms)
+{
+    uds_tp_isotp_process(&g_isotp, time_ms);
+}
+
 #endif /* CONFIG_UDSLIB_TRANSPORT_FALLBACK */
