@@ -19,7 +19,7 @@ jobs:
         run: docker build -t libuds-test-env -f Dockerfile .
       - name: Run Static Analysis in Docker
         run: |
-          ./scripts/docker_run.sh bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=unmatchedSuppression --inconclusive --inline-suppr --error-exitcode=1 -I include src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
+          ./scripts/docker_run.sh bash -c "cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction --suppress=unmatchedSuppression --suppress=checkersReport --inconclusive --inline-suppr --error-exitcode=1 -I include -I src/core src/ && find src include examples -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror"
 
   build-posix:
     runs-on: ubuntu-latest
