@@ -20,7 +20,7 @@ static void test_p2_timeout_nrc78(void **state)
 
     /* Manually trigger pending state for timeout testing */
     ctx.p2_msg_pending = true;
-    ctx.pending_sid = 0x31;
+    ctx.server_pending_sid = 0x31;
     ctx.last_msg_time = 1000;
 
     /* Move time forward by 51ms */
