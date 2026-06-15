@@ -125,7 +125,7 @@ static void test_busy_tester_present(void **state)
 
     /* Simulate pending request */
     ctx.p2_msg_pending = true;
-    ctx.pending_sid = 0x22;
+    ctx.server_pending_sid = 0x22;
 
     /* Suppressed TesterPresent should be IGNORED (no NRC 0x21) */
     uint8_t tp_req[] = {0x3E, 0x80};
