@@ -46,9 +46,10 @@ static const uds_did_entry_t g_test_dids[] = {
     {0x0100, 1, UDS_SESSION_ALL, 0, mock_did_read_fn, NULL, NULL},  /* Read Callback */
     {0x0200, 3, UDS_SESSION_ALL, 0, NULL, mock_did_write_fn, NULL}, /* Write Callback */
     {0x5EC1, 4, UDS_SESSION_ALL, 0x04, NULL, NULL, &g_val_8},       /* Security Level 2 Required */
+    {0x7701, 1, UDS_SESSION_PROGRAMMING, 0, NULL, NULL, &g_val_8},  /* Programming session only */
 };
 
-static const uds_did_table_t g_test_table = {.entries = g_test_dids, .count = 4};
+static const uds_did_table_t g_test_table = {.entries = g_test_dids, .count = 5};
 
 static void test_rdbi_single_did_success(void **state)
 {
@@ -216,10 +217,46 @@ static void test_wdbi_length_fail_nrc13(void **state)
     assert_int_equal(g_tx_buf[2], 0x13); /* NRC 0x13: Incorrect Length */
 }
 
+/* A DID restricted to the programming session must be readable there and
+   rejected (0x31) in the extended session -- the two sessions must not be
+   confused with each other. */
+static void test_rdbi_session_gating(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.did_table = g_test_table;
+
+    uint8_t req[] = {0x22, 0x77, 0x01};
+
+    /* Programming session: allowed. */
+    ctx.active_session = 0x02; /* programming */
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 4); /* 62 77 01 + 1 data byte */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, sizeof(req));
+    assert_int_equal(g_tx_buf[0], 0x62);
+
+    /* Extended session: must be rejected, not silently allowed. */
+    ctx.active_session = 0x03; /* extended */
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 22 31 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, sizeof(req));
+    assert_int_equal(g_tx_buf[0], 0x7F);
+    assert_int_equal(g_tx_buf[2], 0x31);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_rdbi_single_did_success),
+        cmocka_unit_test(test_rdbi_session_gating),
         cmocka_unit_test(test_rdbi_callback_success),
         cmocka_unit_test(test_wdbi_callback_success),
         cmocka_unit_test(test_rdbi_invalid_did_nrc),
