@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.11.0] - 2026-06-15
+## [1.12.0] - 2026-06-15
 
 ### Added
 - **ISO-TP transfer timeouts**: N_Cr (reception) and N_Bs (transmission) deadlines abort a stalled multi-frame transfer instead of wedging the engine; configurable per instance.
