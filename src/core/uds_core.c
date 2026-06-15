@@ -23,6 +23,8 @@ static const uint8_t mask_sub_31[] = UDS_MASK_SUB_31;
 static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
 static const uint8_t mask_sub_2A[] = UDS_MASK_SUB_2A;
+static const uint8_t mask_sub_87[] = UDS_MASK_SUB_87;
+static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
 
 static const uds_service_entry_t core_services[] = {
     {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
@@ -55,6 +57,9 @@ static const uds_service_entry_t core_services[] = {
      mask_sub_2A},
     {UDS_SID_IO_CONTROL_BY_ID, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_io_control, NULL},
     {UDS_SID_REQUEST_UPLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_upload, NULL},
+    {UDS_SID_LINK_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_link_control, mask_sub_87},
+    {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_access_timing,
+     mask_sub_83},
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))

@@ -50,6 +50,8 @@
 #define UDS_SID_WRITE_MEM_BY_ADDR 0x3Du
 #define UDS_SID_TESTER_PRESENT 0x3Eu
 #define UDS_SID_CONTROL_DTC_SETTING 0x85u
+#define UDS_SID_ACCESS_TIMING 0x83u
+#define UDS_SID_LINK_CONTROL 0x87u
 
 #define UDS_S3_TIMEOUT_MS 5000u
 #define UDS_P2_MIN_SAFE_MS 20u
@@ -114,6 +116,14 @@
     {                                                      \
         0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+#define UDS_MASK_SUB_87                                    \
+    {                                                      \
+        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_83                                    \
+    {                                                      \
+        0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 
 uint8_t uds_internal_session_bit(uint8_t session);
 const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id);
@@ -156,5 +166,9 @@ int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data
 int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+
+/* Reprogramming-negotiation Services (0x83, 0x87) */
+int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 #endif /* UDS_INTERNAL_H */
