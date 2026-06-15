@@ -385,7 +385,7 @@ int main(int argc, char **argv)
         uds_tp_isotp_process(&g_isotp, now);
 
         /* Mock "Long Running" Async Operation for SID 0x31 */
-        if (ctx.p2_msg_pending && ctx.pending_sid == 0x31 && slow_op_start == 0) {
+        if (ctx.p2_msg_pending && ctx.server_pending_sid == 0x31 && slow_op_start == 0) {
             slow_op_start = now;
             printf("[APP] Starting 1.5s operation for SID 0x31...\n");
         }

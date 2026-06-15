@@ -174,7 +174,7 @@ static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, c
         ctx->p2_msg_pending = true;
         ctx->p2_star_active = true;
         ctx->p2_timer_start = ctx->config->get_time_ms();
-        ctx->pending_sid = data[0];
+        ctx->server_pending_sid = data[0];
     }
     return res;
 }
@@ -315,7 +315,7 @@ void uds_process(uds_ctx_t *ctx)
         if (elapsed >= limit) {
             /* C-07: RCRRP Limit Check */
             if (ctx->config->rcrrp_limit > 0u && ctx->rcrrp_count >= ctx->config->rcrrp_limit) {
-                uds_send_nrc(ctx, ctx->pending_sid, UDS_NRC_CONDITIONS_NOT_CORRECT);
+                uds_send_nrc(ctx, ctx->server_pending_sid, UDS_NRC_CONDITIONS_NOT_CORRECT);
                 ctx->rcrrp_count = 0u;
                 if (ctx->config->fn_mutex_unlock) {
                     ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
@@ -324,7 +324,7 @@ void uds_process(uds_ctx_t *ctx)
             }
 
             /* Send NRC 0x78 (Response Pending) */
-            uds_send_nrc(ctx, ctx->pending_sid, UDS_NRC_RESPONSE_PENDING);
+            uds_send_nrc(ctx, ctx->server_pending_sid, UDS_NRC_RESPONSE_PENDING);
             ctx->rcrrp_count++;
             ctx->p2_star_active = true;
             ctx->p2_timer_start = now; /* Reset timer for P2* */
@@ -389,7 +389,7 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
         ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
     }
 
-    ctx->pending_sid = sid;
+    ctx->client_pending_sid = sid;
     ctx->client_cb = (void *) callback;
 
     ctx->config->tx_buffer[0] = sid;
@@ -442,17 +442,17 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     }
 
     /* 2. Response to our previous request? (Client Mode) */
-    if (ctx->pending_sid != 0u) {
-        bool is_pos = (sid == (uint8_t) ((uint16_t) ctx->pending_sid | UDS_RESPONSE_OFFSET));
-        bool is_neg =
-            (sid == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS && len >= 2u && data[1] == ctx->pending_sid);
+    if (ctx->client_pending_sid != 0u) {
+        bool is_pos = (sid == (uint8_t) ((uint16_t) ctx->client_pending_sid | UDS_RESPONSE_OFFSET));
+        bool is_neg = (sid == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS && len >= 2u &&
+                       data[1] == ctx->client_pending_sid);
         if (is_pos || is_neg) {
             if (ctx->client_cb != NULL) {
                 uds_response_cb cb = (uds_response_cb) ctx->client_cb;
                 cb(ctx, sid, &data[1], (uint16_t) (len - 1u));
                 ctx->client_cb = NULL;
             }
-            ctx->pending_sid = 0u;
+            ctx->client_pending_sid = 0u;
             if (ctx->config->fn_mutex_unlock != NULL) {
                 ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
             }
@@ -484,6 +484,7 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len)
     }
 
     ctx->p2_msg_pending = false;
+    ctx->server_pending_sid = 0u;
 
     if (ctx->suppress_pos_resp) {
         ctx->suppress_pos_resp = false;
@@ -507,7 +508,7 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
 
     /* NRC 0x78 does not clear the pending flag.
        Others only clear if they refer to the actual pending SID. */
-    if (nrc != UDS_NRC_RESPONSE_PENDING && sid == ctx->pending_sid) {
+    if (nrc != UDS_NRC_RESPONSE_PENDING && sid == ctx->server_pending_sid) {
         ctx->p2_msg_pending = false;
     }
 

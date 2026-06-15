@@ -405,8 +405,6 @@ typedef struct uds_ctx
     const uds_config_t *config;
 
     /* --- State Machine --- */
-    /** Current Session / Security State */
-    uint8_t state;
     /** Currently active session (Default, Programming, etc.) */
     uint8_t active_session;
     /** Current security level (0 = Locked) */
@@ -422,13 +420,15 @@ typedef struct uds_ctx
     /** True if we have already sent the first 0x78 NRC */
     bool p2_star_active;
 
-    /* --- Processing --- */
-    /** True if the application is processing a request asynchronously */
-    bool response_pending;
-    /** Client callback for current request */
+    /* --- Server role: in-progress asynchronous request --- */
+    /** SID of the request currently awaiting an async (0x78) response */
+    uint8_t server_pending_sid;
+
+    /* --- Client role: outstanding request awaiting a response --- */
+    /** Callback to invoke when the awaited response arrives */
     void *client_cb;
-    /** SID we are waiting for a response for */
-    uint8_t pending_sid;
+    /** SID of the request we sent and are awaiting a response for (0 = none) */
+    uint8_t client_pending_sid;
 
     /** Communication control state for SID 0x28 (uds_comm_control_type_t) */
     uint8_t comm_state;
