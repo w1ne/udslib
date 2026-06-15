@@ -60,7 +60,7 @@ Unknown/unsupported SIDs are rejected with NRC 0x11 (serviceNotSupported).
 - **RCRRP limit:** configurable cap on NRC 0x78 (ResponsePending) repetitions to prevent infinite loops.
 - **Safety gates:** application callback can block destructive services (Reset, Write, Download) with NRC 0x22.
 - **Async:** `UDS_PENDING` (NRC 0x78) supports non-blocking integration with slow flash/hardware.
-- **MISRA-C:2012:** core logic audited for baseline compliance (Rules 10.x, 17.x, 21.x).
+- **MISRA-C:2012:** checked in CI via cppcheck's addon; no mandatory-rule violations. Required/advisory deviations documented in [docs/MISRA.md](MISRA.md).
 
 ## Verification
 
