@@ -236,7 +236,6 @@ static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 
 /* --- Public API --- */
 
-// cppcheck-suppress unusedFunction
 int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
 {
     if (!ctx || !config) {
@@ -283,7 +282,6 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     return UDS_OK;
 }
 
-// cppcheck-suppress unusedFunction
 void uds_process(uds_ctx_t *ctx)
 {
     if (!ctx || !ctx->config) {
@@ -369,7 +367,6 @@ void uds_process(uds_ctx_t *ctx)
     }
 }
 
-// cppcheck-suppress unusedFunction
 int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
                        uds_response_cb callback)
 {
