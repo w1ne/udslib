@@ -51,9 +51,15 @@ cat << 'EOF'
 
 EOF
 
-if [ -f "build/test-results.xml" ]; then
-    TOTAL=$(grep -oP 'tests="\K[0-9]+' build/test-results.xml | head -1 || echo "0")
-    FAILURES=$(grep -oP 'failures="\K[0-9]+' build/test-results.xml | head -1 || echo "0")
+# ctest --output-junit writes here (generate_coverage.sh runs in build_coverage/)
+TEST_XML=""
+for cand in "build_coverage/test-results.xml" "build/test-results.xml"; do
+    [ -f "$cand" ] && TEST_XML="$cand" && break
+done
+
+if [ -n "$TEST_XML" ]; then
+    TOTAL=$(grep -oP 'tests="\K[0-9]+' "$TEST_XML" | head -1 || echo "0")
+    FAILURES=$(grep -oP 'failures="\K[0-9]+' "$TEST_XML" | head -1 || echo "0")
     PASSED=$((TOTAL - FAILURES))
     
     if [ "$FAILURES" -eq 0 ]; then
