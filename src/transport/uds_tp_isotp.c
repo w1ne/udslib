@@ -53,7 +53,6 @@ static uint8_t uds_dlc_align(uint8_t len)
 
 /* --- Public API --- */
 
-// cppcheck-suppress unusedFunction
 void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t tx_id,
                        uint32_t rx_id, uint8_t *tx_sdu_buf, uint16_t tx_sdu_size)
 {
@@ -75,7 +74,6 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
     iso->n_bs_ms = ISOTP_N_BS_DEFAULT_MS;
 }
 
-// cppcheck-suppress unusedFunction
 void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled)
 {
     if (!iso) {
@@ -158,7 +156,6 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     return 0; /* Multi-Frame started successfully */
 }
 
-// cppcheck-suppress unusedFunction
 int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
     if (!iso) {
@@ -175,7 +172,6 @@ int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     return uds_send_mf(iso, data, len);
 }
 
-// cppcheck-suppress unusedFunction
 void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
 {
     if (!iso) {
@@ -382,7 +378,6 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
     }
 }
 
-// cppcheck-suppress unusedFunction
 void uds_isotp_rx_callback(uds_isotp_ctx_t *iso, struct uds_ctx *uds, uint32_t id,
                            const uint8_t *data, uint8_t len)
 {

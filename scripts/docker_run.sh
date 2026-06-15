@@ -19,12 +19,15 @@ echo "=== Building Docker Image ==="
 docker build -t $IMAGE_NAME -f "$PROJECT_ROOT/Dockerfile" "$PROJECT_ROOT"
 
 if [ -n "$1" ]; then
-    echo "=== Running Custom Command in Docker: $1 ==="
+    echo "=== Running Custom Command in Docker: $* ==="
+    # Run the full argument vector. Using only "$1" silently dropped the rest,
+    # so `docker_run.sh bash -c "<script>"` executed `bash -c "bash"` (a no-op)
+    # and the CI jobs relying on it passed without actually running anything.
     docker run --rm \
         -v "$PROJECT_ROOT:/app" \
         -u $(id -u):$(id -g) \
         $IMAGE_NAME \
-        /bin/bash -c "$1"
+        "$@"
     exit $?
 fi
 
