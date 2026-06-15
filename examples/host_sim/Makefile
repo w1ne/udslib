@@ -10,6 +10,8 @@ SRC = main.c \
       ../../src/services/uds_service_mem.c \
       ../../src/services/uds_service_security.c \
       ../../src/services/uds_service_session.c \
+      ../../src/services/uds_service_io.c \
+      ../../src/services/uds_service_link.c \
       ../../src/transport/uds_tp_isotp.c
 
 # Output binary

@@ -10,6 +10,7 @@ zephyr_library_sources(
     ../src/services/uds_service_security.c
     ../src/services/uds_service_flash.c
     ../src/services/uds_service_io.c
+    ../src/services/uds_service_link.c
     uds_zephyr_port.c
 )
 

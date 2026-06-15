@@ -48,6 +48,8 @@ add_uds_test(test_service_34_flex unit/test_service_34_flex.c)
 add_uds_test(test_rcrrp_limit unit/test_rcrrp_limit.c)
 add_uds_test(test_compliance_pass2 unit/test_compliance_pass2.c)
 add_uds_test(test_service_2A unit/test_service_2A.c)
+add_uds_test(test_service_87 unit/test_service_87.c)
+add_uds_test(test_service_83 unit/test_service_83.c)
 add_uds_test(test_service_2F unit/test_service_2F.c)
 add_uds_test(test_service_35 unit/test_service_35.c)
 
