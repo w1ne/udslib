@@ -40,11 +40,31 @@ if [ -n "$MAGIC_SCAN" ]; then
 fi
 echo -e "${GREEN}PASSED${NC}"
 
-# 3. Static Analysis (if available)
-echo -n "[3/3] Running Static Analysis (cppcheck)... "
+# 3. MISRA-C:2012 addon against a documented deviation baseline.
+#    Any rule NOT in ACCEPTED is a regression: fix it, or add it to
+#    docs/MISRA.md and this list with rationale. No mandatory rule is listed,
+#    so introducing a mandatory-rule violation fails the build.
+#    (General cppcheck analysis is covered by the static-analysis CI job.)
+echo -n "[3/3] Running MISRA-C:2012 addon (deviation baseline)... "
 if command -v cppcheck &> /dev/null; then
-    cppcheck --enable=all --suppress=missingIncludeSystem --suppress=unusedFunction src/ include/ --error-exitcode=1 > /dev/null 2>&1
-    echo -e "${GREEN}PASSED${NC}"
+    ACCEPTED="2.3 2.4 2.5 8.7 8.9 10.1 10.4 10.8 11.1 11.9 12.1 12.3 14.4 15.5 15.6 15.7 17.7"
+    MISRA_OUT=$(cppcheck --addon=misra --enable=all --suppress=missingIncludeSystem \
+        --suppress=unusedFunction --suppress=checkersReport --inline-suppr \
+        -I include -I src/core src/ 2>&1)
+    NEW=""
+    for r in $(echo "$MISRA_OUT" | grep -oE 'misra-c2012-[0-9.]+' | sed 's/misra-c2012-//' | sort -u); do
+        case " $ACCEPTED " in
+            *" $r "*) ;;
+            *) NEW="$NEW $r" ;;
+        esac
+    done
+    if [ -n "$NEW" ]; then
+        echo -e "${RED}FAILED${NC}"
+        echo "New MISRA-C:2012 rule violation(s) outside the documented deviation list:$NEW"
+        echo "Fix them, or document them in docs/MISRA.md and add to ACCEPTED."
+        exit 1
+    fi
+    echo -e "${GREEN}PASSED${NC} (no mandatory violations; deviations: see docs/MISRA.md)"
 else
     echo -e "${RED}SKIPPED${NC} (cppcheck not installed)"
 fi
