@@ -98,41 +98,44 @@ void isotp_rx_thread(void) {
 
 #### Implementation
 
+The fallback transport (`zephyr/uds_zephyr_tp_fallback.c`) owns its ISO-TP
+instance privately and binds to the CAN controller chosen via
+`DT_CHOSEN(zephyr_canbus)`. It exposes three adapter functions: an init that
+sets up the instance plus the CAN RX filter, a `fn_tp_send` adapter, and a
+periodic process hook. The application just wires them up:
+
 ```c
-#include <zephyr/drivers/can.h>
+#include <uds/uds_core.h>
 #include <uds/uds_isotp.h>
 
-const struct device *can_dev = DEVICE_DT_GET(DT_NODELABEL(can0));
+/* Provided by zephyr/uds_zephyr_tp_fallback.c (CONFIG_UDSLIB_TRANSPORT_FALLBACK). */
+extern int  uds_zephyr_tp_fallback_init(struct uds_ctx* uds_ctx, uint32_t rx_id, uint32_t tx_id);
+extern int  uds_zephyr_tp_fallback_send(struct uds_ctx* uds_ctx, const uint8_t* data, uint16_t len);
+extern void uds_zephyr_tp_fallback_process(uint32_t time_ms);
 
-/* 1. Zephyr CAN send wrapper */
-int zephyr_can_send(uint32_t id, const uint8_t* data, uint8_t len) {
-    struct can_frame frame = {
-        .id = id,
-        .dlc = len,
-    };
-    memcpy(frame.data, data, len);
-    return can_send(can_dev, &frame, K_MSEC(100), NULL, NULL);
+/* 1. Initialize the fallback transport (creates the ISO-TP instance and
+ *    installs the CAN RX filter on the chosen zephyr,canbus device). */
+if (uds_zephyr_tp_fallback_init(&ctx, 0x7E0 /* rx_id */, 0x7E8 /* tx_id */) < 0) {
+    printk("Failed to init Fallback ISO-TP shim\n");
+    return -1;
 }
 
-/* 2. Initialize Internal ISO-TP */
-uds_tp_isotp_init(zephyr_can_send, 0x7E0, 0x7E8);
-
-/* 3. CAN RX Callback */
-void can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data) {
-    uds_isotp_rx_callback(&ctx, frame->id, frame->data, frame->dlc);
-}
-
-/* 4. Set up CAN filter */
-struct can_filter filter = {
-    .id = 0x7E8,
-    .mask = CAN_STD_ID_MASK,
+/* 2. Wire the send adapter as fn_tp_send in the UDS config. */
+uds_config_t config = {
+    .rx_buffer = rx_buf,
+    .rx_buffer_size = sizeof(rx_buf),
+    .tx_buffer = tx_buf,
+    .tx_buffer_size = sizeof(tx_buf),
+    .get_time_ms = zephyr_get_time_ms,
+    .fn_tp_send = uds_zephyr_tp_fallback_send,
 };
-can_add_rx_filter(can_dev, can_rx_callback, NULL, &filter);
+uds_init(&ctx, &config);
 
-/* 5. Main loop must call */
+/* 3. Main loop: drive timers/CF transmission and the core state machine.
+ *    (Reception is handled inside the fallback's CAN RX callback.) */
 while (1) {
+    uds_zephyr_tp_fallback_process(k_uptime_get_32()); // multi-frame CF transmission
     uds_process(&ctx);
-    uds_tp_isotp_process(k_uptime_get_32()); // For multi-frame CF transmission
     k_sleep(K_MSEC(1));
 }
 ```
@@ -215,9 +218,18 @@ zephyr_library_sources(
     ../src/core/uds_core.c
 )
 
+if(CONFIG_UDSLIB_TRANSPORT_NATIVE)
+    zephyr_library_sources(
+        uds_zephyr_isotp.c
+    )
+endif()
+
 if(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
+    # Internal ISO-TP engine plus the Zephyr fallback adapter that owns the
+    # ISO-TP instance and exposes the init/send/process functions.
     zephyr_library_sources(
         ../src/transport/uds_tp_isotp.c
+        uds_zephyr_tp_fallback.c
     )
 endif()
 
@@ -311,9 +323,9 @@ UDSLib is designed for single-threaded or cooperative multitasking:
 ```c
 void uds_task(void *p1, void *p2, void *p3) {
     while (1) {
-        uds_process(&ctx);         // Check timers, handle state machine
-        uds_tp_isotp_process(now);    // (If using fallback) Send pending CFs
-        k_sleep(K_MSEC(1));        // Yield to other tasks
+        uds_process(&ctx);                           // Check timers, handle state machine
+        uds_zephyr_tp_fallback_process(k_uptime_get_32()); // (If using fallback) Send pending CFs
+        k_sleep(K_MSEC(1));                          // Yield to other tasks
     }
 }
 
@@ -323,9 +335,18 @@ K_THREAD_DEFINE(uds_thread, 2048, uds_task, NULL, NULL, NULL, 5, 0, 0);
 ### ISR Safety
 
 - **DO NOT** call `uds_` functions from ISRs
-- Use message queues or workqueues to defer to thread context:
+- The fallback transport installs its own CAN RX filter callback and feeds
+  frames into its private ISO-TP instance, so RX is handled for you.
+- If you drive the raw instance-based ISO-TP API yourself, defer ISR work to
+  thread context via a message queue or workqueue. Note the receive callback is
+  instance-based and takes both the ISO-TP and core contexts:
 
 ```c
+/* You own and initialize the ISO-TP instance:
+ *   uds_isotp_ctx_t iso;
+ *   uint8_t iso_tx_sdu[CONFIG_UDSLIB_TX_BUFFER_SIZE];
+ *   uds_tp_isotp_init(&iso, can_send, 0x7E8, 0x7E0, iso_tx_sdu, sizeof(iso_tx_sdu));
+ */
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), 10, 4);
 
 void can_isr(const struct device *dev, struct can_frame *frame, void *user_data) {
@@ -336,9 +357,10 @@ void uds_task(void) {
     struct can_frame frame;
     while (1) {
         if (k_msgq_get(&can_rx_msgq, &frame, K_MSEC(10)) == 0) {
-            uds_isotp_rx_callback(&ctx, frame.id, frame.data, frame.dlc);
+            uds_isotp_rx_callback(&iso, &ctx, frame.id, frame.data, frame.dlc);
         }
         uds_process(&ctx);
+        uds_tp_isotp_process(&iso, k_uptime_get_32());
     }
 }
 ```

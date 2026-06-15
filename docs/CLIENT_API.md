@@ -48,7 +48,21 @@ typedef void (*uds_response_cb)(uds_ctx_t* ctx,
 
 ## 3. Example
 
+The ISO-TP transport is instance-based. The application wires `config.fn_tp_send`
+to a small adapter that forwards to its ISO-TP instance, and feeds received CAN
+frames to `uds_isotp_rx_callback`.
+
 ```c
+// ISO-TP transport instance and its multi-frame TX cache.
+static uds_isotp_ctx_t iso;
+static uint8_t iso_tx_sdu[1024];
+
+// Adapter binding the core's fn_tp_send contract to this ISO-TP instance.
+static int isotp_send_adapter(uds_ctx_t* ctx, const uint8_t* data, uint16_t len) {
+    (void) ctx;
+    return uds_isotp_send(&iso, data, len);
+}
+
 static void on_vin_received(uds_ctx_t* ctx, uint8_t sid, const uint8_t* data, uint16_t len) {
     if (sid == 0x62) { // Positive ReadDataByIdentifier
         // process VIN ...
@@ -57,13 +71,19 @@ static void on_vin_received(uds_ctx_t* ctx, uint8_t sid, const uint8_t* data, ui
     }
 }
 
+// Initialize the transport (TX 0x7E0, RX 0x7E8) and wire fn_tp_send = isotp_send_adapter.
+uds_tp_isotp_init(&iso, can_send, 0x7E0, 0x7E8, iso_tx_sdu, sizeof(iso_tx_sdu));
+
 // Sending the request
 uds_client_request(&ctx, 0x22, (uint8_t[]){0xF1, 0x90}, 2, on_vin_received);
 
-// Ensure the main loop calls uds_process and transport-layer processing
+// Ensure the main loop calls uds_process and instance-based transport processing
 while(1) {
     uds_process(&ctx);
-    uds_tp_isotp_process(get_time_ms()); // If using fallback
+    uds_tp_isotp_process(&iso, get_time_ms());
+
+    // Feed received CAN frames into the ISO-TP engine.
+    // uds_isotp_rx_callback(&iso, &ctx, id, frame_data, frame_len);
     // ...
 }
 ```

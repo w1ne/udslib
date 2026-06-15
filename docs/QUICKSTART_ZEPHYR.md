@@ -40,6 +40,16 @@ cd modules/lib/udslib/examples/zephyr_uds_server
 west build -b native_sim
 ```
 
+> [!NOTE]
+> CI builds this example against Zephyr **v4.4.1**. Use that version for a
+> known-good build.
+
+The example uses the internal ISO-TP fallback transport
+(`CONFIG_UDSLIB_TRANSPORT_FALLBACK`). The transport instance is owned by
+`zephyr/uds_zephyr_tp_fallback.c`: it wires `uds_zephyr_tp_fallback_send` as
+`config.fn_tp_send` and drives timers/consecutive frames from the main loop via
+`uds_zephyr_tp_fallback_process(time_ms)`.
+
 ## 4. Run the Server
 
 ```bash
@@ -64,7 +74,7 @@ cd modules/lib/udslib/examples/client_demo
 
 **Zephyr Server:**
 ```
-Starting UDSLib Zephyr Server Example...
+Starting LibUDS Zephyr Server Example (Fallback Mode)...
 UDS Server ready. Waiting for requests (0x7E0 RX / 0x7E8 TX)...
 [INFO] (uds_core.c:120) dispatcher: sid 0x10, len 2
 ```
@@ -80,12 +90,15 @@ UDS Server ready. Waiting for requests (0x7E0 RX / 0x7E8 TX)...
 
 Tune UDSLib in `prj.conf`:
 
-| Option | Default | Description |
-|:-------|:--------|:------------|
-| `CONFIG_UDSLIB` | `y` | Enable the library |
-| `CONFIG_UDSLIB_TRANSPORT_NATIVE` | `y` | Use Zephyr SocketCAN ISO-TP |
-| `CONFIG_UDSLIB_MAX_SDU_SIZE` | `4095` | Max buffer size |
-| `CONFIG_UDSLIB_LOG_LEVEL` | `3` | Info level logging |
+| Option | Description |
+|:-------|:------------|
+| `CONFIG_UDSLIB` | Enable the library |
+| `CONFIG_UDSLIB_TRANSPORT_FALLBACK` | Use the internal ISO-TP over classic CAN (this example) |
+| `CONFIG_UDSLIB_TRANSPORT_NATIVE` | Use the Zephyr native ISO-TP shim instead |
+| `CONFIG_UDSLIB_MAX_SDU_SIZE` | Max SDU buffer size |
+| `CONFIG_UDSLIB_LOG_LEVEL` | Logging verbosity |
+
+This example's `prj.conf` selects `CONFIG_UDSLIB_TRANSPORT_FALLBACK`.
 
 ## Advanced Testing
 

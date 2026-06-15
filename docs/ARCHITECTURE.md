@@ -16,7 +16,7 @@ The library divides into four main areas:
 
 1.  **Service Registry**: A table-driven dispatcher that routes requests.
 2.  **Core SDU Engine**: Parses and validates protocol requirements (Session, Security, Length).
-3.  **State Manager**: Tracks sessions, security levels, and timers (S3, P2). It uses optional hooks for NVM persistence.
+3.  **State Manager**: Tracks sessions, security levels, and timers (S3, P2, P2*). It uses optional hooks for NVM persistence. An opt-in built-in session policy (`restrict_sessions`) can confine privileged services to ISO-sensible sessions.
 4.  **Transport Abstraction**: A layer that connects to OS sockets (Zephyr/Linux) or uses the internal ISO-TP fallback.
 
 ```mermaid
@@ -38,9 +38,11 @@ graph TD
 
 ## 3. Modular Service Registry
 
-A table-driven dispatcher manages UDS services.
+A table-driven dispatcher manages UDS services (22 of 27 ISO 14229-1 application
+services are implemented; see [SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md) for
+the authoritative matrix).
 
-- **Scalability**: Adding a service (like SID 0x29) requires adding an entry to the service table.
+- **Scalability**: Adding a service (like SID 0x29) requires adding an entry to the `core_services` table.
 - **Extensibility**: Applications register `user_services` in `uds_config_t` to override or extend standard functionality.
 - **Validation**: The core engine enforces ISO 14229-1 NRC priorities (Session → Subfunction → Length → Security → Safety) before calling the handler.
 
