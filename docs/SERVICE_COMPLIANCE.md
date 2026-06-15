@@ -6,10 +6,10 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 - **Standard:** ISO 14229-1:2013, with selected 2020 additions (e.g. 0x29 Authentication).
 - **Transport:** ISO 15765-2 (ISO-TP) over CAN and CAN-FD.
 - **Role:** Server (ECU) stack. A generic client requester (`uds_client_request`) is also provided.
-- **Coverage:** **20 of 27** application services implemented.
-- **Last updated:** 2026-06-15 (v1.12.0).
+- **Coverage:** **22 of 27** application services implemented.
+- **Last updated:** 2026-06-15.
 
-## Implemented services (20)
+## Implemented services (22)
 
 | SID | Service | Notes |
 | :--- | :--- | :--- |
@@ -32,13 +32,14 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x37 | RequestTransferExit | Completion logic. |
 | 0x3D | WriteMemoryByAddress | Echoes address/size in the positive response. |
 | 0x3E | TesterPresent | Busy-relaxed NRC 0x21 handling; suppressed TP keeps S3 alive. |
+| 0x83 | AccessTimingParameter | Read / set / default the live P2 and P2* timing. |
 | 0x85 | ControlDTCSetting | DTC ON/OFF; SuppressPosMsg. |
+| 0x87 | LinkControl | Baud-rate transition; verify→transition handshake (NRC 0x24 if out of sequence). |
 
-## Not yet implemented (7)
+## Not yet implemented (5)
 
 `0x24` ReadScalingDataByIdentifier · `0x2C` DynamicallyDefineDataIdentifier ·
-`0x38` RequestFileTransfer · `0x83` AccessTimingParameter ·
-`0x84` SecuredDataTransmission · `0x86` ResponseOnEvent · `0x87` LinkControl.
+`0x38` RequestFileTransfer · `0x84` SecuredDataTransmission · `0x86` ResponseOnEvent.
 
 Unknown/unsupported SIDs are rejected with NRC 0x11 (serviceNotSupported).
 

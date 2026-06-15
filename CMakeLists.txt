@@ -27,6 +27,7 @@ set(LIBUDS_SOURCES
     src/services/uds_service_flash.c
     src/services/uds_service_mem.c
     src/services/uds_service_io.c
+    src/services/uds_service_link.c
     src/transport/uds_tp_isotp.c
 )
 add_library(uds STATIC ${LIBUDS_SOURCES})

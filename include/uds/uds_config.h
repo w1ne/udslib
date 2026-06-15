@@ -344,6 +344,22 @@ typedef struct
     int (*fn_transfer_exit)(struct uds_ctx *ctx);
 
     /**
+     * @brief Optional: Link Control (SID 0x87).
+     *
+     * Two-step baud-rate transition. Called on verify (subfunction 0x01/0x02)
+     * to validate the requested link parameters, and again on transition
+     * (0x03) to apply the previously verified rate. Apply the actual link
+     * change only after the positive response is transmitted.
+     *
+     * @param ctx          Pointer to context.
+     * @param subfunction  0x01 verifyFixed, 0x02 verifySpecific, 0x03 transition.
+     * @param link_param   Mode identifier (0x01), 3-byte baud value (0x02), or
+     *                     the latched value from the verify step (0x03).
+     * @return             UDS_OK to accept, or a negative NRC to reject.
+     */
+    int (*fn_link_control)(struct uds_ctx *ctx, uint8_t subfunction, uint32_t link_param);
+
+    /**
      * @brief Callback for Read Memory By Address (0x23)
      *
      * @param[in] ctx Pointer to UDS context.
@@ -444,6 +460,12 @@ typedef struct uds_ctx
 
     /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
     uint8_t flash_sequence;
+
+    /* --- Link Control State (SID 0x87) --- */
+    /** True once a verify subfunction (0x01/0x02) has been accepted */
+    bool link_ctrl_verified;
+    /** Link parameter latched at verify, applied on transition (0x03) */
+    uint32_t link_ctrl_param;
 
     /* --- Security State (C-14, C-15) --- */
     /** Timestamp when security delay expires */
