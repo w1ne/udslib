@@ -68,3 +68,13 @@ Used for simulation and testing.
 - **Key Concepts**:
   - Uses `clock_gettime` for millisecond precision.
   - Uses UDP sockets to simulate CAN bus.
+
+## 5. End-to-End Reprogramming Reference
+
+A complete flash/reprogramming flow tying the privileged services together.
+
+- **Example**: [examples/pro_flash_tool](../examples/pro_flash_tool)
+- **Flow**: SessionControl (0x10) → SecurityAccess (0x27) → LinkControl/AccessTimingParameter (0x87 / 0x83) → RequestDownload (0x34) → TransferData (0x36) → RequestTransferExit (0x37) → checksum/RoutineControl.
+- **Key Concepts**:
+  - Set `config.restrict_sessions` to confine reprogramming services to the programming session.
+  - Use `fn_link_control` (0x87) for the baud-rate transition and AccessTimingParameter (0x83) to negotiate P2/P2* at runtime.

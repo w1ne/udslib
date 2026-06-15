@@ -16,10 +16,25 @@ If the OS (Zephyr, Linux SocketCAN) provides an ISO-TP stack:
 3.  The internal `uds_tp_isotp.c` is **not** used.
 
 ### 2.2. Internal Fallback (Bare Metal)
-If no OS stack is available:
-1.  Initialize with `uds_tp_isotp_init(can_send_fn, tx_id, rx_id)`.
-2.  Feed raw CAN frames into `uds_isotp_rx_callback()`.
-3.  Proces logic via `uds_tp_isotp_process()`.
+If no OS stack is available, the internal ISO-TP engine is fully **instance-based**: the application allocates a `uds_isotp_ctx_t` (and a TX SDU cache buffer) and passes it to every call, so multiple independent channels can run concurrently with zero dynamic allocation.
+
+1.  Allocate a context and a TX SDU cache buffer, then initialize:
+    ```c
+    static uds_isotp_ctx_t iso;
+    static uint8_t iso_tx_sdu[1024];
+
+    uds_tp_isotp_init(&iso, can_send_fn, tx_id, rx_id, iso_tx_sdu, sizeof(iso_tx_sdu));
+    ```
+2.  Wire `config.fn_tp_send` to a small adapter that forwards to `uds_isotp_send()`:
+    ```c
+    static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+    {
+        (void) ctx;
+        return uds_isotp_send(&iso, data, len);
+    }
+    ```
+3.  Feed raw CAN frames into `uds_isotp_rx_callback(&iso, &uds, id, data, len)`.
+4.  Drive timing/transmission via `uds_tp_isotp_process(&iso, time_ms)`.
 
 ## 3. Internal ISO-TP States
 
@@ -35,11 +50,12 @@ UDSLib implements standard ISO-TP hardening features to ensure robust communicat
 - **STmin (Separation Time)**: Enforces minimum time between consecutive frames (CF) to prevent overwhelming the receiver.
 - **Block Size (BS)**: Manages data flow by requiring Flow Control (FC) frames after a specified number of CFs.
 - **Dynamic Timing**: STmin and Block Size parameters are dynamically extracted from peer Flow Control frames during transmission.
+- **Transfer Timeouts**: A stalled multi-frame transfer is aborted on timeout. `N_Cr` bounds the wait for the next Consecutive Frame during reception, and `N_Bs` bounds the wait for a Flow Control frame after sending a First Frame. Both default to 1000 ms (`ISOTP_N_CR_DEFAULT_MS` / `ISOTP_N_BS_DEFAULT_MS`) and are overridable per instance via `iso.n_cr_ms` / `iso.n_bs_ms`.
 
 ## 5. CAN-FD Support
 
-The internal ISO-TP layer supports CAN-FD, enabling frames up to 64 bytes for higher throughput.
-- **Enable**: Call `uds_tp_isotp_set_fd(true)` after initialization.
+The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames up to 64 bytes for higher throughput.
+- **Enable**: Call `uds_tp_isotp_set_fd(&iso, true)` after initialization (Classic CAN is the default).
 - **Single Frame (SF)**: Automatically uses CAN-FD SF format (`0x00 | DL`) for payloads > 7 bytes.
 - **Multi-Frame**: First Frame (FF) and Consecutive Frames (CF) utilize full 64-byte capacity (up to 62/63 bytes payload per frame).
 - **Compliance**: Adheres to ISO 15765-2 Table 9 for N_PCI bytes.
