@@ -19,13 +19,13 @@ extern "C" {
 #define UDS_VERSION_MAJOR 1
 
 /** Minor version number (backward-compatible functionality) */
-#define UDS_VERSION_MINOR 12
+#define UDS_VERSION_MINOR 13
 
 /** Patch version number (backward-compatible bug fixes) */
 #define UDS_VERSION_PATCH 0
 
 /** Full version string */
-#define UDS_VERSION_STR "1.12.0"
+#define UDS_VERSION_STR "1.13.0"
 
 /** Version as a single integer for comparison (MMmmpp format) */
 #define UDS_VERSION_INT \
