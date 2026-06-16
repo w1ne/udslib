@@ -19,7 +19,7 @@ static uds_config_t g_cfg;
 static bool g_safe_state = true;
 
 /* Mock Safety Gate */
-static bool mock_is_safe(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, uint32_t len)
+static bool mock_is_safe(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) data;
@@ -32,7 +32,7 @@ static bool mock_is_safe(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, 
 }
 
 /* Mock Service Handler */
-static int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+static int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) data;
@@ -111,7 +111,7 @@ static void test_safety_check_passes(void **state)
 }
 
 /* Improved Handler for full logic */
-static int mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+static int mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) data;
     (void) len;

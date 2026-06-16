@@ -21,7 +21,7 @@ static uint32_t get_system_time_ms(void)
     return 0;
 }
 
-static int can_send_frame(const uint8_t *data, uint32_t len)
+static int can_send_frame(const uint8_t *data, uint16_t len)
 {
     /* TODO: Write to CAN controller registers */
     return 0;
@@ -33,7 +33,7 @@ static uds_config_t cfg;
 static uint8_t rx_buffer[4096];
 static uint8_t tx_buffer[4096];
 
-static int tp_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+static int tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     /* For Bare Metal without ISO-TP stack, use valid TP implementation */
     /* If using raw CAN, we need uds_tp_isotp.c (not shown here to keep simple) */

@@ -26,7 +26,7 @@ static int mock_request_download(struct uds_ctx *ctx, uint32_t addr, uint32_t si
 }
 
 static int mock_transfer_data(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data,
-                              uint32_t len)
+                              uint16_t len)
 {
     (void) ctx;
     (void) data;

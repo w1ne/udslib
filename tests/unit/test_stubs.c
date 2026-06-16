@@ -11,7 +11,7 @@
 #include "uds/uds_core.h"
 
 /* Stub for uds_input_sdu that verifies expected data */
-void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     if (len > 0) {

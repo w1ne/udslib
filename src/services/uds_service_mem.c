@@ -11,7 +11,7 @@
 #include "uds_internal.h"
 #include <string.h>
 
-int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 3u) {
         return uds_send_nrc(ctx, UDS_SID_READ_MEM_BY_ADDR, UDS_NRC_INCORRECT_LENGTH);
@@ -49,7 +49,7 @@ int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data,
     return uds_send_response(ctx, (uint16_t) (size + 1u));
 }
 
-int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 3u) {
         return uds_send_nrc(ctx, UDS_SID_WRITE_MEM_BY_ADDR, UDS_NRC_INCORRECT_LENGTH);

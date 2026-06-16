@@ -30,7 +30,7 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
 }
 
 /* Mock Input SDU (captures reassembled RX payloads) */
-void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     check_expected_ptr(data);
@@ -163,7 +163,7 @@ static void test_rx_ff_overflow(void **state)
 }
 
 /* Helper: start a multi-frame TX and consume the FF */
-static void start_mf_tx(uint32_t len)
+static void start_mf_tx(uint16_t len)
 {
     static uint8_t data[200];
     for (int i = 0; i < (int) len && i < 200; i++) data[i] = (uint8_t) i;
@@ -233,98 +233,6 @@ static void test_fc_invalid_fs_aborts(void **state)
     assert_int_equal(g_iso.state, ISOTP_IDLE);
 }
 
-/* --- Above the old 16-bit cap: TX encodes a 32-bit FF_DL > 65535 --- */
-static uint8_t g_big_sdu[70000];
-static uint8_t g_big_rx[70000];
-
-static void test_escape_ff_tx_above_64k(void **state)
-{
-    (void) state;
-    const uint32_t LEN = 70000u; /* 0x00011170, exceeds the former uint16_t cap */
-    static uds_isotp_ctx_t iso;
-    static uint8_t payload[70000];
-    for (uint32_t i = 0; i < LEN; i++) payload[i] = (uint8_t) (i & 0xFF);
-
-    uds_tp_isotp_init(&iso, mock_can_send, 0x7E0, 0x7E8, g_big_sdu, sizeof(g_big_sdu));
-    uds_tp_isotp_set_fd(&iso, true);
-
-    /* Escape FF must carry the full 32-bit length 0x00011170 in bytes 2..5 */
-    uint8_t expected[64] = {0};
-    expected[0] = 0x10;
-    expected[1] = 0x00;
-    expected[2] = 0x00;
-    expected[3] = 0x01;
-    expected[4] = 0x11;
-    expected[5] = 0x70;
-    memcpy(&expected[6], payload, 58);
-
-    expect_value(mock_can_send, id, 0x7E0);
-    expect_value(mock_can_send, len, 64);
-    expect_memory(mock_can_send, data, expected, 64);
-    will_return(mock_can_send, 0);
-
-    int rc = uds_isotp_send(&iso, payload, LEN);
-    assert_int_equal(rc, 0);
-    assert_int_equal(iso.msg_len, LEN); /* no truncation in the 32-bit field */
-}
-
-/* --- Above the old 16-bit cap: full RX reassembly of a > 65535-byte SDU --- */
-static void test_escape_ff_rx_above_64k(void **state)
-{
-    (void) state;
-    const uint32_t LEN = 70000u;
-    static uds_isotp_ctx_t iso;
-    static struct uds_ctx ctx;
-    static uds_config_t cfg;
-    static uint8_t payload[70000];
-    for (uint32_t i = 0; i < LEN; i++) payload[i] = (uint8_t) ((i * 31u + 7u) & 0xFF);
-
-    uds_tp_isotp_init(&iso, mock_can_send, 0x7E0, 0x7E8, g_big_sdu, sizeof(g_big_sdu));
-    uds_tp_isotp_set_fd(&iso, true);
-    memset(&cfg, 0, sizeof(cfg));
-    cfg.rx_buffer = g_big_rx;
-    cfg.rx_buffer_size = sizeof(g_big_rx);
-    ctx.config = &cfg;
-
-    /* Escape FF carrying FF_DL = 70000 (0x00011170) + 58 payload bytes */
-    uint8_t ff[64] = {0};
-    ff[0] = 0x10;
-    ff[1] = 0x00;
-    ff[2] = 0x00;
-    ff[3] = 0x01;
-    ff[4] = 0x11;
-    ff[5] = 0x70;
-    memcpy(&ff[6], payload, 58);
-
-    expect_value(mock_can_send, id, 0x7E0); /* FC.CTS */
-    expect_value(mock_can_send, len, 8);
-    expect_any(mock_can_send, data);
-    will_return(mock_can_send, 0);
-
-    uds_isotp_rx_callback(&iso, &ctx, 0x7E8, ff, 64);
-    assert_int_equal(iso.state, ISOTP_RX_WAIT_CF);
-    assert_int_equal(iso.msg_len, LEN);
-
-    uint32_t sent = 58;
-    uint8_t sn = 1;
-    while (sent < LEN) {
-        uint8_t cf[64] = {0};
-        cf[0] = (uint8_t) (0x20 | (sn & 0x0F));
-        uint32_t remaining = LEN - sent;
-        uint8_t chunk = (remaining > 63u) ? 63u : (uint8_t) remaining;
-        memcpy(&cf[1], &payload[sent], chunk);
-
-        if (sent + chunk >= LEN) {
-            expect_memory(__wrap_uds_input_sdu, data, payload, LEN);
-            expect_value(__wrap_uds_input_sdu, len, LEN);
-        }
-        uds_isotp_rx_callback(&iso, &ctx, 0x7E8, cf, (uint8_t) (1 + chunk));
-        sent += chunk;
-        sn = (sn + 1) & 0x0F;
-    }
-    assert_int_equal(iso.state, ISOTP_IDLE);
-}
-
 /* --- #1: classic CAN Single Frame RX regression --- */
 static void test_classic_sf_rx(void **state)
 {
@@ -349,8 +257,6 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_fc_wait_then_cts, setup, NULL),
         cmocka_unit_test_setup_teardown(test_fc_overflow_aborts, setup, NULL),
         cmocka_unit_test_setup_teardown(test_fc_invalid_fs_aborts, setup, NULL),
-        cmocka_unit_test_setup_teardown(test_escape_ff_tx_above_64k, setup, NULL),
-        cmocka_unit_test_setup_teardown(test_escape_ff_rx_above_64k, setup, NULL),
         cmocka_unit_test_setup_teardown(test_classic_sf_rx, setup, NULL),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

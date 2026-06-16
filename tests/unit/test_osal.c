@@ -12,7 +12,7 @@
 #include "uds/uds_core.h"
 #include "uds/uds_config.h"
 
-static int mock_can_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+static int mock_can_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) data;
@@ -33,7 +33,7 @@ static uint32_t get_time_mutable(void)
     return g_osal_time;
 }
 
-static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) data;
