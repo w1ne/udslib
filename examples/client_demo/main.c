@@ -52,13 +52,13 @@ static uds_isotp_ctx_t g_isotp;
 static uint8_t g_isotp_tx_sdu[1024];
 
 /** Adapter binding the core's fn_tp_send contract to this ISO-TP instance. */
-static int isotp_send_adapter(struct uds_ctx* ctx, const uint8_t* data, uint32_t len)
+static int isotp_send_adapter(struct uds_ctx* ctx, const uint8_t* data, uint16_t len)
 {
     (void) ctx;
     return uds_isotp_send(&g_isotp, data, len);
 }
 
-void on_response(uds_ctx_t* ctx, uint8_t sid, const uint8_t* data, uint32_t len)
+void on_response(uds_ctx_t* ctx, uint8_t sid, const uint8_t* data, uint16_t len)
 {
     (void) ctx;
     printf("[CLIENT] Response Received: SID=%02X, Len=%d\n", sid, len);

@@ -11,7 +11,7 @@
 
 #include "uds_internal.h"
 
-int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_LINK_CONTROL, UDS_NRC_INCORRECT_LENGTH);
@@ -70,7 +70,7 @@ int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint32
     return uds_send_response(ctx, 2u);
 }
 
-int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_ACCESS_TIMING, UDS_NRC_INCORRECT_LENGTH);

@@ -28,7 +28,7 @@ static uint32_t mock_get_time(void)
     return (uint32_t) mock();
 }
 
-static int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+static int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     check_expected_ptr(data);
@@ -99,7 +99,7 @@ static void test_invalid_sid_nrc(void **state)
     assert_int_equal(g_tx_buf[2], 0x11);
 }
 
-static int custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+static int custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) data;
     (void) len;
@@ -136,7 +136,7 @@ static void test_custom_service_registration(void **state)
     assert_int_equal(tx_buf[0], 0xAA);
 }
 
-static bool mock_safety_check(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint32_t len)
+static bool mock_safety_check(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) data;

@@ -24,7 +24,7 @@ static int mock_can_send(uint32_t id, const uint8_t *data, uint8_t len)
 }
 
 /* Mock Input SDU (captures reassembled RX payloads) */
-void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+void __wrap_uds_input_sdu(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     check_expected_ptr(data);

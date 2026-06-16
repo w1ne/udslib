@@ -78,7 +78,7 @@ typedef enum
  * @param data  Pointer to the response payload data.
  * @param len   Length of the payload data in bytes.
  */
-typedef void (*uds_response_cb)(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint32_t len);
+typedef void (*uds_response_cb)(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len);
 
 /* --- Public API --- */
 
@@ -114,7 +114,7 @@ void uds_process(uds_ctx_t *ctx);
  * @param data Pointer to the buffer containing the SDU.
  * @param len  Length of the data in bytes.
  */
-void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint32_t len);
+void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /**
  * @brief Send a UDS Request as a Client.
@@ -126,7 +126,7 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint32_t len);
  * @param callback Function to call when a response is received from the ECU.
  * @return UDS_OK if the request was successfully passed to the transport layer.
  */
-int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint32_t len,
+int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
                        uds_response_cb callback);
 
 /**
@@ -138,7 +138,7 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint32_
  * @param len  Length of the response data already written to the context's tx_buffer.
  * @return UDS_OK on success.
  */
-int uds_send_response(uds_ctx_t *ctx, uint32_t len);
+int uds_send_response(uds_ctx_t *ctx, uint16_t len);
 
 /**
  * @brief Send a negative response (NRC) manually.

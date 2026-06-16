@@ -10,7 +10,7 @@
 
 #include "uds_internal.h"
 
-int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) len;
     uint8_t sub = (uint8_t) (data[1] & UDS_MASK_SUBFUNCTION);
@@ -61,7 +61,7 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
     return UDS_OK;
 }
 
-int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) len;
     uint8_t sub = (uint8_t) (data[1] & UDS_MASK_SUBFUNCTION);

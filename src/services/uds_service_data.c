@@ -11,7 +11,7 @@
 #include <string.h>
 #include "uds_internal.h"
 
-int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     uint16_t tx_len = 1u; /* SID 0x62 set later */
     uint16_t i = 1u;
@@ -88,7 +88,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 }
 
-int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 3u) {
         return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_INCORRECT_LENGTH);
@@ -139,7 +139,7 @@ int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
     return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_CONDITIONS_NOT_CORRECT);
 }
 
-int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     /* ISO 14229-1: 0x2A [transmissionMode] [periodicDataIdentifier...] */
     if (len < 2u) {

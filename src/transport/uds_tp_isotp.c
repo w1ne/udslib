@@ -54,7 +54,7 @@ static uint8_t uds_dlc_align(uint8_t len)
 /* --- Public API --- */
 
 void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t tx_id,
-                       uint32_t rx_id, uint8_t *tx_sdu_buf, uint32_t tx_sdu_size)
+                       uint32_t rx_id, uint8_t *tx_sdu_buf, uint16_t tx_sdu_size)
 {
     if (!iso) {
         return;
@@ -86,7 +86,7 @@ void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled)
 /**
  * @brief Internal: Send Single Frame.
  */
-static int uds_send_sf(uds_isotp_ctx_t *iso, const uint8_t *data, uint32_t len)
+static int uds_send_sf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
     uint8_t dl = ISOTP_MAX_DL_CAN;
@@ -112,7 +112,7 @@ static int uds_send_sf(uds_isotp_ctx_t *iso, const uint8_t *data, uint32_t len)
 /**
  * @brief Internal: Start Multi-Frame Transmission.
  */
-static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint32_t len)
+static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
     /* msg_len is uint16_t, so the SDU is inherently capped at 65535 bytes; the
        only hard limit here is the caller-provided TX cache. */
@@ -174,7 +174,7 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint32_t len)
     return 0; /* Multi-Frame started successfully */
 }
 
-int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint32_t len)
+int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
     if (!iso) {
         return -1;
@@ -218,7 +218,7 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
     }
 
     if (iso->state == ISOTP_TX_SENDING_CF) {
-        uint32_t remaining = iso->msg_len - iso->bytes_processed;
+        uint16_t remaining = iso->msg_len - iso->bytes_processed;
         if (remaining == 0) {
             iso->state = ISOTP_IDLE;
             return;
@@ -298,7 +298,7 @@ static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
         return;
     }
 
-    uds_input_sdu(uds, &data[data_offset], (uint32_t) sdu_len);
+    uds_input_sdu(uds, &data[data_offset], (uint16_t) sdu_len);
 }
 
 static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
@@ -342,7 +342,7 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
         return;
     }
 
-    iso->msg_len = sdu_len;
+    iso->msg_len = (uint16_t) sdu_len;
 
     uint8_t data_in_ff = (uint8_t) (len - header_len);
 
@@ -374,7 +374,7 @@ static void uds_rx_cf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
     }
     iso->sn = (iso->sn + 1) & 0x0F;
 
-    uint32_t remaining = iso->msg_len - iso->bytes_processed;
+    uint16_t remaining = iso->msg_len - iso->bytes_processed;
 
     /* Max payload in CF depends on whether we received FD frame (len > 8) or not. */
     uint8_t data_capacity = len - 1; /* Byte 0 is PCI+SN */

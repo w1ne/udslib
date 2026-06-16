@@ -12,7 +12,7 @@
 #include <string.h>
 #include "uds_internal.h"
 
-int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 4u) {
         return uds_send_nrc(ctx, UDS_SID_ROUTINE_CONTROL,
@@ -44,7 +44,7 @@ int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uin
     return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 4u));
 }
 
-int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     /* ISO 14229-1: 0x34 [dataFormatIdentifier] [addressAndLengthFormatIdentifier] [address...]
      * [size...] */
@@ -90,7 +90,7 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
     return uds_send_response(ctx, 6u);
 }
 
-int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_INCORRECT_LENGTH);
@@ -136,7 +136,7 @@ int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint3
     return uds_send_response(ctx, 2u);
 }
 
-int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) data;
     (void) len;
@@ -154,7 +154,7 @@ int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *dat
     return uds_send_response(ctx, 1u);
 }
 
-int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     /* ISO 14229-1: 0x35 [dataFormatIdentifier] [addressAndLengthFormatIdentifier] [address...]
      * [size...] */

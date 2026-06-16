@@ -14,7 +14,7 @@
 #include "uds/uds_config.h"
 
 /* Mock Transport Send */
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     check_expected_ptr(data);
     check_expected(len);
@@ -28,7 +28,7 @@ static uint32_t mock_get_time(void)
 }
 
 /* Async Handler: returns UDS_PENDING */
-static int async_handler(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
+static int async_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) data;

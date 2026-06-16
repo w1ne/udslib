@@ -17,7 +17,7 @@
 static uint8_t g_storage_did[4] = {0x00, 0x00, 0x00, 0x00};
 
 /* Mock Write Callback */
-static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, uint32_t len)
+static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
     (void) len;

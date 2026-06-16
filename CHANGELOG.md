@@ -3,11 +3,8 @@
 ## [Unreleased]
 
 ### Added
-- **ISO-TP escape FirstFrame (ISO 15765-2)**: multi-frame transfers with `FF_DL > 4095` are now sent and received using the 32-bit escape sequence (`10 00` + 4-byte length) instead of being rejected. Enables large CAN-FD payloads (e.g. reprogramming).
-- **ISO-TP FlowControl status handling**: the sender now honours `FlowStatus = WAIT` (keep waiting, restart N_Bs) and `OVFLW` (abort), and aborts on a reserved/invalid FS. A receiver whose buffer is smaller than the announced `FF_DL` now answers `FC.OVFLW` instead of dropping the FirstFrame silently.
-
-### Changed
-- **BREAKING (API)**: request/response **length parameters are now `uint32_t`** throughout (was `uint16_t`), lifting the 64 KB cap on a single reassembled SDU. This widens the public signatures `uds_input_sdu`, `uds_isotp_send`, `uds_send_response`, `uds_client_request`, the `uds_response_cb` / `uds_tp_send_fn` / `uds_service_handler_t` / `uds_did_write_fn` / `fn_is_safe` callbacks, the `uds_tp_isotp_init` TX-buffer size, and the `rx_buffer_size` / `tx_buffer_size` config fields. Integrators implementing these callbacks must update their length parameter to `uint32_t` (DID/security buffer-capacity and `resp_len` parameters are unchanged).
+- **ISO-TP escape FirstFrame (ISO 15765-2)**: multi-frame transfers with `FF_DL > 4095` are now sent and received using the escape sequence (`10 00` + 4-byte length) instead of being rejected. Supports SDUs up to the 16-bit reassembly-buffer limit; a FirstFrame whose `FF_DL` exceeds the receive buffer is answered with `FC.OVFLW` rather than dropped silently.
+- **ISO-TP FlowControl status handling**: the sender now honours `FlowStatus = WAIT` (keep waiting, restart N_Bs) and `OVFLW` (abort), and aborts on a reserved/invalid FS.
 
 ## [1.13.0] - 2026-06-15
 
