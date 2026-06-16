@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.14.0] - 2026-06-16
+
+### Added
+- **ISO-TP escape FirstFrame (ISO 15765-2)**: multi-frame transfers with `FF_DL > 4095` are now sent and received using the escape sequence (`10 00` + 4-byte length) instead of being rejected. Supports SDUs up to the 16-bit reassembly-buffer limit; a FirstFrame whose `FF_DL` exceeds the receive buffer is answered with `FC.OVFLW` rather than dropped silently.
+- **ISO-TP FlowControl status handling**: the sender now honours `FlowStatus = WAIT` (keep waiting, restart N_Bs) and `OVFLW` (abort), and aborts on a reserved/invalid FS.
+
 ## [1.13.0] - 2026-06-15
 
 ### Added

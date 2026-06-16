@@ -114,7 +114,9 @@ static int uds_send_sf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
  */
 static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
-    if (len > ISOTP_MAX_SDU_LEN_STD || len > iso->tx_sdu_size) {
+    /* msg_len is uint16_t, so the SDU is inherently capped at 65535 bytes; the
+       only hard limit here is the caller-provided TX cache. */
+    if (len > iso->tx_sdu_size) {
         return -2;
     }
 
@@ -123,27 +125,43 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 
     iso->msg_len = len;
     iso->bytes_processed = 0;
+    iso->bs_counter = 0; /* fresh block accounting for this transfer */
     iso->state = ISOTP_TX_WAIT_FC;
     iso->timer_n_bs = 0u; /* armed on the first process() tick in WAIT_FC */
 
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
     uint8_t dl = ISOTP_MAX_DL_CAN;
+    uint8_t header_len;
 
-    /* FF Header: [1n] [nn] */
-    frame[0] = (uint8_t) ((uint8_t) ISOTP_PCI_FF | (uint8_t) ((len >> 8u) & 0x0Fu));
-    frame[1] = (uint8_t) (len & 0xFFu);
+    if (len > ISOTP_MAX_SDU_LEN_STD) {
+        /* Escape FF (ISO 15765-2, FF_DL > 4095): [10] [00] [32-bit FF_DL] */
+        frame[0] = (uint8_t) ISOTP_PCI_FF;
+        frame[1] = 0x00u;
+        frame[2] = (uint8_t) ((len >> 24u) & 0xFFu);
+        frame[3] = (uint8_t) ((len >> 16u) & 0xFFu);
+        frame[4] = (uint8_t) ((len >> 8u) & 0xFFu);
+        frame[5] = (uint8_t) (len & 0xFFu);
+        header_len = 6u;
+    }
+    else {
+        /* Standard FF Header: [1n] [nn] */
+        frame[0] = (uint8_t) ((uint8_t) ISOTP_PCI_FF | (uint8_t) ((len >> 8u) & 0x0Fu));
+        frame[1] = (uint8_t) (len & 0xFFu);
+        header_len = 2u;
+    }
 
-    uint8_t max_data_in_ff = (iso->use_can_fd) ? ISOTP_FF_MAX_DATA_CANFD : ISOTP_FF_MAX_DATA_CAN;
+    uint8_t frame_capacity = (iso->use_can_fd) ? ISOTP_MAX_DL_CANFD : ISOTP_MAX_DL_CAN;
+    uint8_t max_data_in_ff = (uint8_t) (frame_capacity - header_len);
 
     /* Copy as much as fits in FF */
     uint8_t to_copy = (len > max_data_in_ff) ? max_data_in_ff : (uint8_t) len;
-    memcpy(&frame[2], data, to_copy);
+    memcpy(&frame[header_len], data, to_copy);
 
     iso->bytes_processed = to_copy;
     iso->sn = 1u;
 
     if (iso->use_can_fd) {
-        dl = uds_dlc_align(2 + to_copy);
+        dl = uds_dlc_align((uint8_t) (header_len + to_copy));
     }
     else {
         dl = ISOTP_MAX_DL_CAN;
@@ -292,35 +310,48 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
         return; /* FF requires at least PCI + length byte */
     }
 
-    uint16_t sdu_len =
-        (uint16_t) ((uint16_t) ((uint16_t) data[0] & 0x0Fu) << 8u) | (uint16_t) data[1];
-    if (sdu_len < 8u) {
-        return; /* Multi-frame must be > 7 bytes (Standard) or handled by SF */
-    }
+    uint32_t sdu_len;
+    uint8_t header_len;
 
-    iso->msg_len = sdu_len;
-
-    /* Determine data in FF */
-    uint8_t data_in_ff;
-    if (len > ISOTP_MAX_DL_CAN) {
-        /* CAN-FD FF */
-        data_in_ff = len - 2;
+    if ((data[0] & 0x0Fu) == 0u && data[1] == 0u) {
+        /* Escape FF (ISO 15765-2): 32-bit FF_DL in bytes 2..5 (MSB first). */
+        if (len < 6u) {
+            return; /* Not enough bytes for the escape length field */
+        }
+        sdu_len = ((uint32_t) data[2] << 24u) | ((uint32_t) data[3] << 16u) |
+                  ((uint32_t) data[4] << 8u) | (uint32_t) data[5];
+        if (sdu_len <= ISOTP_MAX_SDU_LEN_STD) {
+            return; /* Escape sequence with FF_DL <= 4095 is invalid; ignore (9.6.3.2). */
+        }
+        header_len = 6u;
     }
     else {
-        /* Classic CAN FF */
-        data_in_ff = ISOTP_FF_MAX_DATA_CAN;
+        sdu_len = ((uint32_t) (data[0] & 0x0Fu) << 8u) | (uint32_t) data[1];
+        if (sdu_len < 8u) {
+            return; /* Multi-frame must be > 7 bytes (Standard) or handled by SF */
+        }
+        header_len = 2u;
     }
+
+    /* FF_DL exceeding the receive buffer: abort and notify the sender (9.6.3.2). */
+    if (sdu_len > uds->config->rx_buffer_size) {
+        iso->state = ISOTP_IDLE;
+        uint8_t fc_ov[8] = {0};
+        fc_ov[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_OVA);
+        uds_internal_tp_send_frame(iso, fc_ov, 8);
+        return;
+    }
+
+    iso->msg_len = (uint16_t) sdu_len;
+
+    uint8_t data_in_ff = (uint8_t) (len - header_len);
 
     iso->bytes_processed = data_in_ff;
     iso->sn = 1;
     iso->state = ISOTP_RX_WAIT_CF;
     iso->timer_n_cr = uds->config->get_time_ms ? uds->config->get_time_ms() : 0u;
 
-    if (uds->config->rx_buffer_size < sdu_len) {
-        iso->state = ISOTP_IDLE;
-        return;
-    }
-    memcpy(uds->config->rx_buffer, &data[2], data_in_ff);
+    memcpy(uds->config->rx_buffer, &data[header_len], data_in_ff);
 
     /* Send Flow Control (CTS) */
     uint8_t fc[8] = {0};
@@ -370,11 +401,30 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
     }
 
     uint8_t fs = data[0] & 0x0F;
-    if (fs == ISOTP_FC_CTS) {
-        iso->state = ISOTP_TX_SENDING_CF;
-        iso->block_size = data[1];
-        iso->st_min = data[2];
-        iso->timer_n_bs = 0u; /* FC arrived: disarm N_Bs */
+    switch (fs) {
+        case ISOTP_FC_CTS:
+            /* ClearToSend: latch BS/STmin and resume the next block of CFs. */
+            iso->state = ISOTP_TX_SENDING_CF;
+            iso->block_size = data[1];
+            iso->st_min = data[2];
+            iso->bs_counter = 0u;
+            iso->timer_n_bs = 0u; /* FC arrived: disarm N_Bs */
+            break;
+
+        case ISOTP_FC_WAIT:
+            /* Wait: keep waiting for a further FC and restart N_Bs. BS/STmin
+               in this frame are not relevant and are ignored (ISO 15765-2). */
+            iso->state = ISOTP_TX_WAIT_FC;
+            iso->timer_n_bs = 0u; /* re-armed on the next process() tick */
+            break;
+
+        case ISOTP_FC_OVA:
+        default:
+            /* Overflow (receiver buffer too small) or reserved/invalid FS:
+               abort the segmented transmission. */
+            iso->state = ISOTP_IDLE;
+            iso->timer_n_bs = 0u;
+            break;
     }
 }
 
