@@ -134,13 +134,15 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     uint8_t header_len;
 
     if (len > ISOTP_MAX_SDU_LEN_STD) {
-        /* Escape FF (ISO 15765-2, FF_DL > 4095): [10] [00] [32-bit FF_DL] */
+        /* Escape FF (ISO 15765-2, FF_DL > 4095): [10] [00] [32-bit FF_DL].
+           FF_DL is a 32-bit field; widen before shifting (MISRA 12.2). */
+        uint32_t ff_dl = (uint32_t) len;
         frame[0] = (uint8_t) ISOTP_PCI_FF;
         frame[1] = 0x00u;
-        frame[2] = (uint8_t) ((len >> 24u) & 0xFFu);
-        frame[3] = (uint8_t) ((len >> 16u) & 0xFFu);
-        frame[4] = (uint8_t) ((len >> 8u) & 0xFFu);
-        frame[5] = (uint8_t) (len & 0xFFu);
+        frame[2] = (uint8_t) ((ff_dl >> 24u) & 0xFFu);
+        frame[3] = (uint8_t) ((ff_dl >> 16u) & 0xFFu);
+        frame[4] = (uint8_t) ((ff_dl >> 8u) & 0xFFu);
+        frame[5] = (uint8_t) (ff_dl & 0xFFu);
         header_len = 6u;
     }
     else {
@@ -333,7 +335,7 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
         header_len = 2u;
     }
 
-    /* FF_DL exceeding the receive buffer: abort and notify the sender (9.6.3.2). */
+    /* FF_DL exceeding the receive buffer: cancel and notify the sender (9.6.3.2). */
     if (sdu_len > uds->config->rx_buffer_size) {
         iso->state = ISOTP_IDLE;
         uint8_t fc_ov[8] = {0};
@@ -421,7 +423,7 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
         case ISOTP_FC_OVA:
         default:
             /* Overflow (receiver buffer too small) or reserved/invalid FS:
-               abort the segmented transmission. */
+               cancel the segmented transmission. */
             iso->state = ISOTP_IDLE;
             iso->timer_n_bs = 0u;
             break;
