@@ -14,7 +14,7 @@
 #include "uds/uds_config.h"
 
 /* Mock Transport Send */
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     check_expected_ptr(data);
@@ -23,7 +23,7 @@ static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* Dummy Handler */
-static int dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static int dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     (void) data;

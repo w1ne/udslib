@@ -15,7 +15,7 @@
 #include "test_helpers.h"
 
 /* Dummy Service Handler */
-int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     (void) data;

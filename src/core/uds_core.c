@@ -89,7 +89,7 @@ const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id)
     return NULL;
 }
 
-bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr,
+bool uds_internal_parse_addr_len(const uint8_t *data, uint32_t len, uint8_t format, uint32_t *addr,
                                  uint32_t *size)
 {
     uint8_t addr_len = (uint8_t) (format & UDS_MASK_NIBBLE);
@@ -207,7 +207,7 @@ static bool is_subfunction_supported(const uds_service_entry_t *service, uint8_t
 }
 
 static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, const uint8_t *data,
-                           uint16_t len)
+                           uint32_t len)
 {
     int res = service->handler(ctx, data, len);
     if (res == UDS_PENDING) {
@@ -220,7 +220,7 @@ static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, c
     return res;
 }
 
-static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     uint8_t sid = data[0];
     const uds_service_entry_t *service = find_service(ctx, sid);
@@ -408,7 +408,7 @@ void uds_process(uds_ctx_t *ctx)
     }
 }
 
-int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
+int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint32_t len,
                        uds_response_cb callback)
 {
     if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
@@ -435,7 +435,7 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
         memcpy(&ctx->config->tx_buffer[1], data, len);
     }
 
-    int result = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, (uint16_t) (len + 1u));
+    int result = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, (uint32_t) (len + 1u));
 
     if (ctx->config->fn_mutex_unlock != NULL) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
@@ -444,7 +444,7 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
     return result;
 }
 
-void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (!ctx || !ctx->config) {
         return;
@@ -487,7 +487,7 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         if (is_pos || is_neg) {
             if (ctx->client_cb != NULL) {
                 uds_response_cb cb = (uds_response_cb) ctx->client_cb;
-                cb(ctx, sid, &data[1], (uint16_t) (len - 1u));
+                cb(ctx, sid, &data[1], (uint32_t) (len - 1u));
                 ctx->client_cb = NULL;
             }
             ctx->client_pending_sid = 0u;
@@ -511,7 +511,7 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     }
 }
 
-int uds_send_response(uds_ctx_t *ctx, uint16_t len)
+int uds_send_response(uds_ctx_t *ctx, uint32_t len)
 {
     if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
         return UDS_ERR_NOT_INIT;

@@ -18,7 +18,7 @@ uint32_t mock_get_time(void)
     return (uint32_t) mock();
 }
 
-int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     check_expected_ptr(data);

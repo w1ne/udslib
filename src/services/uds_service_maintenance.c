@@ -12,7 +12,7 @@
 #include "uds_internal.h"
 #include <string.h>
 
-int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_ECU_RESET, UDS_NRC_INCORRECT_LENGTH);
@@ -45,7 +45,7 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
     return uds_send_response(ctx, 2u);
 }
 
-int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     /* C-11: Minimum length is 3 bytes (SI+Control+Comm) */
     if (len < 3u) {
@@ -92,7 +92,7 @@ int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16
     return uds_send_response(ctx, 2u);
 }
 
-int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (len < 4u) {
         return uds_send_nrc(ctx, UDS_SID_CLEAR_DTC,
@@ -117,7 +117,7 @@ int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
     return uds_send_response(ctx, 1u);
 }
 
-int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
@@ -161,7 +161,7 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
     return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 2u));
 }
 
-int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_CONTROL_DTC_SETTING, UDS_NRC_INCORRECT_LENGTH);

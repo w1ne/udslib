@@ -14,7 +14,7 @@
 #include "test_helpers.h"
 
 static int mock_io_callback(struct uds_ctx *ctx, uint16_t id, uint8_t type, const uint8_t *data,
-                            uint16_t len, uint8_t *out_buf, uint16_t max_len)
+                            uint32_t len, uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
     (void) data;

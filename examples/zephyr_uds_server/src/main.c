@@ -14,11 +14,11 @@ extern void uds_log_zephyr(uint8_t level, const char* msg);
 
 #if defined(CONFIG_UDSLIB_TRANSPORT_NATIVE)
 extern int uds_zephyr_isotp_init(uint32_t rx_id, uint32_t tx_id);
-extern int uds_zephyr_isotp_send(struct uds_ctx* ctx, const uint8_t* data, uint16_t len);
+extern int uds_zephyr_isotp_send(struct uds_ctx* ctx, const uint8_t* data, uint32_t len);
 extern int uds_zephyr_isotp_recv(uint8_t* buf, uint16_t size);
 #elif defined(CONFIG_UDSLIB_TRANSPORT_FALLBACK)
 extern int uds_zephyr_tp_fallback_init(struct uds_ctx* uds_ctx, uint32_t rx_id, uint32_t tx_id);
-extern int uds_zephyr_tp_fallback_send(struct uds_ctx* uds_ctx, const uint8_t* data, uint16_t len);
+extern int uds_zephyr_tp_fallback_send(struct uds_ctx* uds_ctx, const uint8_t* data, uint32_t len);
 extern void uds_zephyr_tp_fallback_process(uint32_t time_ms);
 #endif
 

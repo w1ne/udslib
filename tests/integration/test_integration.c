@@ -24,7 +24,7 @@ static uint8_t g_tx_buf[4096];
 static uint8_t g_network_buf[4096];
 static uint16_t g_network_len = 0;
 
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     if (len > sizeof(g_network_buf)) return -1;
@@ -40,7 +40,7 @@ static uint32_t mock_get_time(void)
 }
 
 /* Mock Helpers */
-static int mock_did_write(struct uds_ctx *ctx, uint16_t did, const uint8_t *data, uint16_t len)
+static int mock_did_write(struct uds_ctx *ctx, uint16_t did, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     (void) did;
@@ -107,12 +107,12 @@ static int teardown(void **state)
 }
 
 /* Helper to simulate receiving frame */
-static void send_to_uds(const uint8_t *data, uint16_t len)
+static void send_to_uds(const uint8_t *data, uint32_t len)
 {
     uds_input_sdu(&g_ctx, data, len);
 }
 
-static void verify_response(const uint8_t *expected, uint16_t len)
+static void verify_response(const uint8_t *expected, uint32_t len)
 {
     assert_int_equal(g_network_len, len);
     assert_memory_equal(g_network_buf, expected, len);

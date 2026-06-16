@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 /* Mock Mocks */
-static int mock_can_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int mock_can_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     check_expected(len);
