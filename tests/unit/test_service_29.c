@@ -18,7 +18,7 @@
 #include "uds/uds_core.h"
 #include "test_helpers.h"
 
-static int mock_auth_callback(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
+static int mock_auth_callback(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint32_t len,
                               uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;

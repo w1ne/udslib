@@ -136,7 +136,7 @@ static uds_isotp_ctx_t g_isotp;
 static uint8_t g_isotp_tx_sdu[1024];
 
 /** Adapter binding the core's fn_tp_send contract to this ISO-TP instance. */
-static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     return uds_isotp_send(&g_isotp, data, len);
@@ -220,7 +220,7 @@ static int mock_security_key(struct uds_ctx *ctx, uint8_t level, const uint8_t *
     return UDS_OK;
 }
 
-static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
+static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint32_t len,
                      uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
@@ -237,7 +237,7 @@ static int mock_auth(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, ui
 }
 
 static int mock_routine_control(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data,
-                                uint16_t len, uint8_t *out_buf, uint16_t max_len)
+                                uint32_t len, uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
     (void) data;
@@ -259,7 +259,7 @@ static int mock_request_download(struct uds_ctx *ctx, uint32_t addr, uint32_t si
 }
 
 static int mock_transfer_data(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data,
-                              uint16_t len)
+                              uint32_t len)
 {
     (void) ctx;
     (void) data;
@@ -276,7 +276,7 @@ static int mock_transfer_exit(struct uds_ctx *ctx)
 }
 
 static int mock_io_control(struct uds_ctx *ctx, uint16_t id, uint8_t type, const uint8_t *data,
-                           uint16_t len, uint8_t *out_buf, uint16_t max_len)
+                           uint32_t len, uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
     (void) data;

@@ -35,7 +35,7 @@ static uint32_t ecu_time(void)
     return g_time;
 }
 
-static int ecu_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static int ecu_send(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     memcpy(g_resp, data, len);
@@ -90,7 +90,7 @@ static int ecu_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
     return 0;
 }
 
-static int ecu_transfer(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *data, uint16_t len)
+static int ecu_transfer(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     (void) sequence;
@@ -109,7 +109,7 @@ static int ecu_transfer_exit(uds_ctx_t *ctx)
     return 0;
 }
 
-static int ecu_routine(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data, uint16_t len,
+static int ecu_routine(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data, uint32_t len,
                        uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
@@ -136,7 +136,7 @@ static int ecu_routine(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t 
 static uds_ctx_t g_ecu;
 
 /* Send one request to the ECU and return its captured response. */
-static const uint8_t *tool_send(const uint8_t *req, uint16_t len, uint16_t *resp_len)
+static const uint8_t *tool_send(const uint8_t *req, uint32_t len, uint16_t *resp_len)
 {
     g_resp_len = 0u;
     uds_input_sdu(&g_ecu, req, len);
@@ -144,7 +144,7 @@ static const uint8_t *tool_send(const uint8_t *req, uint16_t len, uint16_t *resp
     return g_resp;
 }
 
-static int step(const char *name, const uint8_t *req, uint16_t len)
+static int step(const char *name, const uint8_t *req, uint32_t len)
 {
     uint16_t rl;
     const uint8_t *r = tool_send(req, len, &rl);

@@ -63,7 +63,7 @@ typedef uint32_t (*uds_get_time_fn)(void);
  * @param len   Length of the SDU in bytes.
  * @return      0 on success, negative error code on failure.
  */
-typedef int (*uds_tp_send_fn)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
+typedef int (*uds_tp_send_fn)(struct uds_ctx *ctx, const uint8_t *data, uint32_t len);
 
 /**
  * @brief ECU Reset Callback (SID 0x11)
@@ -78,7 +78,7 @@ typedef void (*uds_reset_fn)(struct uds_ctx *ctx, uint8_t type);
  */
 typedef int (*uds_did_read_fn)(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, uint16_t max_len);
 typedef int (*uds_did_write_fn)(struct uds_ctx *ctx, uint16_t did, const uint8_t *data,
-                                uint16_t len);
+                                uint32_t len);
 
 /**
  * @brief Security Access Callbacks (SID 0x27)
@@ -129,7 +129,7 @@ typedef struct
  * @param len   Length of the request payload.
  * @return      UDS_OK, UDS_PENDING, or negative error code.
  */
-typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
+typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, uint32_t len);
 
 /**
  * @brief UDS Service Registry Entry
@@ -196,12 +196,12 @@ typedef struct
     /** Working buffer for reassembling incoming requests */
     uint8_t *rx_buffer;
     /** Size of rx_buffer. Determines Max Request Size */
-    uint16_t rx_buffer_size;
+    uint32_t rx_buffer_size;
 
     /** Working buffer for constructing responses */
     uint8_t *tx_buffer;
     /** Size of tx_buffer. Determines Max Response Size */
-    uint16_t tx_buffer_size;
+    uint32_t tx_buffer_size;
 
     /* --- Enterprise Hardening --- */
     /**
@@ -275,14 +275,14 @@ typedef struct
      * @param len   Payload length.
      * @return      true if safe to proceed, false to reject with NRC 0x22 (ConditionsNotCorrect).
      */
-    bool (*fn_is_safe)(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, uint16_t len);
+    bool (*fn_is_safe)(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, uint32_t len);
 
     /**
      * @brief Optional: Non-Volatile Memory (NVM) Persistence.
      * Used to save/load stack state (session/security) across reboots.
      */
-    int (*fn_nvm_save)(struct uds_ctx *ctx, const uint8_t *state, uint16_t len);
-    int (*fn_nvm_load)(struct uds_ctx *ctx, uint8_t *state, uint16_t len);
+    int (*fn_nvm_save)(struct uds_ctx *ctx, const uint8_t *state, uint32_t len);
+    int (*fn_nvm_load)(struct uds_ctx *ctx, uint8_t *state, uint32_t len);
 
     /* --- Fault Management (DTCs) --- */
 
@@ -314,7 +314,7 @@ typedef struct
      * @param max_len   Max output size.
      * @return          Bytes written to out_buf, or negative NRC.
      */
-    int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
+    int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint32_t len,
                    uint8_t *out_buf, uint16_t max_len);
 
     /* --- Flash Engine (OTA Support) --- */
@@ -331,7 +331,7 @@ typedef struct
      * @return          Bytes written to out_buf, or negative NRC.
      */
     int (*fn_routine_control)(struct uds_ctx *ctx, uint8_t type, uint16_t id, const uint8_t *data,
-                              uint16_t len, uint8_t *out_buf, uint16_t max_len);
+                              uint32_t len, uint8_t *out_buf, uint16_t max_len);
 
     /**
      * @brief Optional: Request Download (SID 0x34).
@@ -351,7 +351,7 @@ typedef struct
      * @return          UDS_OK or negative NRC.
      */
     int (*fn_transfer_data)(struct uds_ctx *ctx, uint8_t sequence, const uint8_t *data,
-                            uint16_t len);
+                            uint32_t len);
 
     /**
      * @brief Optional: Request Transfer Exit (SID 0x37).
@@ -393,7 +393,7 @@ typedef struct
     /* --- New Service Callbacks (0x2A, 0x2F, 0x35) --- */
     /** Optional: IO Control callback (SID 0x2F) */
     int (*fn_io_control)(struct uds_ctx *ctx, uint16_t id, uint8_t type, const uint8_t *data,
-                         uint16_t len, uint8_t *out_buf, uint16_t max_len);
+                         uint32_t len, uint8_t *out_buf, uint16_t max_len);
     /** Optional: Request Upload callback (SID 0x35) */
     int (*fn_request_upload)(struct uds_ctx *ctx, uint32_t addr, uint32_t size);
     /** Optional: Periodic Data Read (Used for SID 0x2A) */

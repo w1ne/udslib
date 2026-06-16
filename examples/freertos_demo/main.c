@@ -37,7 +37,7 @@ static uds_config_t cfg;
 static uint8_t rx_buf[1024];
 static uint8_t tx_buf[1024];
 
-static int mock_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int mock_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     return 0;
 }

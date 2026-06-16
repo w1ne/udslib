@@ -15,7 +15,7 @@
 
 #include "test_helpers.h"
 
-static int async_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int async_handler(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     (void) data;

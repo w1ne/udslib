@@ -22,7 +22,7 @@ static uint32_t mock_get_time(void)
     return 1000; /* Always return constant time to avoid starvation */
 }
 
-static int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     fprintf(stderr, "[DEBUG] mock_tp_send: len=%d, tx_buf_size=%d\n", len,

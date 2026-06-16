@@ -40,7 +40,7 @@ uint32_t mock_get_time(void);
  * @brief Mock implementation of uds_tp_send_fn.
  * @return Value provided by will_return().
  */
-int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int mock_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint32_t len);
 
 /* --- Test Setup Helpers --- */
 

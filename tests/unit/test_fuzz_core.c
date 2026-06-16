@@ -34,7 +34,7 @@ static uint32_t fz_time(void)
 {
     return g_fz_time;
 }
-static int fz_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int fz_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     (void) data;
@@ -79,7 +79,7 @@ static void test_fuzz_sdu_layer(void **state)
     uint8_t buf[256];
 
     for (int i = 0; i < FUZZ_ITERATIONS; i++) {
-        uint16_t len = (uint16_t) (rand() % (int) sizeof(buf));
+        uint32_t len = (uint16_t) (rand() % (int) sizeof(buf));
         for (uint16_t j = 0; j < len; j++) {
             buf[j] = (uint8_t) rand();
         }

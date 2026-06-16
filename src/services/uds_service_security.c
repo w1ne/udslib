@@ -12,7 +12,7 @@
 
 #include "uds_internal.h"
 
-int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_SECURITY_ACCESS, UDS_NRC_INCORRECT_LENGTH);
@@ -111,7 +111,7 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 }
 
-int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     if (len < 2u) {
         return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, UDS_NRC_INCORRECT_LENGTH);

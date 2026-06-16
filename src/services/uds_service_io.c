@@ -11,7 +11,7 @@
 #include <string.h>
 #include "uds_internal.h"
 
-int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint32_t len)
 {
     /* ISO 14229-1: 0x2F [DID high] [DID low] [controlOptionRecord...] [controlEnableMaskRecord...]
      */

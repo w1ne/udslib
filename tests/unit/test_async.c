@@ -26,7 +26,7 @@ static uint32_t mock_get_time(void)
     return mock_time_ms;
 }
 
-static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     check_expected(data);
     check_expected(len);
@@ -34,7 +34,7 @@ static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* --- Async Service Handler --- */
-static int async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static int async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint32_t len)
 {
     /* Simulate a service that cannot complete immediately */
     return UDS_PENDING;

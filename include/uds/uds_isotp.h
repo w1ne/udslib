@@ -100,8 +100,8 @@ typedef struct
 
     /* --- State --- */
     uds_isotp_state_t state;  /**< Current state machine position */
-    uint16_t msg_len;         /**< Total length of current message SDU */
-    uint16_t bytes_processed; /**< Number of SDU bytes handled so far */
+    uint32_t msg_len;         /**< Total length of current message SDU */
+    uint32_t bytes_processed; /**< Number of SDU bytes handled so far */
     uint8_t sn;               /**< Current Sequence Number (0-15) */
     uint8_t bs_counter;       /**< Counter tracking blocks sent/received */
 
@@ -117,8 +117,8 @@ typedef struct
 
     /* --- Multi-frame TX cache (caller-provided, zero-malloc) --- */
     uint8_t *tx_sdu_buf;  /**< Buffer caching the SDU during multi-frame TX */
-    uint16_t tx_sdu_size; /**< Capacity of tx_sdu_buf in bytes */
-    uint16_t tx_sdu_len;  /**< Length of the SDU currently being transmitted */
+    uint32_t tx_sdu_size; /**< Capacity of tx_sdu_buf in bytes */
+    uint32_t tx_sdu_len;  /**< Length of the SDU currently being transmitted */
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
@@ -138,7 +138,7 @@ typedef struct
  * @param tx_sdu_size Capacity of tx_sdu_buf in bytes.
  */
 void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t tx_id,
-                       uint32_t rx_id, uint8_t *tx_sdu_buf, uint16_t tx_sdu_size);
+                       uint32_t rx_id, uint8_t *tx_sdu_buf, uint32_t tx_sdu_size);
 
 /**
  * @brief Enable or Disable CAN-FD support for an instance.
@@ -158,7 +158,7 @@ void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled);
  * @param len  Length of the SDU in bytes.
  * @return     0 on success, or a negative error code on failure.
  */
-int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len);
+int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint32_t len);
 
 /**
  * @brief CAN Receive Callback.

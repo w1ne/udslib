@@ -31,7 +31,7 @@ static int mock_did_read_fn(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t
     return -1;
 }
 
-static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, uint16_t len)
+static int mock_did_write_fn(uds_ctx_t *ctx, uint16_t did, const uint8_t *data, uint32_t len)
 {
     (void) ctx;
     if (did == 0x0200 && len == 3) {
