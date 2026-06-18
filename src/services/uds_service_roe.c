@@ -59,7 +59,7 @@ static int roe_setup(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data, uint16_t 
         return uds_send_nrc(ctx, UDS_SID_RESPONSE_ON_EVENT, UDS_NRC_REQUEST_OUT_OF_RANGE);
     }
 
-    /* Find a free slot. */
+    /* Claim an unused slot. */
     uds_roe_slot_t *slot = NULL;
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
         if (!ctx->roe[i].in_use) {
