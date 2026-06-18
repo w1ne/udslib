@@ -131,6 +131,10 @@ typedef struct
 #define UDS_SESSION_DEFAULT (1 << 0)
 #define UDS_SESSION_EXTENDED (1 << 1)
 #define UDS_SESSION_PROGRAMMING (1 << 2)
+/** Secured channel: granted only while a request is unwrapped from
+ *  SecuredDataTransmission (0x84). A service whose session_mask is exactly
+ *  UDS_SESSION_SECURED is reachable only through 0x84. */
+#define UDS_SESSION_SECURED (1 << 3)
 #define UDS_SESSION_ALL (0xFF)
 
 /**
@@ -367,6 +371,42 @@ typedef struct
     int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
                    uint8_t *out_buf, uint16_t max_len);
 
+    /* --- Secured Data Transmission (SID 0x84) --- */
+
+    /**
+     * @brief Optional: verify + decrypt an incoming secured message body.
+     *
+     * The library parses the Administrative Parameter and passes the secured
+     * payload (everything after the 2-byte APAR). Recover the plaintext inner
+     * UDS request into @p out; the library then dispatches it as if it had
+     * arrived directly, with the secured-session bit granted.
+     *
+     * @param apar     Administrative Parameter (16-bit, big-endian on the wire).
+     * @param in       Secured payload bytes.
+     * @param in_len   Secured payload length.
+     * @param out      Buffer for the recovered inner request.
+     * @param out_max  Capacity of @p out.
+     * @return         Inner-request length, or a negative NRC (e.g. -0x33 on a
+     *                 failed MAC) on rejection.
+     */
+    int (*fn_secure_decode)(struct uds_ctx *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                            uint8_t *out, uint16_t out_max);
+
+    /**
+     * @brief Optional: sign + encrypt an outgoing inner response.
+     * @return Secured-response length written to @p out, or a negative NRC.
+     */
+    int (*fn_secure_encode)(struct uds_ctx *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                            uint8_t *out, uint16_t out_max);
+
+    /**
+     * @brief Optional symmetric key for the built-in crypto (only consulted
+     *        when UDS_ENABLE_BUILTIN_CRYPTO is set and the hooks above are
+     *        NULL). Ignored otherwise.
+     */
+    const uint8_t *secure_key;
+    uint16_t secure_key_len; /**< Length of secure_key in bytes. */
+
     /* --- Flash Engine (OTA Support) --- */
 
     /**
@@ -554,6 +594,17 @@ typedef struct uds_ctx
     uint8_t periodic_rates[8];   /**< Subfunction rates (1-3) */
     uint32_t periodic_timers[8]; /**< Next transmission deadline */
     uint8_t periodic_count;      /**< Number of active periodic IDs */
+
+    /* --- Secured Data Transmission (SID 0x84) --- */
+    /** True while dispatching a request unwrapped from 0x84 (grants the
+     *  UDS_SESSION_SECURED gate to the inner service). */
+    bool in_secured_session;
+    /** True while the inner response is being captured instead of sent. */
+    bool secure_capturing;
+    /** Capture target for the inner response (points to caller stack). */
+    uint8_t *secure_capture_buf;
+    uint16_t secure_capture_size; /**< Capacity of secure_capture_buf. */
+    uint16_t secure_capture_len;  /**< Bytes captured for the inner response. */
 } uds_ctx_t;
 
 #ifdef __cplusplus
