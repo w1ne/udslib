@@ -23,6 +23,7 @@ static const uint8_t mask_sub_31[] = UDS_MASK_SUB_31;
 static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
 static const uint8_t mask_sub_2A[] = UDS_MASK_SUB_2A;
+static const uint8_t mask_sub_2C[] = UDS_MASK_SUB_2C;
 static const uint8_t mask_sub_87[] = UDS_MASK_SUB_87;
 static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
 
@@ -37,6 +38,7 @@ static const uds_service_entry_t core_services[] = {
     {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_memory_by_addr,
      NULL},
     {UDS_SID_READ_SCALING, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_scaling, NULL},
+    {UDS_SID_DYNAMIC_DID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_dynamic_did, mask_sub_2C},
     {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_security_access,
      mask_sub_27},
     {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28},

@@ -41,6 +41,7 @@
 #define UDS_SID_COMM_CONTROL 0x28u
 #define UDS_SID_AUTHENTICATION 0x29u
 #define UDS_SID_READ_BY_PER_ID 0x2Au
+#define UDS_SID_DYNAMIC_DID 0x2Cu
 #define UDS_SID_WRITE_DATA_BY_ID 0x2Eu
 #define UDS_SID_IO_CONTROL_BY_ID 0x2Fu
 #define UDS_SID_ROUTINE_CONTROL 0x31u
@@ -121,6 +122,11 @@
     {                                                      \
         0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+/* 0x2C subfunctions 0x01/0x02/0x03 -> bits 1,2,3 = 0x0E. */
+#define UDS_MASK_SUB_2C                                    \
+    {                                                      \
+        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 #define UDS_MASK_SUB_87                                    \
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
@@ -146,6 +152,7 @@ int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint
 /* Data Services (0x22, 0x24, 0x2E) */
 int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Security Services (0x27, 0x29) */
