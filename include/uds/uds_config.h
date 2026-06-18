@@ -380,6 +380,23 @@ typedef struct
     int (*fn_read_scaling)(struct uds_ctx *ctx, uint16_t did, uint8_t *out_buf, uint16_t max_len);
 
     /**
+     * @brief Optional: Dynamically Define Data Identifier (SID 0x2C).
+     *
+     * The library validates the sub-function (0x01 defineByIdentifier,
+     * 0x02 defineByMemoryAddress, 0x03 clear) and frames the response; the
+     * application records or clears the definition.
+     *
+     * @param subfn        Sub-function (0x01/0x02/0x03).
+     * @param defined_did  The dynamically-defined DID (0 when absent, e.g.
+     *                     clear-all).
+     * @param data         Sub-function payload (starting at the defined DID).
+     * @param len          Length of @p data.
+     * @return             0 on success, or a negative NRC.
+     */
+    int (*fn_dynamic_did)(struct uds_ctx *ctx, uint8_t subfn, uint16_t defined_did,
+                          const uint8_t *data, uint16_t len);
+
+    /**
      * @brief Optional: Request File Transfer (SID 0x38).
      *
      * The library validates the mode-of-operation and the filePathAndName

@@ -5,6 +5,7 @@
 ### Added
 - **ReadScalingDataByIdentifier (0x24)**: the library frames the `0x64 <DID>` response and delegates the scalingByte/scalingData payload to the new `fn_read_scaling` callback. Returns NRC 0x31 when no reader is configured.
 - **RequestFileTransfer (0x38)**: the library validates the modeOfOperation (1–5) and the filePathAndName length, then delegates the operation to the new `fn_file_transfer` callback, framing the `0x78 <modeOfOperation>` response prefix.
+- **DynamicallyDefineDataIdentifier (0x2C)**: the library validates the sub-function (0x01 defineByIdentifier / 0x02 defineByMemoryAddress / 0x03 clear) and frames the `0x6C` response (echoing the defined DID when present); the definition is recorded/cleared by the new `fn_dynamic_did` callback.
 
 ## [1.16.0] - 2026-06-19
 
