@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.18.0] - 2026-06-19
+
+### Added
+- **ResponseOnEvent (0x86)** — completes ISO 14229-1 service coverage (**27/27**). A stateful event engine: setup (0x01 onDTCStatusChange / 0x03 onChangeOfDataIdentifier) stores an event definition with its serviceToRespondTo; start (0x05) / stop (0x00) / clear (0x06) manage activation; reportActivatedEvents (0x04) lists active events. The application notifies the stack of real-world changes via the new `uds_roe_trigger(ctx, event_type, param)` API; for each active matching definition the library runs the stored service and emits its response as a `0xC6` message. Event windows expire from `uds_process()`. Storage is a fixed slot array (`UDS_ROE_MAX_EVENTS`, default 4; set to 0 to compile the feature out). onTimerInterrupt (0x02) and onComparisonOfValues (0x07) return NRC 0x12 (deferred); stored events are volatile (no NVM persistence yet).
+
 ## [1.17.0] - 2026-06-19
 
 ### Added

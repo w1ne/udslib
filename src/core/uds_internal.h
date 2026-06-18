@@ -56,6 +56,7 @@
 #define UDS_SID_ACCESS_TIMING 0x83u
 #define UDS_SID_LINK_CONTROL 0x87u
 #define UDS_SID_SECURED_DATA_TRANS 0x84u
+#define UDS_SID_RESPONSE_ON_EVENT 0x86u
 
 #define UDS_S3_TIMEOUT_MS 5000u
 #define UDS_P2_MIN_SAFE_MS 20u
@@ -127,6 +128,11 @@
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+/* 0x86 subfunctions 0x00/0x01/0x03/0x04/0x05/0x06 -> bits 0,1,3,4,5,6 = 0x7B. */
+#define UDS_MASK_SUB_86                                    \
+    {                                                      \
+        0x7Bu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 #define UDS_MASK_SUB_87                                    \
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
@@ -187,6 +193,16 @@ int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16
 
 /* Secured Data Transmission (0x84) */
 int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+
+/* ResponseOnEvent (0x86) */
+int uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now);
+
+/* Run an inner request through the dispatcher, capturing its response into
+ * @p out instead of sending it. Returns the captured length. Used by 0x86
+ * (and the 0x84 secured path uses the same capture machinery). */
+int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
+                                   uint8_t *out, uint16_t out_size);
 int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 #endif /* UDS_INTERNAL_H */

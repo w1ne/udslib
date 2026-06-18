@@ -27,6 +27,21 @@ struct uds_ctx;
 #define UDS_SECURITY_SEED_MAX 16u
 #endif
 
+/** ResponseOnEvent (0x86): number of storable event slots (0 compiles it out). */
+#ifndef UDS_ROE_MAX_EVENTS
+#define UDS_ROE_MAX_EVENTS 4u
+#endif
+
+/** ResponseOnEvent: max bytes of a stored serviceToRespondToRecord. */
+#ifndef UDS_ROE_STR_MAX
+#define UDS_ROE_STR_MAX 8u
+#endif
+
+/** ResponseOnEvent: default active window for a non-infinite eventWindowTime. */
+#ifndef UDS_ROE_WINDOW_MS
+#define UDS_ROE_WINDOW_MS 5000u
+#endif
+
 /* --- Log Levels --- */
 
 /** Error level logging */
@@ -122,6 +137,21 @@ typedef struct
     uint32_t dtc;   /**< 3-byte DTC, right-aligned (high byte ignored) */
     uint8_t status; /**< statusOfDTC byte (ISO 14229-1 Annex D) */
 } uds_dtc_record_t;
+
+/**
+ * @brief ResponseOnEvent (0x86) stored event definition.
+ */
+typedef struct
+{
+    bool in_use;                  /**< Slot occupied (a setup completed). */
+    bool active;                  /**< Started (0x05); cleared by stop (0x00). */
+    uint8_t event_type;           /**< 0x01 onDTCStatusChange / 0x03 onChangeOfDID. */
+    uint32_t event_param;         /**< DID (0x03) or DTCStatusMask (0x01). */
+    uint8_t window_byte;          /**< eventWindowTime byte (0x02 = infinite). */
+    uint32_t window_deadline;     /**< Absolute ms; 0 = infinite. */
+    uint8_t str[UDS_ROE_STR_MAX]; /**< serviceToRespondToRecord bytes. */
+    uint8_t str_len;              /**< Length of str. */
+} uds_roe_slot_t;
 
 /* --- Service Handler Interface --- */
 
@@ -640,6 +670,11 @@ typedef struct uds_ctx
     uint8_t periodic_rates[8];   /**< Subfunction rates (1-3) */
     uint32_t periodic_timers[8]; /**< Next transmission deadline */
     uint8_t periodic_count;      /**< Number of active periodic IDs */
+
+#if (UDS_ROE_MAX_EVENTS > 0)
+    /* --- ResponseOnEvent State (SID 0x86) --- */
+    uds_roe_slot_t roe[UDS_ROE_MAX_EVENTS];
+#endif
 
     /* --- Secured Data Transmission (SID 0x84) --- */
     /** True while dispatching a request unwrapped from 0x84 (grants the
