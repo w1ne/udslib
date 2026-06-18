@@ -6,10 +6,10 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 - **Standard:** ISO 14229-1:2013, with selected 2020 additions (e.g. 0x29 Authentication).
 - **Transport:** ISO 15765-2 (ISO-TP) over CAN and CAN-FD.
 - **Role:** Server (ECU) stack. A generic client requester (`uds_client_request`) is also provided.
-- **Coverage:** **22 of 27** application services implemented.
-- **Last updated:** 2026-06-15.
+- **Coverage:** **27 of 27** application services implemented.
+- **Last updated:** 2026-06-19.
 
-## Implemented services (22)
+## Implemented services (27)
 
 | SID | Service | Notes |
 | :--- | :--- | :--- |
@@ -19,10 +19,12 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x19 | ReadDTCInformation | DTCStatusMask validation; library-formatted wire layout for 0x01/0x02/0x0A (via `fn_dtc_list`) and 0x04/0x06 framing (via `fn_dtc_snapshot`/`fn_dtc_extdata`); raw `fn_dtc_read` fallback. |
 | 0x22 | ReadDataByIdentifier | Multi-DID; per-DID session/security gating; tx-buffer overflow protection. |
 | 0x23 | ReadMemoryByAddress | ALFID parsing + bounds/length checks. |
+| 0x24 | ReadScalingDataByIdentifier | Library frames `0x64 <DID>`; scalingByte/scalingData via `fn_read_scaling`. |
 | 0x27 | SecurityAccess | App seed/key callbacks; requestSeed→sendKey sequencing (NRC 0x24); attempt counter + delay (NRC 0x36/0x37). |
 | 0x28 | CommunicationControl | Subfunctions 0x00–0x05 + validation. |
 | 0x29 | Authentication | Certificate exchange (ISO 14229-1:2020). |
 | 0x2A | ReadDataByPeriodicIdentifier | Integrated scheduler (Fast / Medium / Slow / Stop). |
+| 0x2C | DynamicallyDefineDataIdentifier | defineByIdentifier / defineByMemoryAddress / clear; bookkeeping via `fn_dynamic_did`. |
 | 0x2E | WriteDataByIdentifier | Table-driven registry; per-DID session/security gating. |
 | 0x2F | InputOutputControlByIdentifier | Actuator control; subfunction-less validation. |
 | 0x31 | RoutineControl | Start / Stop / RequestResults. |
@@ -30,18 +32,22 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x35 | RequestUpload | Symmetrical data-provider flow. |
 | 0x36 | TransferData | Block-sequence-counter tracking + rollover; optional last-block replay. |
 | 0x37 | RequestTransferExit | Completion logic. |
+| 0x38 | RequestFileTransfer | modeOfOperation (1–5) + path-length validation; operation via `fn_file_transfer`. |
 | 0x3D | WriteMemoryByAddress | Echoes address/size in the positive response. |
 | 0x3E | TesterPresent | Busy-relaxed NRC 0x21 handling; suppressed TP keeps S3 alive. |
 | 0x83 | AccessTimingParameter | Read / set / default the live P2 and P2* timing. |
+| 0x84 | SecuredDataTransmission | Library owns 0x84 framing + Administrative Parameter + secured-session gate; crypto via `fn_secure_decode`/`fn_secure_encode` hooks (no bundled cipher). |
 | 0x85 | ControlDTCSetting | DTC ON/OFF; SuppressPosMsg. |
+| 0x86 | ResponseOnEvent | onDTCStatusChange (0x01) / onChangeOfDataIdentifier (0x03) + start/stop/clear/report; events emitted via `uds_roe_trigger`. 0x02/0x07 sub-functions deferred (NRC 0x12). |
 | 0x87 | LinkControl | Baud-rate transition; verify→transition handshake (NRC 0x24 if out of sequence). |
 
-## Not yet implemented (5)
+## Coverage notes
 
-`0x24` ReadScalingDataByIdentifier · `0x2C` DynamicallyDefineDataIdentifier ·
-`0x38` RequestFileTransfer · `0x84` SecuredDataTransmission · `0x86` ResponseOnEvent.
-
-Unknown/unsupported SIDs are rejected with NRC 0x11 (serviceNotSupported).
+All 27 ISO 14229-1 application services are now dispatched. Partial-depth items
+worth noting: 0x86 implements 6 of 8 sub-functions (onTimerInterrupt 0x02 and
+onComparisonOfValues 0x07 return NRC 0x12); 0x84 ships the protocol envelope and
+delegates the cipher to the integrator. Unknown/unsupported SIDs are rejected
+with NRC 0x11 (serviceNotSupported).
 
 ## Transport conformance (ISO 15765-2)
 

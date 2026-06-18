@@ -24,6 +24,9 @@ static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
 static const uint8_t mask_sub_2A[] = UDS_MASK_SUB_2A;
 static const uint8_t mask_sub_2C[] = UDS_MASK_SUB_2C;
+#if (UDS_ROE_MAX_EVENTS > 0)
+static const uint8_t mask_sub_86[] = UDS_MASK_SUB_86;
+#endif
 static const uint8_t mask_sub_87[] = UDS_MASK_SUB_87;
 static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
 
@@ -66,6 +69,10 @@ static const uds_service_entry_t core_services[] = {
     {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_access_timing,
      mask_sub_83},
     {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_secured_data, NULL},
+#if (UDS_ROE_MAX_EVENTS > 0)
+    {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_response_on_event,
+     mask_sub_86},
+#endif
 };
 
 #define CORE_SERVICE_COUNT (sizeof(core_services) / sizeof(core_services[0]))
@@ -354,6 +361,22 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     return uds_send_response(ctx, (uint16_t) ((uint16_t) sec_out + hdr));
 }
 
+int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
+                                   uint8_t *out, uint16_t out_size)
+{
+    ctx->secure_capturing = true;
+    ctx->secure_capture_buf = out;
+    ctx->secure_capture_size = out_size;
+    ctx->secure_capture_len = 0u;
+
+    handle_request(ctx, inner, inner_len);
+
+    ctx->secure_capturing = false;
+    ctx->secure_capture_buf = NULL;
+    ctx->secure_capture_size = 0u;
+    return (int) ctx->secure_capture_len;
+}
+
 /* --- Public API --- */
 
 int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
@@ -481,6 +504,11 @@ void uds_process(uds_ctx_t *ctx)
             }
         }
     }
+
+#if (UDS_ROE_MAX_EVENTS > 0)
+    /* SID 0x86: expire ResponseOnEvent windows. */
+    uds_internal_roe_service(ctx, now);
+#endif
 
     if (ctx->config->fn_mutex_unlock) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);

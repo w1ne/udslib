@@ -117,6 +117,24 @@ void uds_process(uds_ctx_t *ctx);
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /**
+ * @brief Notify the stack that a monitored event occurred (ResponseOnEvent,
+ *        SID 0x86).
+ *
+ * The application calls this when a real-world change happens. For each active
+ * ROE definition matching @p event_type and @p param, the library runs the
+ * stored serviceToRespondTo and emits its response as a 0xC6 message.
+ *
+ * @param ctx        Pointer to the initialized context.
+ * @param event_type 0x01 onDTCStatusChange (param = changed statusOfDTC,
+ *                   matched against the stored DTCStatusMask) or
+ *                   0x03 onChangeOfDataIdentifier (param = the DID that
+ *                   changed).
+ * @param param      DID or status, per @p event_type.
+ * @return Number of events emitted (>= 0), or a negative error code.
+ */
+int uds_roe_trigger(uds_ctx_t *ctx, uint8_t event_type, uint32_t param);
+
+/**
  * @brief Send a UDS Request as a Client.
  *
  * @param ctx      Pointer to the initialized context.
