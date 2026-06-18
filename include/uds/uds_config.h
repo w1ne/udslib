@@ -27,6 +27,21 @@ struct uds_ctx;
 #define UDS_SECURITY_SEED_MAX 16u
 #endif
 
+/** ResponseOnEvent (0x86): number of storable event slots (0 compiles it out). */
+#ifndef UDS_ROE_MAX_EVENTS
+#define UDS_ROE_MAX_EVENTS 4u
+#endif
+
+/** ResponseOnEvent: max bytes of a stored serviceToRespondToRecord. */
+#ifndef UDS_ROE_STR_MAX
+#define UDS_ROE_STR_MAX 8u
+#endif
+
+/** ResponseOnEvent: default active window for a non-infinite eventWindowTime. */
+#ifndef UDS_ROE_WINDOW_MS
+#define UDS_ROE_WINDOW_MS 5000u
+#endif
+
 /* --- Log Levels --- */
 
 /** Error level logging */
@@ -111,6 +126,33 @@ typedef struct
     uint16_t count;                 /**< Number of entries in the table */
 } uds_did_table_t;
 
+/**
+ * @brief Diagnostic Trouble Code record (ISO 14229-1).
+ *
+ * Supplied by the application via fn_dtc_list(); the library formats the
+ * ISO wire layout for ReadDTCInformation (0x19) subfunctions itself.
+ */
+typedef struct
+{
+    uint32_t dtc;   /**< 3-byte DTC, right-aligned (high byte ignored) */
+    uint8_t status; /**< statusOfDTC byte (ISO 14229-1 Annex D) */
+} uds_dtc_record_t;
+
+/**
+ * @brief ResponseOnEvent (0x86) stored event definition.
+ */
+typedef struct
+{
+    bool in_use;                  /**< Slot occupied (a setup completed). */
+    bool active;                  /**< Started (0x05); cleared by stop (0x00). */
+    uint8_t event_type;           /**< 0x01 onDTCStatusChange / 0x03 onChangeOfDID. */
+    uint32_t event_param;         /**< DID (0x03) or DTCStatusMask (0x01). */
+    uint8_t window_byte;          /**< eventWindowTime byte (0x02 = infinite). */
+    uint32_t window_deadline;     /**< Absolute ms; 0 = infinite. */
+    uint8_t str[UDS_ROE_STR_MAX]; /**< serviceToRespondToRecord bytes. */
+    uint8_t str_len;              /**< Length of str. */
+} uds_roe_slot_t;
+
 /* --- Service Handler Interface --- */
 
 /**
@@ -119,6 +161,10 @@ typedef struct
 #define UDS_SESSION_DEFAULT (1 << 0)
 #define UDS_SESSION_EXTENDED (1 << 1)
 #define UDS_SESSION_PROGRAMMING (1 << 2)
+/** Secured channel: granted only while a request is unwrapped from
+ *  SecuredDataTransmission (0x84). A service whose session_mask is exactly
+ *  UDS_SESSION_SECURED is reachable only through 0x84. */
+#define UDS_SESSION_SECURED (1 << 3)
 #define UDS_SESSION_ALL (0xFF)
 
 /**
@@ -297,6 +343,44 @@ typedef struct
     int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len);
 
     /**
+     * @brief Optional: Structured DTC enumeration (SID 0x19, subfunctions
+     *        0x01/0x02/0x0A). The library formats the ISO wire layout.
+     *
+     * Fill @p out with up to @p max records whose status matches
+     * @p status_mask (a record matches when (record.status & status_mask)
+     * is non-zero; a @p status_mask of 0x00 matches every record, used by
+     * reportSupportedDTC 0x0A). When @p out is NULL or @p max is 0, only
+     * the count is required (used by reportNumberOfDTCByStatusMask 0x01).
+     *
+     * @return Number of matching DTCs (which may exceed @p max), or a
+     *         negative NRC on failure.
+     */
+    int (*fn_dtc_list)(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
+                       uint16_t max);
+
+    /**
+     * @brief Optional: DTC snapshot record bytes (SID 0x19, subfunction 0x04).
+     *        Write the snapshot payload (record-number + identifiers + data)
+     *        for @p dtc / @p record_num; the library frames the response.
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_snapshot)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
+                           uint16_t max_len);
+
+    /**
+     * @brief Optional: DTC extended-data record bytes (SID 0x19, sub 0x06).
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_extdata)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
+                          uint16_t max_len);
+
+    /** DTCStatusAvailabilityMask reported in 0x01/0x02/0x0A responses. */
+    uint8_t dtc_status_availability_mask;
+
+    /** DTCFormatIdentifier reported in 0x01 (default 0x01 = ISO_14229-1). */
+    uint8_t dtc_format_id;
+
+    /**
      * @brief Optional: Clear Diagnostic Information (SID 0x14).
      * @param ctx       Pointer to context.
      * @param group     The DTC group to clear (usually 0xFFFFFF for all).
@@ -316,6 +400,88 @@ typedef struct
      */
     int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
                    uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: Read Scaling Data By Identifier (SID 0x24).
+     *        Write the scalingByte/scalingData bytes for @p did; the library
+     *        frames the `0x64 <DID>` response prefix.
+     * @return Bytes written, or a negative NRC on failure.
+     */
+    int (*fn_read_scaling)(struct uds_ctx *ctx, uint16_t did, uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: Dynamically Define Data Identifier (SID 0x2C).
+     *
+     * The library validates the sub-function (0x01 defineByIdentifier,
+     * 0x02 defineByMemoryAddress, 0x03 clear) and frames the response; the
+     * application records or clears the definition.
+     *
+     * @param subfn        Sub-function (0x01/0x02/0x03).
+     * @param defined_did  The dynamically-defined DID (0 when absent, e.g.
+     *                     clear-all).
+     * @param data         Sub-function payload (starting at the defined DID).
+     * @param len          Length of @p data.
+     * @return             0 on success, or a negative NRC.
+     */
+    int (*fn_dynamic_did)(struct uds_ctx *ctx, uint8_t subfn, uint16_t defined_did,
+                          const uint8_t *data, uint16_t len);
+
+    /**
+     * @brief Optional: Request File Transfer (SID 0x38).
+     *
+     * The library validates the mode-of-operation and the filePathAndName
+     * length, then hands the parsed fields to the application, which performs
+     * the file operation and writes the response body (everything after
+     * `0x78 <modeOfOperation>`).
+     *
+     * @param mode        modeOfOperation (1=AddFile..5=ResumeFile).
+     * @param path        filePathAndName bytes.
+     * @param path_len    filePathAndName length.
+     * @param params      Trailing parameters (dataFormatIdentifier, sizes...).
+     * @param params_len  Length of @p params.
+     * @param out_buf     Response-body buffer (after SID + mode).
+     * @param max_len     Capacity of @p out_buf.
+     * @return            Response-body length, or a negative NRC.
+     */
+    int (*fn_file_transfer)(struct uds_ctx *ctx, uint8_t mode, const uint8_t *path,
+                            uint16_t path_len, const uint8_t *params, uint16_t params_len,
+                            uint8_t *out_buf, uint16_t max_len);
+
+    /* --- Secured Data Transmission (SID 0x84) --- */
+
+    /**
+     * @brief Optional: verify + decrypt an incoming secured message body.
+     *
+     * The library parses the Administrative Parameter and passes the secured
+     * payload (everything after the 2-byte APAR). Recover the plaintext inner
+     * UDS request into @p out; the library then dispatches it as if it had
+     * arrived directly, with the secured-session bit granted.
+     *
+     * @param apar     Administrative Parameter (16-bit, big-endian on the wire).
+     * @param in       Secured payload bytes.
+     * @param in_len   Secured payload length.
+     * @param out      Buffer for the recovered inner request.
+     * @param out_max  Capacity of @p out.
+     * @return         Inner-request length, or a negative NRC (e.g. -0x33 on a
+     *                 failed MAC) on rejection.
+     */
+    int (*fn_secure_decode)(struct uds_ctx *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                            uint8_t *out, uint16_t out_max);
+
+    /**
+     * @brief Optional: sign + encrypt an outgoing inner response.
+     * @return Secured-response length written to @p out, or a negative NRC.
+     */
+    int (*fn_secure_encode)(struct uds_ctx *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                            uint8_t *out, uint16_t out_max);
+
+    /**
+     * @brief Optional symmetric key for the built-in crypto (only consulted
+     *        when UDS_ENABLE_BUILTIN_CRYPTO is set and the hooks above are
+     *        NULL). Ignored otherwise.
+     */
+    const uint8_t *secure_key;
+    uint16_t secure_key_len; /**< Length of secure_key in bytes. */
 
     /* --- Flash Engine (OTA Support) --- */
 
@@ -504,6 +670,22 @@ typedef struct uds_ctx
     uint8_t periodic_rates[8];   /**< Subfunction rates (1-3) */
     uint32_t periodic_timers[8]; /**< Next transmission deadline */
     uint8_t periodic_count;      /**< Number of active periodic IDs */
+
+#if (UDS_ROE_MAX_EVENTS > 0)
+    /* --- ResponseOnEvent State (SID 0x86) --- */
+    uds_roe_slot_t roe[UDS_ROE_MAX_EVENTS];
+#endif
+
+    /* --- Secured Data Transmission (SID 0x84) --- */
+    /** True while dispatching a request unwrapped from 0x84 (grants the
+     *  UDS_SESSION_SECURED gate to the inner service). */
+    bool in_secured_session;
+    /** True while the inner response is being captured instead of sent. */
+    bool secure_capturing;
+    /** Capture target for the inner response (points to caller stack). */
+    uint8_t *secure_capture_buf;
+    uint16_t secure_capture_size; /**< Capacity of secure_capture_buf. */
+    uint16_t secure_capture_len;  /**< Bytes captured for the inner response. */
 } uds_ctx_t;
 
 #ifdef __cplusplus

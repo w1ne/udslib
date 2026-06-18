@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.18.0] - 2026-06-19
+
+### Added
+- **ResponseOnEvent (0x86)** — completes ISO 14229-1 service coverage (**27/27**). A stateful event engine: setup (0x01 onDTCStatusChange / 0x03 onChangeOfDataIdentifier) stores an event definition with its serviceToRespondTo; start (0x05) / stop (0x00) / clear (0x06) manage activation; reportActivatedEvents (0x04) lists active events. The application notifies the stack of real-world changes via the new `uds_roe_trigger(ctx, event_type, param)` API; for each active matching definition the library runs the stored service and emits its response as a `0xC6` message. Event windows expire from `uds_process()`. Storage is a fixed slot array (`UDS_ROE_MAX_EVENTS`, default 4; set to 0 to compile the feature out). onTimerInterrupt (0x02) and onComparisonOfValues (0x07) return NRC 0x12 (deferred); stored events are volatile (no NVM persistence yet).
+
+## [1.17.0] - 2026-06-19
+
+### Added
+- **ReadScalingDataByIdentifier (0x24)**: the library frames the `0x64 <DID>` response and delegates the scalingByte/scalingData payload to the new `fn_read_scaling` callback. Returns NRC 0x31 when no reader is configured.
+- **RequestFileTransfer (0x38)**: the library validates the modeOfOperation (1–5) and the filePathAndName length, then delegates the operation to the new `fn_file_transfer` callback, framing the `0x78 <modeOfOperation>` response prefix.
+- **DynamicallyDefineDataIdentifier (0x2C)**: the library validates the sub-function (0x01 defineByIdentifier / 0x02 defineByMemoryAddress / 0x03 clear) and frames the `0x6C` response (echoing the defined DID when present); the definition is recorded/cleared by the new `fn_dynamic_did` callback.
+
+## [1.16.0] - 2026-06-19
+
+### Added
+- **SecuredDataTransmission (0x84) + secured session**: the library owns the 0x84 framing and the Administrative Parameter, unwraps the secured payload via the new `fn_secure_decode` hook, dispatches the inner request with a `UDS_SESSION_SECURED` gate (so a service whose `session_mask` is exactly `UDS_SESSION_SECURED` is reachable only through 0x84), then secures the inner response via `fn_secure_encode` and wraps it as `0xC4`. Rejects nested 0x84 (NRC 0x31), honors inner suppress-positive-response, and surfaces hook-reported NRCs (e.g. a failed MAC). Crypto is application-supplied via the two hooks; a bundled reference cipher behind `UDS_ENABLE_BUILTIN_CRYPTO` is planned as a follow-up.
+
+## [1.15.0] - 2026-06-19
+
+### Added
+- **Structured ReadDTCInformation (0x19)**: the library now formats the ISO 14229-1 wire layout for `reportNumberOfDTCByStatusMask` (0x01), `reportDTCByStatusMask` (0x02), and `reportSupportedDTC` (0x0A) from application-supplied records via the new `fn_dtc_list` callback (plus `dtc_status_availability_mask` and `dtc_format_id` config fields). `reportDTCSnapshotRecordByDTCNumber` (0x04) and `reportDTCExtendedDataRecordByDTCNumber` (0x06) are request-parsed and framed by the library, with the record payload supplied via `fn_dtc_snapshot` / `fn_dtc_extdata`. The library enforces `ResponseTooLong` (0x14) on overflow. The legacy raw `fn_dtc_read` path is retained as a fallback, so existing configs are unchanged.
+
 ## [1.14.0] - 2026-06-16
 
 ### Added

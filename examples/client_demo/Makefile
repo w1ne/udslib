@@ -10,7 +10,8 @@ SRC = main.c \
       ../../src/services/uds_service_flash.c \
       ../../src/services/uds_service_mem.c \
       ../../src/services/uds_service_io.c \
-      ../../src/services/uds_service_link.c
+      ../../src/services/uds_service_link.c \
+      ../../src/services/uds_service_roe.c
 OBJ = $(SRC:.c=.o)
 TARGET = uds_client_demo
 
