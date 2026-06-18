@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.17.0] - 2026-06-19
+
+### Added
+- **ReadScalingDataByIdentifier (0x24)**: the library frames the `0x64 <DID>` response and delegates the scalingByte/scalingData payload to the new `fn_read_scaling` callback. Returns NRC 0x31 when no reader is configured.
+
 ## [1.16.0] - 2026-06-19
 
 ### Added

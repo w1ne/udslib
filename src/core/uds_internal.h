@@ -36,6 +36,7 @@
 #define UDS_SID_READ_DTC_INFO 0x19u
 #define UDS_SID_READ_DATA_BY_ID 0x22u
 #define UDS_SID_READ_MEM_BY_ADDR 0x23u
+#define UDS_SID_READ_SCALING 0x24u
 #define UDS_SID_SECURITY_ACCESS 0x27u
 #define UDS_SID_COMM_CONTROL 0x28u
 #define UDS_SID_AUTHENTICATION 0x29u
@@ -141,8 +142,9 @@ void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
 int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
-/* Data Services (0x22, 0x2E) */
+/* Data Services (0x22, 0x24, 0x2E) */
 int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Security Services (0x27, 0x29) */
