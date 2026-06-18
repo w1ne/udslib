@@ -67,9 +67,9 @@ uint8_t dtc_status_availability_mask;
 ### Problem
 udslib has no concept of a secured channel. CHARON sketches one (a `SESSION_SECURED` type + an "encryption" column gating which SIDs require a secured channel + encode/decode hooks) but the crypto itself is an unimplemented comment. We implement it properly.
 
-### Approach (chosen): hooks primary + optional bundled AES-CMAC
+### Approach (chosen): hooks only — no bundled crypto
 1. **Hooks are the interface.** The library owns 0x84 framing, the Administrative Parameter (APAR), the secured-session gate, and request/response wrapping. The app supplies the crypto via callbacks.
-2. **Optional reference crypto.** Behind `UDS_ENABLE_BUILTIN_CRYPTO` (default OFF), ship a clean-room AES-CMAC (auth) and optional AES-GCM (encrypt) that simply *wire into* the same hooks, so 0x84 works out-of-box without app crypto. The embeddable core stays dependency-free when the flag is off.
+2. **No crypto in the core (decision revised 2026-06-19).** The originally-considered `UDS_ENABLE_BUILTIN_CRYPTO` reference cipher was **dropped**. Rationale: crypto is a specialist, high-assurance domain (side-channels, validation, key zeroization) better served by vetted libraries; on real ECUs the key lives in an HSM/SHE/CSE the software can't access, so the hook model is the only one that works; and bundling a cipher enlarges the attack surface and the SBOM/vuln-handling burden (a CRA liability). For an out-of-box demo, provide an **example adapter under `examples/`** wiring the hooks to a real crypto lib (e.g. mbedTLS / tinycrypt AES-CMAC) — never crypto inside the shipped library.
 
 ### Secured session
 - New session bit `UDS_SESSION_SECURED (1 << 3)` added to the existing mask scheme.

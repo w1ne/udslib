@@ -88,6 +88,31 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 }
 
+int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) len; /* min_len 3 enforced by the dispatcher */
+
+    /* No reader -> the DID's scaling information is not supported. */
+    if (ctx->config->fn_read_scaling == NULL) {
+        return uds_send_nrc(ctx, UDS_SID_READ_SCALING, UDS_NRC_REQUEST_OUT_OF_RANGE);
+    }
+
+    uint16_t did = (uint16_t) (((uint16_t) data[1] << 8u) | (uint16_t) data[2]);
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - 3u);
+
+    int written = ctx->config->fn_read_scaling(ctx, did, &tx[3], max_payload);
+    if (written < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_SCALING, (uint8_t) - (int32_t) written);
+    }
+
+    tx[0] = (uint8_t) (UDS_SID_READ_SCALING + UDS_RESPONSE_OFFSET);
+    tx[1] = data[1];
+    tx[2] = data[2];
+    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 3u));
+}
+
 int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 3u) {

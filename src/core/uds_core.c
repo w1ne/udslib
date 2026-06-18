@@ -36,6 +36,7 @@ static const uds_service_entry_t core_services[] = {
     {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_data_by_id, NULL},
     {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_memory_by_addr,
      NULL},
+    {UDS_SID_READ_SCALING, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_scaling, NULL},
     {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_security_access,
      mask_sub_27},
     {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28},

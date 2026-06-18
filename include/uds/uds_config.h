@@ -371,6 +371,14 @@ typedef struct
     int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
                    uint8_t *out_buf, uint16_t max_len);
 
+    /**
+     * @brief Optional: Read Scaling Data By Identifier (SID 0x24).
+     *        Write the scalingByte/scalingData bytes for @p did; the library
+     *        frames the `0x64 <DID>` response prefix.
+     * @return Bytes written, or a negative NRC on failure.
+     */
+    int (*fn_read_scaling)(struct uds_ctx *ctx, uint16_t did, uint8_t *out_buf, uint16_t max_len);
+
     /* --- Secured Data Transmission (SID 0x84) --- */
 
     /**
