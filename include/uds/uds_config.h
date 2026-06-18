@@ -379,6 +379,27 @@ typedef struct
      */
     int (*fn_read_scaling)(struct uds_ctx *ctx, uint16_t did, uint8_t *out_buf, uint16_t max_len);
 
+    /**
+     * @brief Optional: Request File Transfer (SID 0x38).
+     *
+     * The library validates the mode-of-operation and the filePathAndName
+     * length, then hands the parsed fields to the application, which performs
+     * the file operation and writes the response body (everything after
+     * `0x78 <modeOfOperation>`).
+     *
+     * @param mode        modeOfOperation (1=AddFile..5=ResumeFile).
+     * @param path        filePathAndName bytes.
+     * @param path_len    filePathAndName length.
+     * @param params      Trailing parameters (dataFormatIdentifier, sizes...).
+     * @param params_len  Length of @p params.
+     * @param out_buf     Response-body buffer (after SID + mode).
+     * @param max_len     Capacity of @p out_buf.
+     * @return            Response-body length, or a negative NRC.
+     */
+    int (*fn_file_transfer)(struct uds_ctx *ctx, uint8_t mode, const uint8_t *path,
+                            uint16_t path_len, const uint8_t *params, uint16_t params_len,
+                            uint8_t *out_buf, uint16_t max_len);
+
     /* --- Secured Data Transmission (SID 0x84) --- */
 
     /**

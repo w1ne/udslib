@@ -48,6 +48,8 @@ static const uds_service_entry_t core_services[] = {
     {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_transfer_data, NULL},
     {UDS_SID_TRANSFER_EXIT, 1u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_transfer_exit,
      NULL},
+    {UDS_SID_REQUEST_FILE_TRANSFER, 4u, UDS_SESSION_ALL, 0u,
+     uds_internal_handle_request_file_transfer, NULL},
     {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_memory_by_addr,
      NULL},
     {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_tester_present,

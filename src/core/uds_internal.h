@@ -48,6 +48,7 @@
 #define UDS_SID_REQUEST_UPLOAD 0x35u
 #define UDS_SID_TRANSFER_DATA 0x36u
 #define UDS_SID_TRANSFER_EXIT 0x37u
+#define UDS_SID_REQUEST_FILE_TRANSFER 0x38u
 #define UDS_SID_WRITE_MEM_BY_ADDR 0x3Du
 #define UDS_SID_TESTER_PRESENT 0x3Eu
 #define UDS_SID_CONTROL_DTC_SETTING 0x85u
@@ -163,6 +164,7 @@ int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uin
 int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Memory Services (0x23, 0x3D) */
 int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
