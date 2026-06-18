@@ -52,6 +52,7 @@
 #define UDS_SID_CONTROL_DTC_SETTING 0x85u
 #define UDS_SID_ACCESS_TIMING 0x83u
 #define UDS_SID_LINK_CONTROL 0x87u
+#define UDS_SID_SECURED_DATA_TRANS 0x84u
 
 #define UDS_S3_TIMEOUT_MS 5000u
 #define UDS_P2_MIN_SAFE_MS 20u
@@ -172,6 +173,9 @@ int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint
 
 /* Reprogramming-negotiation Services (0x83, 0x87) */
 int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+
+/* Secured Data Transmission (0x84) */
+int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 #endif /* UDS_INTERNAL_H */

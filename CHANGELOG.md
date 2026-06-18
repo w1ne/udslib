@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.16.0] - 2026-06-19
+
+### Added
+- **SecuredDataTransmission (0x84) + secured session**: the library owns the 0x84 framing and the Administrative Parameter, unwraps the secured payload via the new `fn_secure_decode` hook, dispatches the inner request with a `UDS_SESSION_SECURED` gate (so a service whose `session_mask` is exactly `UDS_SESSION_SECURED` is reachable only through 0x84), then secures the inner response via `fn_secure_encode` and wraps it as `0xC4`. Rejects nested 0x84 (NRC 0x31), honors inner suppress-positive-response, and surfaces hook-reported NRCs (e.g. a failed MAC). Crypto is application-supplied via the two hooks; a bundled reference cipher behind `UDS_ENABLE_BUILTIN_CRYPTO` is planned as a follow-up.
+
 ## [1.15.0] - 2026-06-19
 
 ### Added
