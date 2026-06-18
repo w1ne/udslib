@@ -16,7 +16,7 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x10 | DiagnosticSessionControl | Default / Programming / Extended; returns configured P2/P2*; re-locks security on transition. |
 | 0x11 | ECUReset | Hard, Soft, KeyOffOn; SuppressPosMsg supported. |
 | 0x14 | ClearDiagnosticInformation | Optional memory-selection byte. |
-| 0x19 | ReadDTCInformation | DTCStatusMask validation; subfunctions 0x01/0x02/0x04/0x06/0x0A. |
+| 0x19 | ReadDTCInformation | DTCStatusMask validation; library-formatted wire layout for 0x01/0x02/0x0A (via `fn_dtc_list`) and 0x04/0x06 framing (via `fn_dtc_snapshot`/`fn_dtc_extdata`); raw `fn_dtc_read` fallback. |
 | 0x22 | ReadDataByIdentifier | Multi-DID; per-DID session/security gating; tx-buffer overflow protection. |
 | 0x23 | ReadMemoryByAddress | ALFID parsing + bounds/length checks. |
 | 0x27 | SecurityAccess | App seed/key callbacks; requestSeed→sendKey sequencing (NRC 0x24); attempt counter + delay (NRC 0x36/0x37). |

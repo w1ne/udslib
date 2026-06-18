@@ -65,3 +65,7 @@ target_link_libraries(test_compliance_pass3 uds ${CMOCKA_LIBRARIES})
 add_test(NAME test_compliance_pass3 COMMAND test_compliance_pass3)
 
 add_uds_test(test_integration integration/test_integration.c)
+
+# Regression for issue #29: multi-frame request must be dispatched (full stack,
+# real uds_input_sdu — intentionally NOT wrapped).
+add_uds_test(test_issue29_multiframe_request unit/test_issue29_multiframe_request.c)

@@ -117,6 +117,118 @@ int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
     return uds_send_response(ctx, 1u);
 }
 
+/** Max DTC records gathered per ReadDTCInformation response (stack-bounded). */
+#ifndef UDS_DTC_LIST_BATCH
+#define UDS_DTC_LIST_BATCH 32u
+#endif
+
+/* Format reportNumberOfDTCByStatusMask (0x01), reportDTCByStatusMask (0x02),
+ * and reportSupportedDTC (0x0A). The library owns the ISO 14229-1 wire layout;
+ * the application only supplies records via fn_dtc_list. */
+static int uds_internal_dtc_by_status(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
+                                      uint16_t len, bool suppress_pos_resp)
+{
+    (void) len;
+    /* 0x0A reports every DTC (status mask 0); 0x01/0x02 filter by data[2]. */
+    uint8_t status_mask = (sub == 0x0Au) ? 0u : data[2];
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = ctx->config->dtc_status_availability_mask;
+
+    if (sub == 0x01u) {
+        int count = ctx->config->fn_dtc_list(ctx, status_mask, NULL, 0u);
+        if (count < 0) {
+            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) count);
+        }
+        if (suppress_pos_resp) {
+            return UDS_OK;
+        }
+        tx[3] = ctx->config->dtc_format_id;
+        tx[4] = (uint8_t) (((uint32_t) count >> 8) & 0xFFu);
+        tx[5] = (uint8_t) ((uint32_t) count & 0xFFu);
+        return uds_send_response(ctx, 6u);
+    }
+
+    /* 0x02 / 0x0A: emit [DTC(3) | status(1)] per matching record. */
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    uint16_t room = (uint16_t) ((ctx->config->tx_buffer_size - 3u) / 4u);
+    uint16_t cap = (room < UDS_DTC_LIST_BATCH) ? room : (uint16_t) UDS_DTC_LIST_BATCH;
+
+    int total = ctx->config->fn_dtc_list(ctx, status_mask, recs, cap);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > cap) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+
+    uint16_t n = (uint16_t) total;
+    uint16_t pos = 3u;
+    for (uint16_t i = 0u; i < n; i++) {
+        tx[pos] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+        tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+        tx[pos + 2u] = (uint8_t) (recs[i].dtc & 0xFFu);
+        tx[pos + 3u] = recs[i].status;
+        pos = (uint16_t) (pos + 4u);
+    }
+    return uds_send_response(ctx, pos);
+}
+
+/* Format reportDTCSnapshotRecordByDTCNumber (0x04) and
+ * reportDTCExtendedDataRecordByDTCNumber (0x06). The library validates the
+ * request, echoes the DTC, and frames the response; the application writes
+ * the record payload (statusOfDTC + records) via fn_dtc_snapshot/extdata. */
+static int uds_internal_dtc_record(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data, uint16_t len,
+                                   bool suppress_pos_resp)
+{
+    /* Request: SID, sub, DTC(3), recordNumber(1) -> 6 bytes. */
+    if (len < 6u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    uint32_t dtc = (uint32_t) ((uint32_t) data[2] << 16) | (uint32_t) ((uint32_t) data[3] << 8) |
+                   (uint32_t) data[4];
+    uint8_t record_num = data[5];
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - 5u);
+
+    int written;
+    if (sub == 0x04u) {
+        written = ctx->config->fn_dtc_snapshot(ctx, dtc, record_num, &tx[5], max_payload);
+    }
+    else {
+        written = ctx->config->fn_dtc_extdata(ctx, dtc, record_num, &tx[5], max_payload);
+    }
+
+    if (written < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) written);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = data[2];
+    tx[3] = data[3];
+    tx[4] = data[4];
+    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 5u));
+}
+
 int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
@@ -133,6 +245,22 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
 
     if (req_mask && len < 3u) {
         return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    /* Structured subfunctions: library formats the ISO wire layout when the
+     * application provides fn_dtc_list. Falls through to the raw fn_dtc_read
+     * path below when fn_dtc_list is NULL (back-compat). */
+    if (((sub == 0x01u) || (sub == 0x02u) || (sub == 0x0Au)) &&
+        (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_by_status(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if ((sub == 0x04u) && (ctx->config->fn_dtc_snapshot != NULL)) {
+        return uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if ((sub == 0x06u) && (ctx->config->fn_dtc_extdata != NULL)) {
+        return uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
     }
 
     if (!ctx->config->fn_dtc_read) {

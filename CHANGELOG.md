@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.15.0] - 2026-06-19
+
+### Added
+- **Structured ReadDTCInformation (0x19)**: the library now formats the ISO 14229-1 wire layout for `reportNumberOfDTCByStatusMask` (0x01), `reportDTCByStatusMask` (0x02), and `reportSupportedDTC` (0x0A) from application-supplied records via the new `fn_dtc_list` callback (plus `dtc_status_availability_mask` and `dtc_format_id` config fields). `reportDTCSnapshotRecordByDTCNumber` (0x04) and `reportDTCExtendedDataRecordByDTCNumber` (0x06) are request-parsed and framed by the library, with the record payload supplied via `fn_dtc_snapshot` / `fn_dtc_extdata`. The library enforces `ResponseTooLong` (0x14) on overflow. The legacy raw `fn_dtc_read` path is retained as a fallback, so existing configs are unchanged.
+
 ## [1.14.0] - 2026-06-16
 
 ### Added
