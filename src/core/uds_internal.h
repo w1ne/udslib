@@ -36,10 +36,12 @@
 #define UDS_SID_READ_DTC_INFO 0x19u
 #define UDS_SID_READ_DATA_BY_ID 0x22u
 #define UDS_SID_READ_MEM_BY_ADDR 0x23u
+#define UDS_SID_READ_SCALING 0x24u
 #define UDS_SID_SECURITY_ACCESS 0x27u
 #define UDS_SID_COMM_CONTROL 0x28u
 #define UDS_SID_AUTHENTICATION 0x29u
 #define UDS_SID_READ_BY_PER_ID 0x2Au
+#define UDS_SID_DYNAMIC_DID 0x2Cu
 #define UDS_SID_WRITE_DATA_BY_ID 0x2Eu
 #define UDS_SID_IO_CONTROL_BY_ID 0x2Fu
 #define UDS_SID_ROUTINE_CONTROL 0x31u
@@ -47,11 +49,14 @@
 #define UDS_SID_REQUEST_UPLOAD 0x35u
 #define UDS_SID_TRANSFER_DATA 0x36u
 #define UDS_SID_TRANSFER_EXIT 0x37u
+#define UDS_SID_REQUEST_FILE_TRANSFER 0x38u
 #define UDS_SID_WRITE_MEM_BY_ADDR 0x3Du
 #define UDS_SID_TESTER_PRESENT 0x3Eu
 #define UDS_SID_CONTROL_DTC_SETTING 0x85u
 #define UDS_SID_ACCESS_TIMING 0x83u
 #define UDS_SID_LINK_CONTROL 0x87u
+#define UDS_SID_SECURED_DATA_TRANS 0x84u
+#define UDS_SID_RESPONSE_ON_EVENT 0x86u
 
 #define UDS_S3_TIMEOUT_MS 5000u
 #define UDS_P2_MIN_SAFE_MS 20u
@@ -87,9 +92,11 @@
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
-#define UDS_MASK_SUB_19                                    \
-    {                                                      \
-        0x57u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+/* Allowed 0x19 subfunctions: byte0 0x57 = 0x01/0x02/0x04/0x06 (+0x00);
+ * byte1 0x04 = 0x0A reportSupportedDTC. */
+#define UDS_MASK_SUB_19                                        \
+    {                                                          \
+        0x57u, 0x04u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
 #define UDS_MASK_SUB_27                                                                            \
     {                                                                                              \
@@ -116,6 +123,16 @@
     {                                                      \
         0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+/* 0x2C subfunctions 0x01/0x02/0x03 -> bits 1,2,3 = 0x0E. */
+#define UDS_MASK_SUB_2C                                    \
+    {                                                      \
+        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+/* 0x86 subfunctions 0x00/0x01/0x03/0x04/0x05/0x06 -> bits 0,1,3,4,5,6 = 0x7B. */
+#define UDS_MASK_SUB_86                                    \
+    {                                                      \
+        0x7Bu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 #define UDS_MASK_SUB_87                                    \
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
@@ -138,8 +155,10 @@ void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
 int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
-/* Data Services (0x22, 0x2E) */
+/* Data Services (0x22, 0x24, 0x2E) */
 int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Security Services (0x27, 0x29) */
@@ -158,6 +177,7 @@ int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uin
 int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Memory Services (0x23, 0x3D) */
 int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
@@ -170,6 +190,19 @@ int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint
 
 /* Reprogramming-negotiation Services (0x83, 0x87) */
 int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+
+/* Secured Data Transmission (0x84) */
+int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+
+/* ResponseOnEvent (0x86) */
+int uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now);
+
+/* Run an inner request through the dispatcher, capturing its response into
+ * @p out instead of sending it. Returns the captured length. Used by 0x86
+ * (and the 0x84 secured path uses the same capture machinery). */
+int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
+                                   uint8_t *out, uint16_t out_size);
 int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 #endif /* UDS_INTERNAL_H */

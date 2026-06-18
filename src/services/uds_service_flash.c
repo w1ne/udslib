@@ -154,6 +154,43 @@ int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *dat
     return uds_send_response(ctx, 1u);
 }
 
+int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    /* Request: 38 <mode> <pathLen hi> <pathLen lo> <path...> [params...] */
+    uint8_t mode = data[1];
+
+    /* modeOfOperation 1..5 (Add/Delete/Replace/Read/Resume). */
+    if ((mode < 0x01u) || (mode > 0x05u)) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_FILE_TRANSFER, UDS_NRC_REQUEST_OUT_OF_RANGE);
+    }
+
+    uint16_t path_len = (uint16_t) (((uint16_t) data[2] << 8u) | (uint16_t) data[3]);
+    if ((uint32_t) 4u + (uint32_t) path_len > (uint32_t) len) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_FILE_TRANSFER, UDS_NRC_INCORRECT_LENGTH);
+    }
+
+    if (ctx->config->fn_file_transfer == NULL) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_FILE_TRANSFER, UDS_NRC_CONDITIONS_NOT_CORRECT);
+    }
+
+    const uint8_t *path = &data[4];
+    const uint8_t *params = &data[4u + path_len];
+    uint16_t params_len = (uint16_t) (len - 4u - path_len);
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - 2u);
+
+    int written = ctx->config->fn_file_transfer(ctx, mode, path, path_len, params, params_len,
+                                                &tx[2], max_payload);
+    if (written < 0) {
+        return uds_send_nrc(ctx, UDS_SID_REQUEST_FILE_TRANSFER, (uint8_t) - (int32_t) written);
+    }
+
+    tx[0] = (uint8_t) (UDS_SID_REQUEST_FILE_TRANSFER + UDS_RESPONSE_OFFSET);
+    tx[1] = mode;
+    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 2u));
+}
+
 int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     /* ISO 14229-1: 0x35 [dataFormatIdentifier] [addressAndLengthFormatIdentifier] [address...]

@@ -18,9 +18,10 @@ trace_*.txt
 report.xml
 
 # Binaries and executables
+# NOTE: keep these patterns specific. Unanchored globs like "*_server" also
+# match nested source directories (e.g. examples/zephyr_uds_server/), which
+# silently drops newly added files from version control.
 iso14229_server
-*_server
-*_client
 *.exe
 
 # Zephyr workspace and artifacts

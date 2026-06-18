@@ -20,6 +20,11 @@ add_uds_test(test_service_did unit/test_service_did.c)
 add_uds_test(test_timing unit/test_timing.c)
 add_uds_test(test_service_29 unit/test_service_29.c)
 add_uds_test(test_service_dtc unit/test_service_dtc.c)
+add_uds_test(test_service_84 unit/test_service_84.c)
+add_uds_test(test_service_24 unit/test_service_24.c)
+add_uds_test(test_service_38 unit/test_service_38.c)
+add_uds_test(test_service_2C unit/test_service_2C.c)
+add_uds_test(test_service_86 unit/test_service_86.c)
 add_uds_test(test_service_flash unit/test_service_flash.c)
 add_uds_test(test_service_mem unit/test_service_mem.c)
 add_uds_test(test_osal unit/test_osal.c)
@@ -65,3 +70,7 @@ target_link_libraries(test_compliance_pass3 uds ${CMOCKA_LIBRARIES})
 add_test(NAME test_compliance_pass3 COMMAND test_compliance_pass3)
 
 add_uds_test(test_integration integration/test_integration.c)
+
+# Regression for issue #29: multi-frame request must be dispatched (full stack,
+# real uds_input_sdu — intentionally NOT wrapped).
+add_uds_test(test_issue29_multiframe_request unit/test_issue29_multiframe_request.c)
