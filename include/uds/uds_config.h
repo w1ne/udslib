@@ -111,6 +111,18 @@ typedef struct
     uint16_t count;                 /**< Number of entries in the table */
 } uds_did_table_t;
 
+/**
+ * @brief Diagnostic Trouble Code record (ISO 14229-1).
+ *
+ * Supplied by the application via fn_dtc_list(); the library formats the
+ * ISO wire layout for ReadDTCInformation (0x19) subfunctions itself.
+ */
+typedef struct
+{
+    uint32_t dtc;   /**< 3-byte DTC, right-aligned (high byte ignored) */
+    uint8_t status; /**< statusOfDTC byte (ISO 14229-1 Annex D) */
+} uds_dtc_record_t;
+
 /* --- Service Handler Interface --- */
 
 /**
@@ -295,6 +307,44 @@ typedef struct
      * @return          Number of bytes written, or negative NRC on failure.
      */
     int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: Structured DTC enumeration (SID 0x19, subfunctions
+     *        0x01/0x02/0x0A). The library formats the ISO wire layout.
+     *
+     * Fill @p out with up to @p max records whose status matches
+     * @p status_mask (a record matches when (record.status & status_mask)
+     * is non-zero; a @p status_mask of 0x00 matches every record, used by
+     * reportSupportedDTC 0x0A). When @p out is NULL or @p max is 0, only
+     * the count is required (used by reportNumberOfDTCByStatusMask 0x01).
+     *
+     * @return Number of matching DTCs (which may exceed @p max), or a
+     *         negative NRC on failure.
+     */
+    int (*fn_dtc_list)(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
+                       uint16_t max);
+
+    /**
+     * @brief Optional: DTC snapshot record bytes (SID 0x19, subfunction 0x04).
+     *        Write the snapshot payload (record-number + identifiers + data)
+     *        for @p dtc / @p record_num; the library frames the response.
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_snapshot)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
+                           uint16_t max_len);
+
+    /**
+     * @brief Optional: DTC extended-data record bytes (SID 0x19, sub 0x06).
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_extdata)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
+                          uint16_t max_len);
+
+    /** DTCStatusAvailabilityMask reported in 0x01/0x02/0x0A responses. */
+    uint8_t dtc_status_availability_mask;
+
+    /** DTCFormatIdentifier reported in 0x01 (default 0x01 = ISO_14229-1). */
+    uint8_t dtc_format_id;
 
     /**
      * @brief Optional: Clear Diagnostic Information (SID 0x14).

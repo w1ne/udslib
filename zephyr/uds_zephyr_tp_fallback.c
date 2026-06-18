@@ -3,6 +3,8 @@
  * @brief Zephyr ISO-TP Fallback (Classical CAN) Transport
  */
 
+#include <errno.h>
+
 #include <zephyr/drivers/can.h>
 #include <zephyr/kernel.h>
 
@@ -51,8 +53,8 @@ static int uds_internal_zephyr_can_send(uint32_t id, const uint8_t *data, uint8_
 static void uds_internal_zephyr_can_rx_cb(const struct device *dev, struct can_frame *frame,
                                           void *user_data)
 {
-    (void)dev;
-    (void)user_data;
+    (void) dev;
+    (void) user_data;
     if (g_current_uds_ctx) {
         uds_isotp_rx_callback(&g_isotp, g_current_uds_ctx, frame->id, frame->data, frame->dlc);
     }
@@ -79,7 +81,23 @@ int uds_zephyr_tp_fallback_init(struct uds_ctx *uds_ctx, uint32_t rx_id, uint32_
 
     struct can_filter filter = {.id = rx_id, .mask = CAN_STD_ID_MASK, .flags = 0};
 
-    return can_add_rx_filter(g_can_dev, uds_internal_zephyr_can_rx_cb, NULL, &filter);
+    int filter_id = can_add_rx_filter(g_can_dev, uds_internal_zephyr_can_rx_cb, NULL, &filter);
+    if (filter_id < 0) {
+        printk("Failed to add CAN RX filter (%d)\n", filter_id);
+        return -1;
+    }
+
+    /* The Zephyr CAN controller powers up in the stopped state; without an
+     * explicit start, can_send() returns -ENETDOWN and the RX filter never
+     * fires, so the transport would silently move no frames. -EALREADY means
+     * something already started the controller, which is fine. */
+    int ret = can_start(g_can_dev);
+    if (ret < 0 && ret != -EALREADY) {
+        printk("Failed to start CAN controller (%d)\n", ret);
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
