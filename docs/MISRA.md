@@ -29,6 +29,7 @@ cppcheck --addon=misra --enable=all --inline-suppr -I include -I src/core src/
 | 8.7 / 8.9 | Advisory | External-linkage symbols and object scope kept for the public API and the per-instance design. |
 | 10.1 / 10.4 / 10.8 | Required | Essential-type arithmetic and casts on protocol fields (byte/bit packing of CAN/ISO-TP/UDS data) use explicit casts; each is reviewed for correctness. |
 | 11.1 | Required | The service dispatch table stores handlers behind a single generic signature. |
+| 11.5 | Advisory | The optional DTC store's callbacks recover their instance by casting the core's opaque `void *app_data` field back to `uds_dtc_store_t *`. The field is kept `void *` deliberately so the protocol core carries no dependency on the optional store. |
 | 11.9 | Required | `NULL` usage for optional callbacks/pointers. |
 | 14.4 | Required | Idiomatic non-boolean controlling expressions (`if (ptr)`, `if (len)`). |
 | 15.6 / 15.7 | Required | A few terse compound-statement / `else if` forms, reviewed. |
