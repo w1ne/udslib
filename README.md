@@ -56,7 +56,7 @@ The analyzer includes:
 - `include/uds/` public API headers
 - `src/core/` protocol logic
 - `src/transport/` ISO-TP fallback
-- `examples/` host simulator and integration templates
+- `examples/` host simulator and integration templates ([index](examples/README.md))
 - `extras/` Wireshark dissector, Python bindings
 - `docs/` white paper, guides, and strategy
 

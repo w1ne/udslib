@@ -133,10 +133,10 @@
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
-/* 0x86 subfunctions 0x00-0x06 (0x07 onComparisonOfValues deferred) -> 0x7F. */
+/* 0x86 subfunctions 0x00-0x07 -> 0xFF. */
 #define UDS_MASK_SUB_86                                    \
     {                                                      \
-        0x7Fu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+        0xFFu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
 #define UDS_MASK_SUB_87                                    \
     {                                                      \

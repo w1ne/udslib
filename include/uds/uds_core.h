@@ -163,6 +163,34 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_roe_trigger(uds_ctx_t *ctx, uint8_t event_type, uint32_t param);
 
 /**
+ * @brief Serialize the stored ResponseOnEvent (0x86) definitions to a buffer
+ *        so the application can persist them across a reset (it owns the NVM).
+ *
+ * Writes a self-describing blob of all currently-stored event definitions
+ * (type, parameter, window, serviceToRespondTo) — not their volatile runtime
+ * state. Pair with uds_roe_deserialize() at startup.
+ *
+ * @param ctx  Pointer to the initialized context.
+ * @param buf  Destination buffer.
+ * @param max  Capacity of @p buf.
+ * @return Bytes written (>= 0), or a negative error code if @p buf is too small.
+ */
+int uds_roe_serialize(uds_ctx_t *ctx, uint8_t *buf, uint16_t max);
+
+/**
+ * @brief Restore ResponseOnEvent definitions previously produced by
+ *        uds_roe_serialize(). Restored events are stored but inactive until a
+ *        startResponseOnEvent (0x86 0x05).
+ *
+ * @param ctx  Pointer to the initialized context.
+ * @param buf  Source blob.
+ * @param len  Length of @p buf.
+ * @return Number of definitions restored (>= 0), or a negative error code on a
+ *         malformed/incompatible blob.
+ */
+int uds_roe_deserialize(uds_ctx_t *ctx, const uint8_t *buf, uint16_t len);
+
+/**
  * @brief Send a UDS Request as a Client.
  *
  * @param ctx      Pointer to the initialized context.
