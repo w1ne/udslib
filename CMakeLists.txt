@@ -39,6 +39,7 @@ add_library(uds STATIC ${LIBUDS_SOURCES})
 # Examples
 add_subdirectory(examples/host_sim)
 add_subdirectory(examples/pro_flash_tool)
+add_subdirectory(examples/dtc_store)
 
 # Testing
 option(BUILD_TESTING "Build unit tests" ON)

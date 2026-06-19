@@ -16,7 +16,7 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x10 | DiagnosticSessionControl | Default / Programming / Extended / SafetySystem; returns configured P2/P2*; re-locks security on transition; optional `fn_session_transition_allowed` hook for OEM transition graphs. |
 | 0x11 | ECUReset | Hard, Soft, KeyOffOn; SuppressPosMsg supported. |
 | 0x14 | ClearDiagnosticInformation | Optional memory-selection byte. |
-| 0x19 | ReadDTCInformation | DTCStatusMask validation; library-formatted wire layout for 0x01/0x02/0x0A (via `fn_dtc_list`) and 0x04/0x06 framing (via `fn_dtc_snapshot`/`fn_dtc_extdata`); raw `fn_dtc_read` fallback. |
+| 0x19 | ReadDTCInformation | DTCStatusMask validation; library-formatted wire layout for 0x01/0x02/0x0A (via `fn_dtc_list`) and 0x04/0x06 framing (via `fn_dtc_snapshot`/`fn_dtc_extdata`); raw `fn_dtc_read` fallback. Severity/WWH-OBD subfunctions: 0x07 reportNumberOfDTCBySeverityMaskRecord, 0x08 reportDTCBySeverityMaskRecord, 0x09 reportSeverityInformationOfDTC, 0x14 reportDTCFaultDetectionCounter, 0x42 reportWWHOBDDTCByMaskRecord, 0x55 reportWWHOBDDTCWithPermanentStatus (via `fn_dtc_list` + `dtc_severity_availability_mask`). |
 | 0x22 | ReadDataByIdentifier | Multi-DID; per-DID session/security gating; tx-buffer overflow protection. |
 | 0x23 | ReadMemoryByAddress | ALFID parsing + bounds/length checks. |
 | 0x24 | ReadScalingDataByIdentifier | Library frames `0x64 <DID>`; scalingByte/scalingData via `fn_read_scaling`. |
