@@ -365,11 +365,16 @@ typedef struct
      * @brief Optional: Read DTC Information (SID 0x19).
      * @param ctx       Pointer to context.
      * @param subfn     The 0x19 subfunction (e.g., 0x01, 0x02).
+     * @param req       The full ReadDTCInformation request (req[0]=SID 0x19, req[1]=sub-function,
+     *                  req[2..]=sub-function parameters such as the status/severity mask, DTC,
+     *                  record number, or memory selection).
+     * @param req_len   Length of @p req in bytes.
      * @param out_buf   Buffer to write DTC info into.
      * @param max_len   Max buffer size.
      * @return          Number of bytes written, or negative NRC on failure.
      */
-    int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len);
+    int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, uint16_t req_len,
+                       uint8_t *out_buf, uint16_t max_len);
 
     /**
      * @brief Optional: Structured DTC enumeration (SID 0x19, subfunctions
