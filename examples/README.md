@@ -12,7 +12,8 @@ smoke test.
 | Example | Shows |
 |---------|-------|
 | [`custom_service`](custom_service/) | Add a manufacturer-specific service (or override a built-in) via `config.user_services`, without editing the library. |
-| [`auth_challenge`](auth_challenge/) | Wire the Authentication service (0x29) challenge/response flow. |
+| [`auth_challenge`](auth_challenge/) | Wire the Authentication service (0x29) challenge/response flow (no crypto dependency). |
+| [`auth_challenge_mbedtls`](auth_challenge_mbedtls/) | The same 0x29 flow with **real AES-128-CMAC** via mbedTLS behind `fn_auth` (needs `libmbedtls-dev`). |
 | [`dtc_store`](dtc_store/) | Manage DTC instances with the opt-in reference store and answer ReadDTCInformation (0x19) end-to-end. |
 | [`dtc_full_coverage`](dtc_full_coverage/) | Every 0x19 sub-function — library-framed and application-served — plus 0x04/0x06 freeze-frame payloads. |
 
