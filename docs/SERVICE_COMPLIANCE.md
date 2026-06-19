@@ -13,7 +13,7 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 
 | SID | Service | Notes |
 | :--- | :--- | :--- |
-| 0x10 | DiagnosticSessionControl | Default / Programming / Extended; returns configured P2/P2*; re-locks security on transition. |
+| 0x10 | DiagnosticSessionControl | Default / Programming / Extended / SafetySystem; returns configured P2/P2*; re-locks security on transition; optional `fn_session_transition_allowed` hook for OEM transition graphs. |
 | 0x11 | ECUReset | Hard, Soft, KeyOffOn; SuppressPosMsg supported. |
 | 0x14 | ClearDiagnosticInformation | Optional memory-selection byte. |
 | 0x19 | ReadDTCInformation | DTCStatusMask validation; library-formatted wire layout for 0x01/0x02/0x0A (via `fn_dtc_list`) and 0x04/0x06 framing (via `fn_dtc_snapshot`/`fn_dtc_extdata`); raw `fn_dtc_read` fallback. |
@@ -63,6 +63,7 @@ with NRC 0x11 (serviceNotSupported).
 - **Session policy:** by default every service is reachable in every session (the integrator enforces policy via `fn_is_safe` or per-service `session_mask`). Set `config.restrict_sessions` for a built-in ISO-sensible default: reprogramming services (0x34/0x35/0x36/0x37/0x87/0x3D) → programming session; other privileged services (0x27/0x11/0x28/0x29/0x2E/0x2F/0x31/0x83/0x85/0x23) → extended or programming. Disallowed-session requests return NRC 0x7F.
 - **SecurityAccess:** seed cached and passed to the key verifier; key requires a prior requestSeed at the same level (else NRC 0x24); configurable attempt limit and delay timer.
 - **Session/security reset:** security level and outstanding seed cleared on session change and S3 timeout.
+- **Session transitions:** by default any ISO-valid session ($01 default / $02 programming / $03 extended / $04 safetySystem) may be entered from any session, per ISO 14229-1 (the standard imposes no transition graph). OEM-specific graphs (e.g. requiring extended before programming) are enforced by supplying the optional `fn_session_transition_allowed(ctx, from, to)` hook; returning false rejects the request with NRC 0x22.
 - **RCRRP limit:** configurable cap on NRC 0x78 (ResponsePending) repetitions to prevent infinite loops.
 - **Safety gates:** application callback can block destructive services (Reset, Write, Download) with NRC 0x22.
 - **Async:** `UDS_PENDING` (NRC 0x78) supports non-blocking integration with slow flash/hardware.

@@ -17,8 +17,17 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
 
     /* C-01: Validate Session ID */
     if (sub != UDS_SESSION_ID_DEFAULT && sub != UDS_SESSION_ID_PROGRAMMING &&
-        sub != UDS_SESSION_ID_EXTENDED) {
+        sub != UDS_SESSION_ID_EXTENDED && sub != UDS_SESSION_ID_SAFETY) {
         return uds_send_nrc(ctx, UDS_SID_SESSION_CONTROL, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+    }
+
+    /* Optional OEM transition policy. ISO 14229-1 itself permits any
+     * session-to-session transition; an application that needs a restricted
+     * graph (e.g. extended-before-programming) supplies this hook. A rejected
+     * transition leaves the active session unchanged. */
+    if (ctx->config->fn_session_transition_allowed != NULL &&
+        !ctx->config->fn_session_transition_allowed(ctx, ctx->active_session, sub)) {
+        return uds_send_nrc(ctx, UDS_SID_SESSION_CONTROL, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
     /* C-06: Security Reset on Session Transition */
