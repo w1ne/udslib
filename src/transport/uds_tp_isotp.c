@@ -63,6 +63,7 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
     iso->can_send = can_send;
     iso->tx_id = tx_id;
     iso->rx_id = rx_id;
+    iso->rx_id_func = 0u;          /* functional reception disabled until configured */
     iso->block_size = 8;           /* BS we advertise as receiver */
     iso->st_min = 0;               /* STmin we advertise as receiver */
     iso->use_can_fd = 0;           /* Default: Classic CAN */
@@ -92,6 +93,14 @@ void uds_tp_isotp_set_mode(uds_isotp_ctx_t *iso, uds_isotp_duplex_t mode)
         return;
     }
     iso->mode = mode;
+}
+
+void uds_tp_isotp_set_functional_id(uds_isotp_ctx_t *iso, uint32_t rx_id_func)
+{
+    if (!iso) {
+        return;
+    }
+    iso->rx_id_func = rx_id_func;
 }
 
 /**
@@ -295,7 +304,8 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
     }
 }
 
-static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
+static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len,
+                      uint8_t addr)
 {
     /* A new reception supersedes any in-progress reception. */
     iso->rx_state = ISOTP_RX_IDLE;
@@ -311,18 +321,22 @@ static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
 
     if (sdu_len == 0u) {
         /* CAN-FD SF: Byte 0 is 0x00, Byte 1 is Length */
-        if (len < 2u) return; /* Not enough data for the FD length byte */
+        if (len < 2u) return;
         sdu_len = data[1];
         data_offset = 2;
-        if (sdu_len == 0) return; /* Invalid */
+        if (sdu_len == 0) return;
     }
 
     if (sdu_len > (len - data_offset)) {
-        /* Not enough data in frame */
         return;
     }
 
-    uds_input_sdu(uds, &data[data_offset], (uint16_t) sdu_len);
+    if (addr == (uint8_t) UDS_ADDR_FUNCTIONAL) {
+        uds_input_sdu_addr(uds, &data[data_offset], (uint16_t) sdu_len, UDS_ADDR_FUNCTIONAL);
+    }
+    else {
+        uds_input_sdu(uds, &data[data_offset], (uint16_t) sdu_len);
+    }
 }
 
 static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
@@ -460,29 +474,42 @@ void uds_isotp_rx_callback(uds_isotp_ctx_t *iso, struct uds_ctx *uds, uint32_t i
     if (!iso || !data || len == 0u) {
         return;
     }
-    if (id != iso->rx_id) {
-        return;
+
+    uint8_t addr;
+    if (id == iso->rx_id) {
+        addr = (uint8_t) UDS_ADDR_PHYSICAL;
+    }
+    else if ((iso->rx_id_func != 0u) && (id == iso->rx_id_func)) {
+        addr = (uint8_t) UDS_ADDR_FUNCTIONAL;
+    }
+    else {
+        return; /* not for us */
     }
 
     uint8_t pci = data[0] & 0xF0;
 
+    if (addr == (uint8_t) UDS_ADDR_FUNCTIONAL) {
+        /* Functional addressing is Single-Frame only (ISO 15765-2):
+           segmented transfer and flow control are undefined for one-to-many. */
+        if (pci == ISOTP_PCI_SF) {
+            uds_rx_sf(iso, uds, data, len, (uint8_t) UDS_ADDR_FUNCTIONAL);
+        }
+        return;
+    }
+
     switch (pci) {
         case ISOTP_PCI_SF:
-            uds_rx_sf(iso, uds, data, len);
+            uds_rx_sf(iso, uds, data, len, (uint8_t) UDS_ADDR_PHYSICAL);
             break;
-
         case ISOTP_PCI_FF:
             uds_rx_ff(iso, uds, data, len);
             break;
-
         case ISOTP_PCI_CF:
             uds_rx_cf(iso, uds, data, len);
             break;
-
         case ISOTP_PCI_FC:
             uds_rx_fc(iso, data, len);
             break;
-
         default:
             break;
     }

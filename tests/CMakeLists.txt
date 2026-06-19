@@ -84,3 +84,5 @@ add_uds_test(test_issue29_multiframe_request unit/test_issue29_multiframe_reques
 add_uds_test(test_issue42_full_duplex_response unit/test_issue42_full_duplex_response.c)
 
 add_uds_test(test_addressing_dispatch unit/test_addressing_dispatch.c)
+add_uds_test(test_tp_addressing unit/test_tp_addressing.c)
+target_link_options(test_tp_addressing PRIVATE -Wl,--wrap=uds_input_sdu -Wl,--wrap=uds_input_sdu_addr)

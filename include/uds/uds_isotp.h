@@ -107,6 +107,7 @@ typedef struct
     /* --- Configuration --- */
     uint32_t tx_id;          /**< CAN ID to transmit on (Source) */
     uint32_t rx_id;          /**< CAN ID to listen for (Target) */
+    uint32_t rx_id_func;     /**< Functional/broadcast RX ID; 0 = functional disabled */
     uint8_t block_size;      /**< BS we advertise as receiver (sent in our FC) */
     uint8_t st_min;          /**< STmin we advertise as receiver (sent in our FC) */
     uint8_t use_can_fd;      /**< Flag: Enable CAN-FD support (0=Standard, 1=FD) */
@@ -178,6 +179,20 @@ void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled);
  * @param mode ISOTP_HALF_DUPLEX or ISOTP_FULL_DUPLEX.
  */
 void uds_tp_isotp_set_mode(uds_isotp_ctx_t *iso, uds_isotp_duplex_t mode);
+
+/**
+ * @brief Set the functional (broadcast) RX ID for this channel.
+ *
+ * A received frame whose CAN ID equals @p rx_id_func is treated as a
+ * functionally addressed (one-to-many) request and delivered to the core with
+ * UDS_ADDR_FUNCTIONAL. Functional reception is Single-Frame only (ISO 15765-2):
+ * a functionally addressed FF/CF/FC is ignored. Pass 0 (the default) to disable
+ * functional reception.
+ *
+ * @param iso         ISO-TP context.
+ * @param rx_id_func  Functional RX CAN ID, or 0 to disable.
+ */
+void uds_tp_isotp_set_functional_id(uds_isotp_ctx_t *iso, uint32_t rx_id_func);
 
 /**
  * @brief Send an SDU via ISO-TP.
