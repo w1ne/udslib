@@ -51,10 +51,12 @@ typedef enum
  */
 typedef enum
 {
-    UDS_COMM_ENABLE_RX_TX = 0x00,         /**< Normal communication */
-    UDS_COMM_ENABLE_RX_DISABLE_TX = 0x01, /**< Receive only */
-    UDS_COMM_DISABLE_RX_ENABLE_TX = 0x02, /**< Transmit only */
-    UDS_COMM_DISABLE_RX_TX = 0x03         /**< Total communication silence */
+    UDS_COMM_ENABLE_RX_TX = 0x00,             /**< Normal communication */
+    UDS_COMM_ENABLE_RX_DISABLE_TX = 0x01,     /**< Receive only */
+    UDS_COMM_DISABLE_RX_ENABLE_TX = 0x02,     /**< Transmit only */
+    UDS_COMM_DISABLE_RX_TX = 0x03,            /**< Total communication silence */
+    UDS_COMM_ENABLE_RX_DISABLE_TX_ENH = 0x04, /**< Receive only, enhanced address info */
+    UDS_COMM_ENABLE_RX_TX_ENH = 0x05          /**< Normal communication, enhanced address info */
 } uds_comm_control_type_t;
 
 /**
