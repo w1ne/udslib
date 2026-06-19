@@ -108,6 +108,33 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config);
 void uds_process(uds_ctx_t *ctx);
 
 /**
+ * @brief UDS addressing mode of an incoming request.
+ *
+ * Physical = point-to-point (one ECU). Functional = broadcast (one-to-many).
+ * Used as a bitmask in uds_service_entry_t.address_mode (0 there means both).
+ */
+typedef enum
+{
+    UDS_ADDR_PHYSICAL = (1u << 0),
+    UDS_ADDR_FUNCTIONAL = (1u << 1)
+} uds_addr_mode_t;
+
+/**
+ * @brief Input a UDS SDU with an explicit addressing mode.
+ *
+ * Same as uds_input_sdu(), but records whether the request was physically or
+ * functionally addressed (from the received CAN ID). Functionally addressed
+ * requests are gated per service and have certain negative responses
+ * suppressed (ISO 14229-1).
+ *
+ * @param ctx  Initialized context.
+ * @param data SDU buffer.
+ * @param len  SDU length in bytes.
+ * @param addr UDS_ADDR_PHYSICAL or UDS_ADDR_FUNCTIONAL.
+ */
+void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_addr_mode_t addr);
+
+/**
  * @brief Input a UDS SDU (Service Data Unit).
  *
  * Feeds a fully assembled UDS message into the stack. This is the entry point
@@ -116,6 +143,7 @@ void uds_process(uds_ctx_t *ctx);
  * @param ctx  Pointer to the initialized context.
  * @param data Pointer to the buffer containing the SDU.
  * @param len  Length of the data in bytes.
+ * @note Equivalent to uds_input_sdu_addr(ctx, data, len, UDS_ADDR_PHYSICAL).
  */
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 

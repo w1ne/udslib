@@ -260,6 +260,19 @@ static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         return;
     }
 
+    /* Addressing gate: does this service accept the request's addressing mode?
+       address_mode == 0 means "both" (backward compatible). */
+    uint8_t allowed_addr = (service->address_mode != 0u)
+                               ? service->address_mode
+                               : (uint8_t) (UDS_ADDR_PHYSICAL | UDS_ADDR_FUNCTIONAL);
+    if ((allowed_addr & ctx->req_addr_mode) == 0u) {
+        if (ctx->req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL) {
+            return; /* functional broadcast for an unsupported addressing: stay silent */
+        }
+        uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPPORTED);
+        return;
+    }
+
     /* ISO 14229-1 Priority: Session -> Subfunction -> Length -> Security -> Safety */
 
     if (!is_session_supported(ctx, service)) {
@@ -337,7 +350,10 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     }
 
     /* Dispatch the inner request with the secured-session gate granted,
-     * capturing its response instead of sending it. */
+     * capturing its response instead of sending it.
+     * Inner dispatch must always be treated as physical (design spec §2): save and
+     * force UDS_ADDR_PHYSICAL so the addressing gate does not read a stale
+     * functional req_addr_mode from the preceding top-level request. */
     uint8_t captured[UDS_SECURE_SCRATCH];
     ctx->in_secured_session = true;
     ctx->secure_capturing = true;
@@ -345,7 +361,10 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     ctx->secure_capture_size = (uint16_t) sizeof(captured);
     ctx->secure_capture_len = 0u;
 
+    uint8_t saved_addr_mode = ctx->req_addr_mode;
+    ctx->req_addr_mode = (uint8_t) UDS_ADDR_PHYSICAL;
     handle_request(ctx, inner, (uint16_t) inner_len);
+    ctx->req_addr_mode = saved_addr_mode;
 
     ctx->in_secured_session = false;
     ctx->secure_capturing = false;
@@ -383,7 +402,14 @@ int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_
     ctx->secure_capture_size = out_size;
     ctx->secure_capture_len = 0u;
 
+    /* Inner/captured dispatch must always be treated as physical (design spec §2):
+     * save and force UDS_ADDR_PHYSICAL so a stale functional req_addr_mode from
+     * the preceding top-level request does not cause the addressing gate in
+     * handle_request to silently drop the ROE/secured inner response. */
+    uint8_t saved_addr_mode = ctx->req_addr_mode;
+    ctx->req_addr_mode = (uint8_t) UDS_ADDR_PHYSICAL;
     handle_request(ctx, inner, inner_len);
+    ctx->req_addr_mode = saved_addr_mode;
 
     ctx->secure_capturing = false;
     ctx->secure_capture_buf = NULL;
@@ -568,6 +594,11 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
 
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
+    uds_input_sdu_addr(ctx, data, len, UDS_ADDR_PHYSICAL);
+}
+
+void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_addr_mode_t addr)
+{
     if (!ctx || !ctx->config) {
         return;
     }
@@ -581,6 +612,8 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
             ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
         return;
     }
+
+    ctx->req_addr_mode = (uint8_t) addr;
 
     uint8_t sid = data[0];
     ctx->last_msg_time = ctx->config->get_time_ms();
@@ -683,6 +716,21 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
        Others only clear if they refer to the actual pending SID. */
     if (nrc != UDS_NRC_RESPONSE_PENDING && sid == ctx->server_pending_sid) {
         ctx->p2_msg_pending = false;
+    }
+
+    /* ISO 14229-1: a functionally addressed request must not elicit these
+       negative responses (avoid flooding a shared bus when many ECUs answer).
+       Captured inner dispatches (SecuredDataTransmission / ResponseOnEvent) are
+       never functional, hence the secure_capturing guard.
+       INVARIANT: this suppress set must stay disjoint from any NRC that
+       uds_process can emit on a deferred/pending path (responsePending and the
+       post-RCRRP conditionsNotCorrect), since those run with a persisted
+       req_addr_mode and must NOT be suppressed. */
+    if (ctx->req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL && !ctx->secure_capturing &&
+        (nrc == UDS_NRC_SERVICE_NOT_SUPPORTED || nrc == UDS_NRC_SUBFUNCTION_NOT_SUPPORTED ||
+         nrc == UDS_NRC_SUBFUNC_NOT_SUPP_IN_SESS || nrc == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS ||
+         nrc == UDS_NRC_REQUEST_OUT_OF_RANGE)) {
+        return UDS_OK; /* suppressed: emit nothing on the bus */
     }
 
     /* NRCs are NEVER suppressed by bit 7 */

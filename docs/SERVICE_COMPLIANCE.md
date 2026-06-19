@@ -49,6 +49,13 @@ eventTypeRecord is a documented simplification); 0x84 ships the protocol
 envelope and delegates the cipher to the integrator. Unknown/unsupported SIDs
 are rejected with NRC 0x11 (serviceNotSupported).
 
+**Physical/functional addressing**: Each service entry gates on the `address_mode`
+field in `uds_service_entry_t` (a `UDS_ADDR_*` bitmask; 0 = both, the default for
+all built-in core services). A functionally addressed request to a service that
+does not accept it is silently dropped. Per ISO 14229-1, functionally addressed
+requests also suppress the negative response codes `0x11`, `0x12`, `0x7E`, `0x7F`,
+and `0x31` to avoid flooding a shared bus.
+
 ## Transport conformance (ISO 15765-2)
 
 - Frame types: Single (SF), First (FF), Consecutive (CF), Flow Control (FC).
