@@ -375,6 +375,7 @@ static void test_read_dtc_info_0x09_severity_info(void **state)
     assert_int_equal(g_tx_buf[3], 0x40); /* severity (checkAtNextHalt) */
     assert_int_equal(g_tx_buf[4], 0x11); /* functional unit */
     assert_int_equal(g_tx_buf[5], 0x12); /* DTC hi */
+    assert_int_equal(g_tx_buf[6], 0x34); /* DTC mid */
     assert_int_equal(g_tx_buf[7], 0x57); /* DTC lo */
     assert_int_equal(g_tx_buf[8], 0x08); /* status */
 }
@@ -474,6 +475,8 @@ static void test_read_dtc_info_0x42_wwhobd(void **state)
     assert_int_equal(g_tx_buf[5], 0x04);  /* format */
     assert_int_equal(g_tx_buf[6], 0x80);  /* severity */
     assert_int_equal(g_tx_buf[7], 0xA0);  /* DTC hi */
+    assert_int_equal(g_tx_buf[8], 0x00);  /* DTC mid */
+    assert_int_equal(g_tx_buf[9], 0x01);  /* DTC lo */
     assert_int_equal(g_tx_buf[10], 0x08); /* status */
 }
 
@@ -502,6 +505,8 @@ static void test_read_dtc_info_0x55_permanent(void **state)
     assert_int_equal(g_tx_buf[3], 0x7F); /* status avail */
     assert_int_equal(g_tx_buf[4], 0x04); /* format */
     assert_int_equal(g_tx_buf[5], 0xA0); /* DTC hi */
+    assert_int_equal(g_tx_buf[6], 0x00); /* DTC mid */
+    assert_int_equal(g_tx_buf[7], 0x01); /* DTC lo */
     assert_int_equal(g_tx_buf[8], 0x08); /* status */
 }
 
@@ -540,6 +545,61 @@ static void test_store_backed_read_dtc_0x02(void **state)
     assert_true((g_tx_buf[6] & UDS_DTC_STATUS_TEST_FAILED) != 0u);
 }
 
+static void test_store_backed_extdata_and_clear(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+
+    static uds_dtc_record_t backing[4];
+    static uds_dtc_store_t store;
+    uds_dtc_store_init(&store, backing, 4u, 40u);
+    uds_dtc_store_register(&store, 0x012345u, UDS_DTC_SEVERITY_CHECK_IMMEDIATELY, 0x10u,
+                           UDS_DTC_FGID_EMISSIONS);
+    uds_dtc_store_report_test(&store, 0x012345u, true);
+
+    cfg.app_data = &store;
+    cfg.fn_dtc_list = uds_dtc_store_list_cb;
+    cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;
+    cfg.fn_dtc_clear = uds_dtc_store_clear_cb;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+
+    /* 0x19 0x06 DTC=01 23 45, record_num=0x01 */
+    uint8_t req_ext[] = {0x19, 0x06, 0x01, 0x23, 0x45, 0x01};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 06 DTC(3) + extdata(4) = 5 + 4 = 9 */
+    expect_value(mock_tp_send, len, 9);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req_ext, 6);
+
+    assert_int_equal(g_tx_buf[0], 0x59);
+    assert_int_equal(g_tx_buf[1], 0x06);
+    assert_int_equal(g_tx_buf[2], 0x01); /* DTC hi */
+    assert_int_equal(g_tx_buf[3], 0x23); /* DTC mid */
+    assert_int_equal(g_tx_buf[4], 0x45); /* DTC lo */
+    assert_int_equal(g_tx_buf[6], 0x01); /* record_num echoed in payload[1] */
+
+    /* ClearDiagnosticInformation: group 0xFFFFFF */
+    uint8_t req_clr[] = {0x14, 0xFF, 0xFF, 0xFF};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 1);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req_clr, 4);
+
+    assert_int_equal(g_tx_buf[0], 0x54);
+
+    uds_dtc_record_t *r = uds_dtc_store_get(&store, 0x012345u);
+    assert_non_null(r);
+    assert_int_equal(r->status, 0);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -560,6 +620,7 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_0x42_wwhobd),
         cmocka_unit_test(test_read_dtc_info_0x55_permanent),
         cmocka_unit_test(test_store_backed_read_dtc_0x02),
+        cmocka_unit_test(test_store_backed_extdata_and_clear),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

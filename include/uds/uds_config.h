@@ -409,7 +409,7 @@ typedef struct
     /** DTCFormatIdentifier reported in 0x01 (default 0x01 = ISO_14229-1). */
     uint8_t dtc_format_id;
 
-    /** DTCSeverityAvailabilityMask reported in 0x42/0x55 responses. */
+    /** DTCSeverityAvailabilityMask reported in 0x42 responses. */
     uint8_t dtc_severity_availability_mask;
 
     /** Opaque application handle, recoverable inside callbacks via
