@@ -86,3 +86,6 @@ add_uds_test(test_issue42_full_duplex_response unit/test_issue42_full_duplex_res
 add_uds_test(test_addressing_dispatch unit/test_addressing_dispatch.c)
 add_uds_test(test_tp_addressing unit/test_tp_addressing.c)
 target_link_options(test_tp_addressing PRIVATE -Wl,--wrap=uds_input_sdu -Wl,--wrap=uds_input_sdu_addr)
+
+# Regression for issue #42 part 2: functional addressing end to end.
+add_uds_test(test_issue42_functional unit/test_issue42_functional.c)
