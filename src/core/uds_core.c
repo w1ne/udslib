@@ -170,6 +170,8 @@ uint8_t uds_internal_session_bit(uint8_t session)
             return UDS_SESSION_PROGRAMMING;
         case UDS_SESSION_ID_EXTENDED:
             return UDS_SESSION_EXTENDED;
+        case UDS_SESSION_ID_SAFETY:
+            return UDS_SESSION_SAFETY;
         default:
             return (uint8_t) 0u;
     }

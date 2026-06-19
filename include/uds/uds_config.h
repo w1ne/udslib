@@ -166,6 +166,8 @@ typedef struct
  *  SecuredDataTransmission (0x84). A service whose session_mask is exactly
  *  UDS_SESSION_SECURED is reachable only through 0x84. */
 #define UDS_SESSION_SECURED (1 << 3)
+/** safetySystemDiagnosticSession ($04, ISO 14229-1). */
+#define UDS_SESSION_SAFETY (1 << 4)
 #define UDS_SESSION_ALL (0xFF)
 
 /**
@@ -313,6 +315,27 @@ typedef struct
     uint16_t user_service_count;
 
     /* --- Advanced Policy Callbacks --- */
+
+    /**
+     * @brief Optional: Session-transition policy hook (SID 0x10).
+     *
+     * Called before a DiagnosticSessionControl request changes the active
+     * session, with the current (@p from) and requested (@p to) session IDs.
+     * Return true to allow the transition, false to reject it with NRC 0x22
+     * (conditionsNotCorrect); on rejection the active session is left unchanged.
+     *
+     * When NULL (the default) every ISO-valid session may be entered from any
+     * session, matching ISO 14229-1, which places no restriction on
+     * session-to-session transitions. Use this hook to enforce an OEM-specific
+     * transition graph (e.g. requiring the extended session before the
+     * programming session).
+     *
+     * @param ctx   UDS context.
+     * @param from  Currently active session ID.
+     * @param to    Requested (already range-validated) session ID.
+     * @return      true to allow, false to reject with NRC 0x22.
+     */
+    bool (*fn_session_transition_allowed)(struct uds_ctx *ctx, uint8_t from, uint8_t to);
 
     /**
      * @brief Optional: Safety Gate Check.

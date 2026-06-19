@@ -82,11 +82,14 @@
 #define UDS_SESSION_ID_DEFAULT 0x01u
 #define UDS_SESSION_ID_PROGRAMMING 0x02u
 #define UDS_SESSION_ID_EXTENDED 0x03u
+#define UDS_SESSION_ID_SAFETY 0x04u
 
 /* Subfunction Masks (16 bytes) */
+/* Allowed 0x10 subfunctions: 0x1E = 0x01/0x02/0x03/0x04
+ * (default/programming/extended/safetySystem). */
 #define UDS_MASK_SUB_10                                    \
     {                                                      \
-        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+        0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
 #define UDS_MASK_SUB_11                                    \
     {                                                      \

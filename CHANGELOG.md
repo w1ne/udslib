@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **DiagnosticSessionControl (0x10) — safetySystemDiagnosticSession ($04)**: the fourth standard ISO 14229-1 session type is now accepted (sub-function mask widened to $01–$04) and mapped to a new `UDS_SESSION_SAFETY` service-gate bit. (#40)
+- **Optional session-transition policy hook** `fn_session_transition_allowed(ctx, from, to)`: called before 0x10 changes the active session. Returning false rejects the request with NRC 0x22 (conditionsNotCorrect) and leaves the session unchanged. When unset (default), any session may be entered from any session — matching ISO 14229-1, which imposes no transition graph. Lets integrators enforce OEM-specific transition graphs (e.g. extended-before-programming) without baking a non-standard default into the library. (#40)
+
 ## [1.19.0] - 2026-06-19
 
 ### Added
