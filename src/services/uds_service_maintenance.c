@@ -538,6 +538,9 @@ static int uds_internal_dtc_first_or_recent(uds_ctx_t *ctx, uint8_t sub, bool su
 
     uint16_t pos = 3u;
     if (sel >= 0) {
+        if ((uint16_t) (pos + 4u) > ctx->config->tx_buffer_size) {
+            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+        }
         const uds_dtc_record_t *r = &recs[sel];
         tx[pos] = (uint8_t) ((r->dtc >> 16) & 0xFFu);
         tx[pos + 1u] = (uint8_t) ((r->dtc >> 8) & 0xFFu);
