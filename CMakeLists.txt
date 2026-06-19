@@ -29,6 +29,7 @@ set(LIBUDS_SOURCES
     src/services/uds_service_io.c
     src/services/uds_service_link.c
     src/services/uds_service_roe.c
+    src/services/uds_dtc_store.c
     src/transport/uds_tp_isotp.c
 )
 add_library(uds STATIC ${LIBUDS_SOURCES})
@@ -38,6 +39,8 @@ add_library(uds STATIC ${LIBUDS_SOURCES})
 # Examples
 add_subdirectory(examples/host_sim)
 add_subdirectory(examples/pro_flash_tool)
+add_subdirectory(examples/dtc_store)
+add_subdirectory(examples/dtc_full_coverage)
 
 # Testing
 option(BUILD_TESTING "Build unit tests" ON)

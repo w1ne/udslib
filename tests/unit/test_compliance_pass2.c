@@ -5,10 +5,13 @@
 
 #include "test_helpers.h"
 
-static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len)
+static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, uint16_t req_len,
+                         uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
     (void) subfn;
+    (void) req;
+    (void) req_len;
     (void) max_len;
     out_buf[0] = 0xAA;
     return 1;
