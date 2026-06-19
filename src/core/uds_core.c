@@ -19,6 +19,7 @@ static const uint8_t mask_sub_11[] = UDS_MASK_SUB_11;
 static const uint8_t mask_sub_19[] = UDS_MASK_SUB_19;
 static const uint8_t mask_sub_27[] = UDS_MASK_SUB_27;
 static const uint8_t mask_sub_28[] = UDS_MASK_SUB_28;
+static const uint8_t mask_sub_29[] = UDS_MASK_SUB_29;
 static const uint8_t mask_sub_31[] = UDS_MASK_SUB_31;
 static const uint8_t mask_sub_3E[] = UDS_MASK_SUB_3E;
 static const uint8_t mask_sub_85[] = UDS_MASK_SUB_85;
@@ -55,7 +56,8 @@ static const uds_service_entry_t core_services[] = {
     {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_security_access,
      mask_sub_27},
     {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28},
-    {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_authentication, NULL},
+    {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_authentication,
+     mask_sub_29},
     {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_data_by_id, NULL},
     {UDS_SID_ROUTINE_CONTROL, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_routine_control,
      mask_sub_31},
@@ -454,6 +456,7 @@ void uds_process(uds_ctx_t *ctx)
         if ((now - ctx->last_msg_time) > UDS_S3_TIMEOUT_MS) {
             ctx->active_session = UDS_SESSION_ID_DEFAULT;
             ctx->security_level = 0u;
+            ctx->authenticated = false;
             ctx->security_seed_level = 0u;
             ctx->security_seed_len = 0u;
             uds_internal_log(ctx, UDS_LOG_INFO, "S3 Timeout: Reverted to Default Session");

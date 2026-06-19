@@ -443,6 +443,10 @@ typedef struct
     int (*fn_auth)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *data, uint16_t len,
                    uint8_t *out_buf, uint16_t max_len);
 
+    /** Authentication configuration byte returned by SID 0x29 sub-function 0x08
+     *  (authenticationConfiguration). 0 = APCE not configured (default). */
+    uint8_t auth_configuration;
+
     /**
      * @brief Optional: Read Scaling Data By Identifier (SID 0x24).
      *        Write the scalingByte/scalingData bytes for @p did; the library
@@ -650,6 +654,9 @@ typedef struct uds_ctx
     uint8_t active_session;
     /** Current security level (0 = Locked) */
     uint8_t security_level;
+    /** Authentication (0x29) state: true once fn_auth verifies ownership.
+     *  Auto-cleared on deAuthenticate, session change, S3 timeout, and reset. */
+    bool authenticated;
 
     /* --- Timing --- */
     /** Timestamp of last received valid message (for S3 timer) */

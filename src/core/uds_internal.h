@@ -111,6 +111,11 @@
     {                                                      \
         0x3Fu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+/* 0x29 Authentication sub-functions 0x00-0x08: byte0 0xFF + byte1 0x01 (0x08). */
+#define UDS_MASK_SUB_29                                        \
+    {                                                          \
+        0xFFu, 0x01u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 #define UDS_MASK_SUB_31                                    \
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \

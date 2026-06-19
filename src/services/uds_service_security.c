@@ -111,20 +111,41 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 }
 
+/* AuthenticationReturnParameter (ISO 14229-1:2020) values the library emits. */
+#define UDS_ARP_DEAUTHENTICATED 0x10u
+
 int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
-    if (len < 2u) {
-        return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, UDS_NRC_INCORRECT_LENGTH);
+    /* Sub-function (0x00-0x08) is validated by the dispatcher (mask_sub_29).
+     * Authentication always responds (suppressPosRsp is not used for 0x29). */
+    uint8_t sub = (uint8_t) (data[1] & 0x7Fu);
+    ctx->suppress_pos_resp = false;
+
+    uint8_t *tx = ctx->config->tx_buffer;
+
+    /* deAuthenticate (0x00): handled natively, clears the authenticated state. */
+    if (sub == UDS_AUTH_DEAUTHENTICATE) {
+        ctx->authenticated = false;
+        tx[0] = (uint8_t) (UDS_SID_AUTHENTICATION + UDS_RESPONSE_OFFSET);
+        tx[1] = sub;
+        tx[2] = UDS_ARP_DEAUTHENTICATED;
+        return uds_send_response(ctx, 3u);
     }
 
-    uint8_t sub = (uint8_t) (data[1] & 0x7Fu);
+    /* authenticationConfiguration (0x08): report the configured method. */
+    if (sub == UDS_AUTH_CONFIGURATION) {
+        tx[0] = (uint8_t) (UDS_SID_AUTHENTICATION + UDS_RESPONSE_OFFSET);
+        tx[1] = sub;
+        tx[2] = ctx->config->auth_configuration;
+        return uds_send_response(ctx, 3u);
+    }
 
+    /* 0x01-0x07: certificate / proof / challenge — the crypto is delegated. */
     if (ctx->config->fn_auth == NULL) {
         return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
-    /* Payload begins at data[2]. Output payload at tx_buffer[2] */
-    uint8_t *out_payload = &ctx->config->tx_buffer[2];
+    uint8_t *out_payload = &tx[2];
     uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - 2u);
 
     int written =
@@ -134,7 +155,7 @@ int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint
         return uds_send_nrc(ctx, UDS_SID_AUTHENTICATION, (uint8_t) - (int32_t) written);
     }
 
-    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_AUTHENTICATION + UDS_RESPONSE_OFFSET);
-    ctx->config->tx_buffer[1] = data[1];
+    tx[0] = (uint8_t) (UDS_SID_AUTHENTICATION + UDS_RESPONSE_OFFSET);
+    tx[1] = data[1];
     return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 2u));
 }
