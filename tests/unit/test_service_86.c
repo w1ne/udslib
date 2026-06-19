@@ -128,13 +128,13 @@ static void test_roe_stop_silences(void **state)
     assert_int_equal(emitted, 0);
 }
 
-/* Deferred sub-function 0x02 onTimerInterrupt -> NRC 0x12. */
+/* Deferred sub-function 0x07 onComparisonOfValues -> NRC 0x12. */
 static void test_roe_deferred_subfn(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
 
-    uint8_t req[] = {0x86, 0x02, 0x02, 0x00};
+    uint8_t req[] = {0x86, 0x07, 0x02, 0x00};
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     expect_any(mock_tp_send, data);
@@ -144,13 +144,56 @@ static void test_roe_deferred_subfn(void **state)
     assert_int_equal(g_tx_buf[2], 0x12);
 }
 
+/* onTimerInterrupt (0x02): once started, the stored service is emitted
+ * periodically from uds_process() at the configured rate. */
+static void test_roe_timer_fires(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.did_table = k_did_table;
+
+    /* 86 02 <window=0x02 infinite> <rate=0x03 fast> <serviceToRespondTo 22 F1 90> */
+    uint8_t setup[] = {0x86, 0x02, 0x02, 0x03, 0x22, 0xF1, 0x90};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 8); /* C6 02 <count> + echo(5) */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, setup, 7);
+
+    uint8_t start[] = {0x86, 0x05};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, start, 2);
+
+    /* Tick 1: primes next_fire (= 1000 + 100), no emission yet. */
+    will_return(mock_get_time, 1000);
+    uds_process(&ctx);
+
+    /* Tick 2: now (1200) >= next_fire (1100) -> emit. */
+    will_return(mock_get_time, 1200);
+    expect_any(mock_tp_send, data);
+    /* C6 02 <numIdentified=1> + inner 62 F1 90 DE AD = 3 + 5 = 8 */
+    expect_value(mock_tp_send, len, 8);
+    will_return(mock_tp_send, 0);
+    uds_process(&ctx);
+
+    assert_int_equal(g_tx_buf[0], 0xC6);
+    assert_int_equal(g_tx_buf[1], 0x02);
+    assert_int_equal(g_tx_buf[2], 0x01);
+    assert_int_equal(g_tx_buf[3], 0x62); /* inner RDBI positive response */
+    assert_int_equal(g_tx_buf[6], 0xDE);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_roe_setup_and_start_acks),
-        cmocka_unit_test(test_roe_trigger_emits),
-        cmocka_unit_test(test_roe_stop_silences),
-        cmocka_unit_test(test_roe_deferred_subfn),
+        cmocka_unit_test(test_roe_setup_and_start_acks), cmocka_unit_test(test_roe_trigger_emits),
+        cmocka_unit_test(test_roe_stop_silences),        cmocka_unit_test(test_roe_deferred_subfn),
+        cmocka_unit_test(test_roe_timer_fires),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

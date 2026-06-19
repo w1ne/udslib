@@ -128,10 +128,10 @@
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
-/* 0x86 subfunctions 0x00/0x01/0x03/0x04/0x05/0x06 -> bits 0,1,3,4,5,6 = 0x7B. */
+/* 0x86 subfunctions 0x00-0x06 (0x07 onComparisonOfValues deferred) -> 0x7F. */
 #define UDS_MASK_SUB_86                                    \
     {                                                      \
-        0x7Bu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+        0x7Fu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
 #define UDS_MASK_SUB_87                                    \
     {                                                      \
