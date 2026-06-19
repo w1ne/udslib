@@ -4,6 +4,7 @@
  */
 
 #include "test_helpers.h"
+#include "uds/uds_dtc.h"
 
 static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len)
 {
@@ -15,9 +16,9 @@ static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, u
 }
 
 static const uds_dtc_record_t k_dtcs[] = {
-    {0x123456u, 0x09u}, /* testFailed | confirmedDTC */
-    {0x123457u, 0x08u}, /* confirmedDTC */
-    {0xABCDEFu, 0x01u}, /* testFailed */
+    {0x123456u, 0x09u, UDS_DTC_SEVERITY_CHECK_IMMEDIATELY, 0x10u, 0, 0, 0},
+    {0x123457u, 0x08u, UDS_DTC_SEVERITY_CHECK_AT_NEXT_HALT, 0x11u, 0, 0, 0},
+    {0xABCDEFu, 0x01u, UDS_DTC_SEVERITY_MAINTENANCE_ONLY, 0x12u, 0, 0, 0},
 };
 
 static int mock_dtc_list(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
@@ -295,6 +296,88 @@ static void test_control_dtc_setting_suppress(void **state)
     assert_false(ctx.p2_msg_pending);
 }
 
+static void test_read_dtc_info_0x08_by_severity(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+
+    /* sevMask=0x80 (checkImmediately) matches only 0x123456; statMask=0xFF. */
+    uint8_t req[] = {0x19, 0x08, 0x80, 0xFF};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 08 <avail> + 1 * (sev funcUnit DTC[3] status) = 3 + 6 = 9 */
+    expect_value(mock_tp_send, len, 9);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 4);
+
+    assert_int_equal(g_tx_buf[0], 0x59);
+    assert_int_equal(g_tx_buf[1], 0x08);
+    assert_int_equal(g_tx_buf[2], 0x7F);
+    assert_int_equal(g_tx_buf[3], 0x80); /* severity */
+    assert_int_equal(g_tx_buf[4], 0x10); /* functional unit */
+    assert_int_equal(g_tx_buf[5], 0x12); /* DTC hi */
+    assert_int_equal(g_tx_buf[6], 0x34);
+    assert_int_equal(g_tx_buf[7], 0x56);
+    assert_int_equal(g_tx_buf[8], 0x09); /* status */
+}
+
+static void test_read_dtc_info_0x07_number_by_severity(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    cfg.dtc_format_id = 0x01u;
+
+    /* sevMask=0xE0 matches all three; statMask=0xFF. */
+    uint8_t req[] = {0x19, 0x07, 0xE0, 0xFF};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 6);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 4);
+
+    assert_int_equal(g_tx_buf[1], 0x07);
+    assert_int_equal(g_tx_buf[3], 0x01); /* format */
+    assert_int_equal(g_tx_buf[4], 0x00); /* count hi */
+    assert_int_equal(g_tx_buf[5], 0x03); /* count lo */
+}
+
+static void test_read_dtc_info_0x09_severity_info(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+
+    /* 0x09 <DTC=12 34 57> -> single record for 0x123457. */
+    uint8_t req[] = {0x19, 0x09, 0x12, 0x34, 0x57};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 9);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 5);
+
+    assert_int_equal(g_tx_buf[1], 0x09);
+    assert_int_equal(g_tx_buf[2], 0x7F); /* status avail */
+    assert_int_equal(g_tx_buf[3], 0x40); /* severity (checkAtNextHalt) */
+    assert_int_equal(g_tx_buf[4], 0x11); /* functional unit */
+    assert_int_equal(g_tx_buf[5], 0x12); /* DTC hi */
+    assert_int_equal(g_tx_buf[7], 0x57); /* DTC lo */
+    assert_int_equal(g_tx_buf[8], 0x08); /* status */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -308,6 +391,9 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_legacy_fallback),
         cmocka_unit_test(test_read_dtc_info_mask_missing),
         cmocka_unit_test(test_control_dtc_setting_suppress),
+        cmocka_unit_test(test_read_dtc_info_0x08_by_severity),
+        cmocka_unit_test(test_read_dtc_info_0x07_number_by_severity),
+        cmocka_unit_test(test_read_dtc_info_0x09_severity_info),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

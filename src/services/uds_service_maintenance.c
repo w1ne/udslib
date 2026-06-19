@@ -10,6 +10,7 @@
  */
 
 #include "uds_internal.h"
+#include "uds/uds_dtc.h"
 #include <string.h>
 
 int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
@@ -229,6 +230,123 @@ static int uds_internal_dtc_record(uds_ctx_t *ctx, uint8_t sub, const uint8_t *d
     return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 5u));
 }
 
+/* Format reportNumberOfDTCBySeverityMaskRecord (0x07) and
+ * reportDTCBySeverityMaskRecord (0x08). Request: SID, sub, sevMask, statMask. */
+static int uds_internal_dtc_by_severity(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
+                                        uint16_t len, bool suppress_pos_resp)
+{
+    if (len < 4u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+    }
+    uint8_t sev_mask = data[2];
+    uint8_t status_mask = data[3];
+
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, status_mask, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = ctx->config->dtc_status_availability_mask;
+
+    uint16_t n = (uint16_t) total;
+
+    if (sub == 0x07u) {
+        uint16_t count = 0u;
+        for (uint16_t i = 0u; i < n; i++) {
+            if ((sev_mask == 0u) || ((recs[i].severity & sev_mask) != 0u)) {
+                count++;
+            }
+        }
+        if (suppress_pos_resp) {
+            return UDS_OK;
+        }
+        tx[3] = ctx->config->dtc_format_id;
+        tx[4] = (uint8_t) ((count >> 8) & 0xFFu);
+        tx[5] = (uint8_t) (count & 0xFFu);
+        return uds_send_response(ctx, 6u);
+    }
+
+    /* 0x08: [severity functionalUnit DTC(3) status] per matching record. */
+    uint16_t pos = 3u;
+    for (uint16_t i = 0u; i < n; i++) {
+        if ((sev_mask != 0u) && ((recs[i].severity & sev_mask) == 0u)) {
+            continue;
+        }
+        if ((uint16_t) (pos + 6u) > ctx->config->tx_buffer_size) {
+            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+        }
+        tx[pos] = recs[i].severity;
+        tx[pos + 1u] = recs[i].functional_unit;
+        tx[pos + 2u] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+        tx[pos + 3u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+        tx[pos + 4u] = (uint8_t) (recs[i].dtc & 0xFFu);
+        tx[pos + 5u] = recs[i].status;
+        pos = (uint16_t) (pos + 6u);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
+/* Format reportSeverityInformationOfDTC (0x09). Request: SID, sub, DTC(3). */
+static int uds_internal_dtc_severity_info(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
+                                          uint16_t len, bool suppress_pos_resp)
+{
+    if (len < 5u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+    }
+    uint32_t want = (uint32_t) ((uint32_t) data[2] << 16) | (uint32_t) ((uint32_t) data[3] << 8) |
+                    (uint32_t) data[4];
+
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, 0u, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = ctx->config->dtc_status_availability_mask;
+
+    uint16_t pos = 3u;
+    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
+        if (recs[i].dtc == want) {
+            tx[pos] = recs[i].severity;
+            tx[pos + 1u] = recs[i].functional_unit;
+            tx[pos + 2u] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+            tx[pos + 3u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+            tx[pos + 4u] = (uint8_t) (recs[i].dtc & 0xFFu);
+            tx[pos + 5u] = recs[i].status;
+            pos = (uint16_t) (pos + 6u);
+            break;
+        }
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
 int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
@@ -261,6 +379,14 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
 
     if ((sub == 0x06u) && (ctx->config->fn_dtc_extdata != NULL)) {
         return uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if (((sub == 0x07u) || (sub == 0x08u)) && (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_by_severity(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if ((sub == 0x09u) && (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_severity_info(ctx, sub, data, len, suppress_pos_resp);
     }
 
     if (!ctx->config->fn_dtc_read) {

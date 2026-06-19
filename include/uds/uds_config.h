@@ -409,6 +409,9 @@ typedef struct
     /** DTCFormatIdentifier reported in 0x01 (default 0x01 = ISO_14229-1). */
     uint8_t dtc_format_id;
 
+    /** DTCSeverityAvailabilityMask reported in 0x42/0x55 responses. */
+    uint8_t dtc_severity_availability_mask;
+
     /**
      * @brief Optional: Clear Diagnostic Information (SID 0x14).
      * @param ctx       Pointer to context.
