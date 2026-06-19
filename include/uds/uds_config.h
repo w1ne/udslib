@@ -448,6 +448,16 @@ typedef struct
     uint8_t auth_configuration;
 
     /**
+     * @brief Optional: gate a service on an authenticated channel (SID 0x29).
+     *
+     * Called per request after session/sub-function/length/security checks.
+     * Return true if @p sid requires authentication; when it does and
+     * ctx.authenticated is false, the request is rejected with NRC 0x34
+     * (authenticationRequired). NULL (default) gates nothing.
+     */
+    bool (*fn_auth_required)(struct uds_ctx *ctx, uint8_t sid);
+
+    /**
      * @brief Optional: Read Scaling Data By Identifier (SID 0x24).
      *        Write the scalingByte/scalingData bytes for @p did; the library
      *        frames the `0x64 <DID>` response prefix.
