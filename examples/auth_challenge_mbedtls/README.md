@@ -67,7 +67,9 @@ has to be a hook.
   the core would entangle that. Linking it in *your* application (as here) does
   not.
 
-The SecuredDataTransmission (0x84) `fn_secure_decode` / `fn_secure_encode` hooks
+The Security Access (0x27) `fn_security_seed` / `fn_security_key` hooks (see
+[`../security_access_mbedtls`](../security_access_mbedtls)) and the
+SecuredDataTransmission (0x84) `fn_secure_decode` / `fn_secure_encode` hooks
 follow the identical pattern.
 
 ## The flow
