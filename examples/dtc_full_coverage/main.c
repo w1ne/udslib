@@ -27,6 +27,12 @@
  *   0x18 reportUserDefMemoryDTCSnapshotRecordByDTCNumber
  *   0x19 reportUserDefMemoryDTCExtDataRecordByDTCNumber
  *
+ * It also shows the freeze-frame payloads the application supplies for the two
+ * record-by-DTC sub-functions the library frames: 0x04 (a snapshot carrying a
+ * timestamp, supply voltage, and power mode via fn_dtc_snapshot) and 0x06
+ * (extended-data counters via fn_dtc_extdata). The snapshot/extended-data
+ * contents are manufacturer-specific, so the library leaves them to the app.
+ *
  * The library writes [0x59, sub-function] and the application writes the
  * payload that follows. fn_dtc_read receives the full request (req[0]=0x19,
  * req[1]=sub, req[2..]=parameters), so the handler can read the status mask,
@@ -121,6 +127,102 @@ static uint16_t put_dtc_status(uint8_t *out, uint16_t pos, uint32_t dtc, uint8_t
     out[pos + 2u] = (uint8_t) (dtc & 0xFFu);
     out[pos + 3u] = status;
     return (uint16_t) (pos + 4u);
+}
+
+/* --- Freeze-frame snapshot and extended data (static; application-defined) --- */
+
+/* A DTC snapshot freezes the environment at the moment the fault was stored:
+ * here a timestamp plus the supply voltage and power mode. The exact data
+ * identifiers and contents are manufacturer-specific; the library does not
+ * dictate them, so the application formats the snapshot bytes itself. */
+typedef struct
+{
+    uint8_t year; /* years since 2000 */
+    uint8_t month;
+    uint8_t day;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+} snapshot_time_t;
+
+typedef struct
+{
+    uint8_t voltage;    /* battery voltage, 0.1 V per LSB (0x8C = 14.0 V) */
+    uint8_t power_mode; /* manufacturer-defined operating mode */
+    snapshot_time_t at; /* time the snapshot was captured */
+} freeze_frame_t;
+
+static const freeze_frame_t g_freeze = {0x8Cu, 0x02u, {25u, 6u, 19u, 13u, 5u, 42u}};
+
+/* Extended-data counters tracked alongside the DTC. */
+static const uint8_t g_ext_fault_occurrence = 3u;
+static const uint8_t g_ext_fault_pending = 1u;
+static const uint8_t g_ext_aged = 0u;
+static const uint8_t g_ext_ageing = 40u;
+
+/*
+ * fn_dtc_snapshot: serves reportDTCSnapshotRecordByDTCNumber (0x04). The
+ * library has written [0x59, 0x04, DTC(3)]; this writes the snapshot payload
+ * that follows: statusOfDTC, the record number, a data-identifier count, then
+ * each DID and its frozen data. Returns the payload length, 0 if no snapshot
+ * exists for this DTC, or a negative NRC.
+ */
+static int app_dtc_snapshot(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
+                            uint16_t max_len)
+{
+    (void) ctx;
+    if (dtc != 0x012345u) {
+        return 0; /* no stored snapshot for this DTC */
+    }
+    if (max_len < 15u) {
+        return -0x14; /* responseTooLong */
+    }
+
+    uint16_t pos = 0u;
+    out_buf[pos++] = g_primary[0].status; /* statusOfDTC */
+    out_buf[pos++] = record_num;          /* DTCSnapshotRecordNumber (echoed) */
+    out_buf[pos++] = 0x02u;               /* number of data identifiers in this record */
+
+    out_buf[pos++] = 0x10u; /* DID 0x1001: fault timestamp */
+    out_buf[pos++] = 0x01u;
+    out_buf[pos++] = g_freeze.at.year;
+    out_buf[pos++] = g_freeze.at.month;
+    out_buf[pos++] = g_freeze.at.day;
+    out_buf[pos++] = g_freeze.at.hour;
+    out_buf[pos++] = g_freeze.at.minute;
+    out_buf[pos++] = g_freeze.at.second;
+
+    out_buf[pos++] = 0x10u; /* DID 0x1002: environment */
+    out_buf[pos++] = 0x02u;
+    out_buf[pos++] = g_freeze.voltage;
+    out_buf[pos++] = g_freeze.power_mode;
+    return (int) pos;
+}
+
+/*
+ * fn_dtc_extdata: serves reportDTCExtendedDataRecordByDTCNumber (0x06). The
+ * library has written [0x59, 0x06, DTC(3)]; this writes statusOfDTC, the
+ * extended-data record number, then the application's counters.
+ */
+static int app_dtc_extdata(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
+                           uint16_t max_len)
+{
+    (void) ctx;
+    if (dtc != 0x012345u) {
+        return 0; /* no extended data for this DTC */
+    }
+    if (max_len < 6u) {
+        return -0x14; /* responseTooLong */
+    }
+
+    uint16_t pos = 0u;
+    out_buf[pos++] = g_primary[0].status;    /* statusOfDTC */
+    out_buf[pos++] = record_num;             /* DTCExtDataRecordNumber (echoed) */
+    out_buf[pos++] = g_ext_fault_occurrence; /* fault occurrence counter */
+    out_buf[pos++] = g_ext_fault_pending;    /* fault pending counter */
+    out_buf[pos++] = g_ext_aged;             /* aged counter */
+    out_buf[pos++] = g_ext_ageing;           /* ageing counter */
+    return (int) pos;
 }
 
 /*
@@ -317,8 +419,10 @@ int main(void)
     cfg.tx_buffer_size = sizeof(txb);
     cfg.dtc_status_availability_mask = APP_STATUS_AVAIL_MASK;
     cfg.dtc_format_id = APP_DTC_FORMAT_ID;
-    cfg.fn_dtc_list = app_dtc_list; /* library-framed sub-functions */
-    cfg.fn_dtc_read = app_dtc_read; /* application-served sub-functions */
+    cfg.fn_dtc_list = app_dtc_list;         /* library-framed sub-functions */
+    cfg.fn_dtc_read = app_dtc_read;         /* application-served sub-functions */
+    cfg.fn_dtc_snapshot = app_dtc_snapshot; /* 0x04 freeze-frame payload */
+    cfg.fn_dtc_extdata = app_dtc_extdata;   /* 0x06 extended-data payload */
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
@@ -327,6 +431,12 @@ int main(void)
     int rc = 0;
     uint8_t r02[] = {0x19, 0x02, 0xFF};
     rc |= fire(&ctx, "0x02 reportDTCByStatusMask", r02, sizeof(r02));
+
+    printf("\n=== Snapshot / extended-data (via fn_dtc_snapshot / fn_dtc_extdata) ===\n");
+    uint8_t r04[] = {0x19, 0x04, 0x01, 0x23, 0x45, 0x01}; /* freeze-frame, record 0x01 */
+    rc |= fire(&ctx, "0x04 reportDTCSnapshotRecordByDTCNumber", r04, sizeof(r04));
+    uint8_t r06[] = {0x19, 0x06, 0x01, 0x23, 0x45, 0x01}; /* extended data, record 0x01 */
+    rc |= fire(&ctx, "0x06 reportDTCExtendedDataRecordByDTCNumber", r06, sizeof(r06));
 
     printf("\n=== Application-served sub-functions (via fn_dtc_read) ===\n");
     uint8_t r03[] = {0x19, 0x03};
