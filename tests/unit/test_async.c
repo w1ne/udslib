@@ -41,7 +41,7 @@ static int async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint1
 }
 
 static const uds_service_entry_t user_services[] = {
-    {0x31, 4, UDS_SESSION_ALL, 0, async_service_handler},
+    {0x31, 4, UDS_SESSION_ALL, 0, async_service_handler, NULL, 0u},
 };
 
 static void setup_test(void **state)
@@ -62,7 +62,7 @@ static void setup_test(void **state)
     cfg.user_services = user_services;
     cfg.user_service_count = 1;
     /* Missing table */
-    static const uds_did_entry_t dids[] = {{0, 0, NULL, NULL, NULL}};
+    static const uds_did_entry_t dids[] = {{0, 0, 0, 0, NULL, NULL, NULL}};
     cfg.did_table.entries = dids;
     cfg.did_table.count = 0;
 

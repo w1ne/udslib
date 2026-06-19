@@ -143,7 +143,7 @@ static int handle_secure_op(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 }
 
 static const uds_service_entry_t user_services[] = {
-    {0xBAu, 1u, UDS_SESSION_ALL, 0u, handle_secure_op, NULL},
+    {0xBAu, 1u, UDS_SESSION_ALL, 0u, handle_secure_op, NULL, 0u},
 };
 
 /* Tell the library which SIDs require an authenticated channel. */

@@ -24,9 +24,9 @@ static int handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* 2. Register it. Columns mirror uds_service_entry_t:
- *    { SID, min_len, session_mask, security_mask, handler, sub_mask } */
+ *    { SID, min_len, session_mask, security_mask, handler, sub_mask, address_mode } */
 static const uds_service_entry_t user_services[] = {
-    { 0xBAu, 2u, UDS_SESSION_ALL, 0u, handle_vendor_diag, NULL },
+    { 0xBAu, 2u, UDS_SESSION_ALL, 0u, handle_vendor_diag, NULL, 0u },
 };
 
 /* 3. Point the config at the table. */

@@ -42,7 +42,7 @@ static void test_concurrent_request_rejection(void **state)
     (void) state;
     uint8_t rx_buf[64], tx_buf[64];
 
-    uds_service_entry_t user_services[] = {{0x31, 2, UDS_SESSION_ALL, 0, async_handler, NULL}};
+    uds_service_entry_t user_services[] = {{0x31, 2, UDS_SESSION_ALL, 0, async_handler, NULL, 0u}};
 
     uds_config_t cfg = {.fn_tp_send = mock_tp_send,
                         .rx_buffer = rx_buf,

@@ -33,7 +33,7 @@ static void test_core_rcrrp_limit(void **state)
     cfg.rcrrp_limit = 2;
 
     static const uds_service_entry_t services[] = {
-        {0x99, 1, UDS_SESSION_ALL, 0, mock_pending_handler, NULL}};
+        {0x99, 1, UDS_SESSION_ALL, 0, mock_pending_handler, NULL, 0u}};
     cfg.user_services = services;
     cfg.user_service_count = 1;
 

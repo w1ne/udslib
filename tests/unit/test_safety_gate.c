@@ -41,9 +41,9 @@ static int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16
 }
 
 static const uds_service_entry_t g_user_services[] = {
-    {0x11, 1, UDS_SESSION_ALL, 0,
-     mock_service_handler}, /* Dummy logic for 0x11 to avoid calling real one */
-    {0xA0, 1, UDS_SESSION_ALL, 0, mock_service_handler},
+    {0x11, 1, UDS_SESSION_ALL, 0, mock_service_handler, NULL,
+     0u}, /* Dummy logic for 0x11 to avoid calling real one */
+    {0xA0, 1, UDS_SESSION_ALL, 0, mock_service_handler, NULL, 0u},
 };
 
 /* Local time provider override */
@@ -121,8 +121,8 @@ static int mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, u
 
 /* Re-bind in setup */
 static const uds_service_entry_t g_user_services_full[] = {
-    {0x11, 1, UDS_SESSION_ALL, 0, mock_service_handler_full},
-    {0xA0, 1, UDS_SESSION_ALL, 0, mock_service_handler_full},
+    {0x11, 1, UDS_SESSION_ALL, 0, mock_service_handler_full, NULL, 0u},
+    {0xA0, 1, UDS_SESSION_ALL, 0, mock_service_handler_full, NULL, 0u},
 };
 
 static int setup_full(void **state)

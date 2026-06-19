@@ -16,7 +16,7 @@ static int mock_secured_svc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 }
 
 static const uds_service_entry_t k_user_svcs[] = {
-    {0xBAu, 1u, UDS_SESSION_SECURED, 0u, mock_secured_svc, NULL},
+    {0xBAu, 1u, UDS_SESSION_SECURED, 0u, mock_secured_svc, NULL, 0u},
 };
 
 /* Reversible test "crypto": decode XORs with 0xFF, encode XORs with 0xAA. */

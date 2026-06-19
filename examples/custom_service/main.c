@@ -66,11 +66,13 @@ static int handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 
 /*
  * The registration table. Columns mirror uds_service_entry_t:
- *   { SID, min_len, session_mask, security_mask, handler, sub_mask }
+ *   { SID, min_len, session_mask, security_mask, handler, sub_mask, address_mode }
  * Add a row here to add a service; use an existing SID to override a core one.
+ * address_mode is 0u here, meaning the service accepts both physical and
+ * functional addressing.
  */
 static const uds_service_entry_t user_services[] = {
-    {0xBAu, 2u, UDS_SESSION_ALL, 0u, handle_vendor_diag, NULL},
+    {0xBAu, 2u, UDS_SESSION_ALL, 0u, handle_vendor_diag, NULL, 0u},
 };
 
 static void send_request(uds_ctx_t *ctx, const uint8_t *req, uint16_t len)
