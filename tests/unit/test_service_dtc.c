@@ -422,6 +422,88 @@ static void test_read_dtc_info_0x14_fault_counter(void **state)
     assert_int_equal(g_tx_buf[5], 0x20); /* FDC = 32 */
 }
 
+static const uds_dtc_record_t k_wwh_dtcs[] = {
+    /* dtc, status, severity, funcUnit, fdc, aging, functional_group */
+    {0xA00001u, 0x08u, UDS_DTC_SEVERITY_CHECK_IMMEDIATELY, 0, 0, 0, UDS_DTC_FGID_EMISSIONS},
+    {0xA00002u, 0x01u, UDS_DTC_SEVERITY_MAINTENANCE_ONLY, 0, 0, 0, UDS_DTC_FGID_SAFETY},
+};
+
+static int mock_dtc_list_wwh(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
+                             uint16_t max)
+{
+    (void) ctx;
+    uint16_t n = 0u;
+    for (uint16_t i = 0u; i < 2u; i++) {
+        bool match = (status_mask == 0u) || ((k_wwh_dtcs[i].status & status_mask) != 0u);
+        if (match) {
+            if ((out != NULL) && (n < max)) {
+                out[n] = k_wwh_dtcs[i];
+            }
+            n++;
+        }
+    }
+    return (int) n;
+}
+
+static void test_read_dtc_info_0x42_wwhobd(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list_wwh;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    cfg.dtc_severity_availability_mask = 0xE0u;
+    cfg.dtc_format_id = 0x04u;
+
+    /* FGID=0x33 emissions, statMask=0xFF, sevMask=0xFF -> only 0xA00001. */
+    uint8_t req[] = {0x19, 0x42, 0x33, 0xFF, 0xFF};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 42 FGID statAvail sevAvail format + 1*(sev DTC[3] status) = 6 + 5 = 11 */
+    expect_value(mock_tp_send, len, 11);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 5);
+
+    assert_int_equal(g_tx_buf[1], 0x42);
+    assert_int_equal(g_tx_buf[2], 0x33);  /* FGID echoed */
+    assert_int_equal(g_tx_buf[3], 0x7F);  /* status avail */
+    assert_int_equal(g_tx_buf[4], 0xE0);  /* severity avail */
+    assert_int_equal(g_tx_buf[5], 0x04);  /* format */
+    assert_int_equal(g_tx_buf[6], 0x80);  /* severity */
+    assert_int_equal(g_tx_buf[7], 0xA0);  /* DTC hi */
+    assert_int_equal(g_tx_buf[10], 0x08); /* status */
+}
+
+static void test_read_dtc_info_0x55_permanent(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list_wwh;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    cfg.dtc_format_id = 0x04u;
+
+    /* FGID=0x33; 0xA00001 is confirmed (status 0x08) -> permanent. */
+    uint8_t req[] = {0x19, 0x55, 0x33};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 55 FGID statAvail format + 1*(DTC[3] status) = 5 + 4 = 9 */
+    expect_value(mock_tp_send, len, 9);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 3);
+
+    assert_int_equal(g_tx_buf[1], 0x55);
+    assert_int_equal(g_tx_buf[2], 0x33); /* FGID */
+    assert_int_equal(g_tx_buf[3], 0x7F); /* status avail */
+    assert_int_equal(g_tx_buf[4], 0x04); /* format */
+    assert_int_equal(g_tx_buf[5], 0xA0); /* DTC hi */
+    assert_int_equal(g_tx_buf[8], 0x08); /* status */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -439,6 +521,8 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_0x07_number_by_severity),
         cmocka_unit_test(test_read_dtc_info_0x09_severity_info),
         cmocka_unit_test(test_read_dtc_info_0x14_fault_counter),
+        cmocka_unit_test(test_read_dtc_info_0x42_wwhobd),
+        cmocka_unit_test(test_read_dtc_info_0x55_permanent),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

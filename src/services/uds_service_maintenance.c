@@ -388,6 +388,116 @@ static int uds_internal_dtc_fault_counter(uds_ctx_t *ctx, uint8_t sub, bool supp
     return uds_send_response(ctx, pos);
 }
 
+/* Format reportWWHOBDDTCByMaskRecord (0x42).
+ * Request: SID, sub, FGID, statusMask, severityMask. */
+static int uds_internal_dtc_wwhobd(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data, uint16_t len,
+                                   bool suppress_pos_resp)
+{
+    if (len < 5u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+    }
+    uint8_t fgid = data[2];
+    uint8_t status_mask = data[3];
+    uint8_t sev_mask = data[4];
+
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, status_mask, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = fgid;
+    tx[3] = ctx->config->dtc_status_availability_mask;
+    tx[4] = ctx->config->dtc_severity_availability_mask;
+    tx[5] = ctx->config->dtc_format_id;
+
+    uint16_t pos = 6u;
+    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
+        if (recs[i].functional_group != fgid) {
+            continue;
+        }
+        if ((sev_mask != 0u) && ((recs[i].severity & sev_mask) == 0u)) {
+            continue;
+        }
+        if ((uint16_t) (pos + 5u) > ctx->config->tx_buffer_size) {
+            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+        }
+        tx[pos] = recs[i].severity;
+        tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+        tx[pos + 2u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+        tx[pos + 3u] = (uint8_t) (recs[i].dtc & 0xFFu);
+        tx[pos + 4u] = recs[i].status;
+        pos = (uint16_t) (pos + 5u);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
+/* Format reportWWHOBDDTCWithPermanentStatus (0x55). Request: SID, sub, FGID.
+ * Permanent = confirmed DTCs in the functional group. */
+static int uds_internal_dtc_wwhobd_permanent(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
+                                             uint16_t len, bool suppress_pos_resp)
+{
+    if (len < 3u) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+    }
+    uint8_t fgid = data[2];
+
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, 0u, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = fgid;
+    tx[3] = ctx->config->dtc_status_availability_mask;
+    tx[4] = ctx->config->dtc_format_id;
+
+    uint16_t pos = 5u;
+    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
+        if (recs[i].functional_group != fgid) {
+            continue;
+        }
+        if ((recs[i].status & UDS_DTC_STATUS_CONFIRMED) == 0u) {
+            continue;
+        }
+        if ((uint16_t) (pos + 4u) > ctx->config->tx_buffer_size) {
+            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+        }
+        tx[pos] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+        tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+        tx[pos + 2u] = (uint8_t) (recs[i].dtc & 0xFFu);
+        tx[pos + 3u] = recs[i].status;
+        pos = (uint16_t) (pos + 4u);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
 int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
@@ -432,6 +542,14 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
 
     if ((sub == 0x14u) && (ctx->config->fn_dtc_list != NULL)) {
         return uds_internal_dtc_fault_counter(ctx, sub, suppress_pos_resp);
+    }
+
+    if ((sub == 0x42u) && (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_wwhobd(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if ((sub == 0x55u) && (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_wwhobd_permanent(ctx, sub, data, len, suppress_pos_resp);
     }
 
     if (!ctx->config->fn_dtc_read) {
