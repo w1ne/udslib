@@ -310,6 +310,12 @@ static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         return;
     }
 
+    if (ctx->config->fn_auth_required && ctx->config->fn_auth_required(ctx, sid) &&
+        !ctx->authenticated) {
+        uds_send_nrc(ctx, sid, UDS_NRC_AUTHENTICATION_REQUIRED); /* 0x34 */
+        return;
+    }
+
     if (ctx->config->fn_is_safe && !ctx->config->fn_is_safe(ctx, sid, data, len)) {
         uds_send_nrc(ctx, sid, UDS_NRC_CONDITIONS_NOT_CORRECT); /* Conditions Not Correct */
         return;

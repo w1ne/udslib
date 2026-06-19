@@ -172,9 +172,71 @@ static void test_auth_cleared_on_session_change(void **state)
     assert_false(ctx.authenticated);
 }
 
+/* A custom service gated on authentication via the fn_auth_required hook. */
+static int gated_svc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) len;
+    ctx->config->tx_buffer[0] = (uint8_t) (data[0] + 0x40u);
+    return uds_send_response(ctx, 1u);
+}
+
+static const uds_service_entry_t k_gated_services[] = {
+    {0xBBu, 1u, UDS_SESSION_ALL, 0u, gated_svc, NULL},
+};
+
+static bool gate_0xBB(uds_ctx_t *ctx, uint8_t sid)
+{
+    (void) ctx;
+    return (sid == 0xBBu);
+}
+
+static void test_auth_gated_service_rejected(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.user_services = k_gated_services;
+    cfg.user_service_count = 1u;
+    cfg.fn_auth_required = gate_0xBB;
+    /* not authenticated */
+
+    uint8_t req[] = {0xBB};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F BB 34 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 1);
+    assert_int_equal(g_tx_buf[0], 0x7F);
+    assert_int_equal(g_tx_buf[1], 0xBB);
+    assert_int_equal(g_tx_buf[2], 0x34); /* authenticationRequired */
+}
+
+static void test_auth_gated_service_allowed(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.user_services = k_gated_services;
+    cfg.user_service_count = 1u;
+    cfg.fn_auth_required = gate_0xBB;
+    ctx.authenticated = true;
+
+    uint8_t req[] = {0xBB};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 1); /* FB (BB+0x40) */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 1);
+    assert_int_equal(g_tx_buf[0], 0xFB);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_auth_gated_service_rejected),
+        cmocka_unit_test(test_auth_gated_service_allowed),
         cmocka_unit_test(test_auth_deauthenticate_native),
         cmocka_unit_test(test_auth_configuration_native),
         cmocka_unit_test(test_auth_verify_cert_uni_success),
