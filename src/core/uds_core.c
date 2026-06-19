@@ -717,11 +717,12 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
 
     /* ISO 14229-1: a functionally addressed request must not elicit these
        negative responses (avoid flooding a shared bus when many ECUs answer).
-       Captured inner dispatches (0x84/0x86) are never functional.
-       INVARIANT: the suppress set {0x11,0x12,0x7E,0x7F,0x31} must remain disjoint
-       from any NRC that uds_process can emit on a deferred/pending path (currently
-       0x22 after RCRRP exhaustion and 0x78 RESPONSE_PENDING), since those run with a
-       persisted req_addr_mode. Both 0x22 and 0x78 are correctly NOT in this set. */
+       Captured inner dispatches (SecuredDataTransmission / ResponseOnEvent) are
+       never functional, hence the secure_capturing guard.
+       INVARIANT: this suppress set must stay disjoint from any NRC that
+       uds_process can emit on a deferred/pending path (responsePending and the
+       post-RCRRP conditionsNotCorrect), since those run with a persisted
+       req_addr_mode and must NOT be suppressed. */
     if (ctx->req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL && !ctx->secure_capturing &&
         (nrc == UDS_NRC_SERVICE_NOT_SUPPORTED || nrc == UDS_NRC_SUBFUNCTION_NOT_SUPPORTED ||
          nrc == UDS_NRC_SUBFUNC_NOT_SUPP_IN_SESS || nrc == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS ||
