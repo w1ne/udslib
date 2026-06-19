@@ -149,6 +149,7 @@ typedef struct
     uint32_t event_param;         /**< DID (0x03) or DTCStatusMask (0x01). */
     uint8_t window_byte;          /**< eventWindowTime byte (0x02 = infinite). */
     uint32_t window_deadline;     /**< Absolute ms; 0 = infinite. */
+    uint32_t next_fire;           /**< onTimerInterrupt (0x02): next fire (0 = unprimed). */
     uint8_t str[UDS_ROE_STR_MAX]; /**< serviceToRespondToRecord bytes. */
     uint8_t str_len;              /**< Length of str. */
 } uds_roe_slot_t;

@@ -38,14 +38,14 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x83 | AccessTimingParameter | Read / set / default the live P2 and P2* timing. |
 | 0x84 | SecuredDataTransmission | Library owns 0x84 framing + Administrative Parameter + secured-session gate; crypto via `fn_secure_decode`/`fn_secure_encode` hooks (no bundled cipher). |
 | 0x85 | ControlDTCSetting | DTC ON/OFF; SuppressPosMsg. |
-| 0x86 | ResponseOnEvent | onDTCStatusChange (0x01) / onChangeOfDataIdentifier (0x03) + start/stop/clear/report; events emitted via `uds_roe_trigger`. 0x02/0x07 sub-functions deferred (NRC 0x12). |
+| 0x86 | ResponseOnEvent | onDTCStatusChange (0x01) / onChangeOfDataIdentifier (0x03) / onTimerInterrupt (0x02) + start/stop/clear/report; app events emitted via `uds_roe_trigger`, timer events from `uds_process`. Only onComparisonOfValues (0x07) deferred (NRC 0x12). |
 | 0x87 | LinkControl | Baud-rate transition; verify→transition handshake (NRC 0x24 if out of sequence). |
 
 ## Coverage notes
 
 All 27 ISO 14229-1 application services are now dispatched. Partial-depth items
-worth noting: 0x86 implements 6 of 8 sub-functions (onTimerInterrupt 0x02 and
-onComparisonOfValues 0x07 return NRC 0x12); 0x84 ships the protocol envelope and
+worth noting: 0x86 implements 7 of 8 sub-functions (only onComparisonOfValues
+0x07 returns NRC 0x12); 0x84 ships the protocol envelope and
 delegates the cipher to the integrator. Unknown/unsupported SIDs are rejected
 with NRC 0x11 (serviceNotSupported).
 

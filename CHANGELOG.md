@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.19.0] - 2026-06-19
+
+### Added
+- **ResponseOnEvent (0x86) — onTimerInterrupt (0x02)**: a started timer event emits its stored serviceToRespondTo response periodically from `uds_process()` at the configured rate (eventTypeRecord byte: 0x01 slow / 0x02 medium / 0x03 fast), honouring the event window. Now 7 of 8 ROE sub-functions are implemented; only onComparisonOfValues (0x07) remains deferred (NRC 0x12). The timer and trigger paths share one emit helper.
+
 ## [1.18.0] - 2026-06-19
 
 ### Added

@@ -77,6 +77,7 @@ static int roe_setup(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data, uint16_t 
     slot->event_param = param;
     slot->window_byte = data[2];
     slot->window_deadline = 0u;
+    slot->next_fire = 0u; /* onTimerInterrupt: primed on first service tick */
     slot->str_len = (uint8_t) str_len;
     memcpy(slot->str, &data[str_off], str_len);
 
@@ -98,7 +99,7 @@ int uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, u
 {
     uint8_t sub = (uint8_t) (data[1] & 0x7Fu);
 
-    if ((sub == 0x01u) || (sub == 0x03u)) {
+    if ((sub == 0x01u) || (sub == 0x02u) || (sub == 0x03u)) {
         return roe_setup(ctx, sub, data, len);
     }
 
@@ -157,13 +158,59 @@ int uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, u
     return uds_send_response(ctx, 3u);
 }
 
+/* Run the slot's stored serviceToRespondTo and emit its response as 0xC6. */
+static void roe_emit_slot(uds_ctx_t *ctx, const uds_roe_slot_t *slot)
+{
+    uint8_t captured[UDS_ROE_STR_MAX + 8u];
+    int cap = uds_internal_dispatch_captured(ctx, slot->str, slot->str_len, captured,
+                                             (uint16_t) sizeof(captured));
+    if (cap <= 0) {
+        return;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) ROE_RESP_SID;
+    tx[1] = slot->event_type;
+    tx[2] = 0x01u; /* numberOfIdentifiedEvents */
+    memcpy(&tx[3], captured, (size_t) cap);
+    (void) ctx->config->fn_tp_send(ctx, tx, (uint16_t) (3 + cap));
+}
+
+/* onTimerInterrupt rate (eventTypeRecord byte) -> interval in ms. */
+static uint32_t roe_rate_to_ms(uint32_t rate)
+{
+    if (rate == 0x03u) {
+        return (uint32_t) UDS_PERIODIC_FAST_INTERVAL_MS;
+    }
+    if (rate == 0x02u) {
+        return (uint32_t) UDS_PERIODIC_MEDIUM_INTERVAL_MS;
+    }
+    return (uint32_t) UDS_PERIODIC_SLOW_INTERVAL_MS; /* 0x01 slow / default */
+}
+
 void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now)
 {
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
         uds_roe_slot_t *slot = &ctx->roe[i];
-        if (slot->in_use && slot->active && (slot->window_deadline != 0u)) {
-            if ((int32_t) (now - slot->window_deadline) >= 0) {
-                slot->active = false;
+        if (!slot->in_use || !slot->active) {
+            continue;
+        }
+
+        /* Event window expiry deactivates the slot. */
+        if ((slot->window_deadline != 0u) && ((int32_t) (now - slot->window_deadline) >= 0)) {
+            slot->active = false;
+            continue;
+        }
+
+        /* onTimerInterrupt (0x02): emit periodically at the configured rate. */
+        if (slot->event_type == 0x02u) {
+            uint32_t period = roe_rate_to_ms(slot->event_param);
+            if (slot->next_fire == 0u) {
+                slot->next_fire = now + period; /* lazy prime on first tick */
+            }
+            else if ((int32_t) (now - slot->next_fire) >= 0) {
+                roe_emit_slot(ctx, slot);
+                slot->next_fire = now + period;
             }
         }
     }
@@ -193,19 +240,7 @@ int uds_roe_trigger(uds_ctx_t *ctx, uint8_t event_type, uint32_t param)
             continue;
         }
 
-        uint8_t captured[UDS_ROE_STR_MAX + 8u];
-        int cap = uds_internal_dispatch_captured(ctx, slot->str, slot->str_len, captured,
-                                                 (uint16_t) sizeof(captured));
-        if (cap <= 0) {
-            continue;
-        }
-
-        uint8_t *tx = ctx->config->tx_buffer;
-        tx[0] = (uint8_t) ROE_RESP_SID;
-        tx[1] = slot->event_type;
-        tx[2] = 0x01u; /* numberOfIdentifiedEvents */
-        memcpy(&tx[3], captured, (size_t) cap);
-        (void) ctx->config->fn_tp_send(ctx, tx, (uint16_t) (3 + cap));
+        roe_emit_slot(ctx, slot);
         emitted++;
     }
     return emitted;
