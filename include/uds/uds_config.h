@@ -196,6 +196,7 @@ typedef struct
     uint16_t security_mask;        /**< Minimum security level required (bitmask or level) */
     uds_service_handler_t handler; /**< Function pointer to handler */
     const uint8_t *sub_mask; /**< Optional bitmask of supported 7-bit subfunctions (16 bytes) */
+    uint8_t address_mode;    /**< Allowed addressing (UDS_ADDR_* bitmask); 0 = both */
 } uds_service_entry_t;
 
 /* --- Configuration Structure --- */
@@ -649,6 +650,8 @@ typedef struct uds_ctx
     uint8_t active_session;
     /** Current security level (0 = Locked) */
     uint8_t security_level;
+    /** Addressing mode of the request in flight (UDS_ADDR_*) */
+    uint8_t req_addr_mode;
 
     /* --- Timing --- */
     /** Timestamp of last received valid message (for S3 timer) */

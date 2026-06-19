@@ -258,6 +258,19 @@ static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
         return;
     }
 
+    /* Addressing gate: does this service accept the request's addressing mode?
+       address_mode == 0 means "both" (backward compatible). */
+    uint8_t allowed_addr = (service->address_mode != 0u)
+                               ? service->address_mode
+                               : (uint8_t) (UDS_ADDR_PHYSICAL | UDS_ADDR_FUNCTIONAL);
+    if ((allowed_addr & ctx->req_addr_mode) == 0u) {
+        if (ctx->req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL) {
+            return; /* functional broadcast for an unsupported addressing: stay silent */
+        }
+        uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPPORTED);
+        return;
+    }
+
     /* ISO 14229-1 Priority: Session -> Subfunction -> Length -> Security -> Safety */
 
     if (!is_session_supported(ctx, service)) {
@@ -565,6 +578,11 @@ int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_
 
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
+    uds_input_sdu_addr(ctx, data, len, UDS_ADDR_PHYSICAL);
+}
+
+void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_addr_mode_t addr)
+{
     if (!ctx || !ctx->config) {
         return;
     }
@@ -578,6 +596,8 @@ void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
             ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
         return;
     }
+
+    ctx->req_addr_mode = (uint8_t) addr;
 
     uint8_t sid = data[0];
     ctx->last_msg_time = ctx->config->get_time_ms();
@@ -680,6 +700,16 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
        Others only clear if they refer to the actual pending SID. */
     if (nrc != UDS_NRC_RESPONSE_PENDING && sid == ctx->server_pending_sid) {
         ctx->p2_msg_pending = false;
+    }
+
+    /* ISO 14229-1: a functionally addressed request must not elicit these
+       negative responses (avoid flooding a shared bus when many ECUs answer).
+       Captured inner dispatches (0x84/0x86) are never functional. */
+    if (ctx->req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL && !ctx->secure_capturing &&
+        (nrc == UDS_NRC_SERVICE_NOT_SUPPORTED || nrc == UDS_NRC_SUBFUNCTION_NOT_SUPPORTED ||
+         nrc == UDS_NRC_SUBFUNC_NOT_SUPP_IN_SESS || nrc == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS ||
+         nrc == UDS_NRC_REQUEST_OUT_OF_RANGE)) {
+        return UDS_OK; /* suppressed: emit nothing on the bus */
     }
 
     /* NRCs are NEVER suppressed by bit 7 */

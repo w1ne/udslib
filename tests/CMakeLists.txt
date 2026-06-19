@@ -82,3 +82,5 @@ add_uds_test(test_issue29_multiframe_request unit/test_issue29_multiframe_reques
 # Regression for issue #42: full-duplex inbound frame must not abort an
 # in-flight multi-frame response (full stack, real uds_input_sdu).
 add_uds_test(test_issue42_full_duplex_response unit/test_issue42_full_duplex_response.c)
+
+add_uds_test(test_addressing_dispatch unit/test_addressing_dispatch.c)
