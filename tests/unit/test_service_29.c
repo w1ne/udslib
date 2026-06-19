@@ -181,7 +181,7 @@ static int gated_svc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 }
 
 static const uds_service_entry_t k_gated_services[] = {
-    {0xBBu, 1u, UDS_SESSION_ALL, 0u, gated_svc, NULL},
+    {0xBBu, 1u, UDS_SESSION_ALL, 0u, gated_svc, NULL, 0u},
 };
 
 static bool gate_0xBB(uds_ctx_t *ctx, uint8_t sid)

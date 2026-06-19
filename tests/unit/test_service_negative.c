@@ -30,11 +30,11 @@ static uds_ctx_t g_ctx = {0};
 /* Define a test service table */
 static const uds_service_entry_t g_test_services[] = {
     /* SID 0xA0: Min Len=2, All Sessions, No Security */
-    {0xA0, 2, UDS_SESSION_ALL, 0, mock_service_handler, NULL},
+    {0xA0, 2, UDS_SESSION_ALL, 0, mock_service_handler, NULL, 0u},
     /* SID 0xA1: Min Len=1, Extended(0x02) only, No Security */
-    {0xA1, 1, UDS_SESSION_EXTENDED, 0, mock_service_handler, NULL},
+    {0xA1, 1, UDS_SESSION_EXTENDED, 0, mock_service_handler, NULL, 0u},
     /* SID 0xA2: Min Len=1, All Sessions, Security Level 1 needed */
-    {0xA2, 1, UDS_SESSION_ALL, 1, mock_service_handler, NULL},
+    {0xA2, 1, UDS_SESSION_ALL, 1, mock_service_handler, NULL, 0u},
 };
 
 /* Simple Time Provider (Bypassing CMocka queue) */

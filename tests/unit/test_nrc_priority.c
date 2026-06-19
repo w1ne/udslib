@@ -46,7 +46,8 @@ static void test_nrc_priority_sub_vs_security(void **state)
     static const uint8_t mask_sub_01[] = {0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     uds_service_entry_t user_services[] = {
-        {0x44, 2, UDS_SESSION_ALL, 1, dummy_handler, mask_sub_01} /* Requires security level 1 */
+        {0x44, 2, UDS_SESSION_ALL, 1, dummy_handler, mask_sub_01,
+         0u} /* Requires security level 1 */
     };
 
     uds_config_t cfg = {.fn_tp_send = mock_tp_send,
@@ -89,7 +90,7 @@ static void test_nrc_priority_sub_vs_length(void **state)
     static const uint8_t mask_sub_01[] = {0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     uds_service_entry_t user_services[] = {
-        {0x44, 4, UDS_SESSION_ALL, 0, dummy_handler, mask_sub_01} /* Requires length 4 */
+        {0x44, 4, UDS_SESSION_ALL, 0, dummy_handler, mask_sub_01, 0u} /* Requires length 4 */
     };
 
     uds_config_t cfg = {.fn_tp_send = mock_tp_send,

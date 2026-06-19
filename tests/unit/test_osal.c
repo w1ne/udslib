@@ -108,7 +108,7 @@ static void test_osal_unlocks_on_rcrrp_limit(void **state)
     (void) state;
 
     static const uds_service_entry_t services[] = {
-        {0x99, 1, UDS_SESSION_ALL, 0, mock_pending_handler, NULL}};
+        {0x99, 1, UDS_SESSION_ALL, 0, mock_pending_handler, NULL, 0u}};
 
     memset(&ctx, 0, sizeof(ctx));
     memset(&cfg, 0, sizeof(cfg));

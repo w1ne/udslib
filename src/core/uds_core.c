@@ -32,58 +32,66 @@ static const uint8_t mask_sub_87[] = UDS_MASK_SUB_87;
 static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
 
 /* Service dispatch table. Columns mirror uds_service_entry_t:
- *   { SID, min_len, session_mask, security_mask, handler, sub_mask }
+ *   { SID, min_len, session_mask, security_mask, handler, sub_mask, address_mode }
  *     SID          - service identifier (UDS_SID_*)
  *     min_len      - shortest accepted request (incl. SID); shorter -> NRC 0x13
  *     session_mask - sessions the service is allowed in (UDS_SESSION_*)
  *     security_mask- required security level (0 = none)
  *     handler      - service implementation
  *     sub_mask     - allowed sub-functions bitmap, or NULL if none
+ *     address_mode - allowed addressing (UDS_ADDR_* bitmask); 0u = both
  * Applications add or override entries via config.user_services without
  * editing this table (see examples/custom_service). */
 static const uds_service_entry_t core_services[] = {
     {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
-     mask_sub_10},
-    {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_ecu_reset, mask_sub_11},
-    {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_clear_dtc, NULL},
-    {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_dtc_info,
-     mask_sub_19},
-    {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_data_by_id, NULL},
+     mask_sub_10, 0u},
+    {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_ecu_reset, mask_sub_11, 0u},
+    {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_clear_dtc, NULL, 0u},
+    {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_dtc_info, mask_sub_19,
+     0u},
+    {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_data_by_id, NULL,
+     0u},
     {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_memory_by_addr,
-     NULL},
-    {UDS_SID_READ_SCALING, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_scaling, NULL},
-    {UDS_SID_DYNAMIC_DID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_dynamic_did, mask_sub_2C},
+     NULL, 0u},
+    {UDS_SID_READ_SCALING, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_scaling, NULL, 0u},
+    {UDS_SID_DYNAMIC_DID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_dynamic_did, mask_sub_2C,
+     0u},
     {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_security_access,
-     mask_sub_27},
-    {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28},
+     mask_sub_27, 0u},
+    {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28,
+     0u},
     {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_authentication,
-     mask_sub_29},
-    {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_data_by_id, NULL},
+     mask_sub_29, 0u},
+    {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_data_by_id, NULL,
+     0u},
     {UDS_SID_ROUTINE_CONTROL, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_routine_control,
-     mask_sub_31},
-    {UDS_SID_REQUEST_DOWNLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_download, NULL},
-    {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_transfer_data, NULL},
+     mask_sub_31, 0u},
+    {UDS_SID_REQUEST_DOWNLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_download, NULL,
+     0u},
+    {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_transfer_data, NULL, 0u},
     {UDS_SID_TRANSFER_EXIT, 1u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_transfer_exit,
-     NULL},
+     NULL, 0u},
     {UDS_SID_REQUEST_FILE_TRANSFER, 4u, UDS_SESSION_ALL, 0u,
-     uds_internal_handle_request_file_transfer, NULL},
+     uds_internal_handle_request_file_transfer, NULL, 0u},
     {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_memory_by_addr,
-     NULL},
+     NULL, 0u},
     {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_tester_present,
-     mask_sub_3E},
+     mask_sub_3E, 0u},
     {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_control_dtc_setting,
-     mask_sub_85},
+     mask_sub_85, 0u},
     {UDS_SID_READ_BY_PER_ID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_periodic_read,
-     mask_sub_2A},
-    {UDS_SID_IO_CONTROL_BY_ID, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_io_control, NULL},
-    {UDS_SID_REQUEST_UPLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_upload, NULL},
-    {UDS_SID_LINK_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_link_control, mask_sub_87},
-    {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_access_timing,
-     mask_sub_83},
-    {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_secured_data, NULL},
+     mask_sub_2A, 0u},
+    {UDS_SID_IO_CONTROL_BY_ID, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_io_control, NULL, 0u},
+    {UDS_SID_REQUEST_UPLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_upload, NULL, 0u},
+    {UDS_SID_LINK_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_link_control, mask_sub_87,
+     0u},
+    {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_access_timing, mask_sub_83,
+     0u},
+    {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_secured_data, NULL,
+     0u},
 #if (UDS_ROE_MAX_EVENTS > 0)
     {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_response_on_event,
-     mask_sub_86},
+     mask_sub_86, 0u},
 #endif
 };
 

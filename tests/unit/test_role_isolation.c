@@ -44,7 +44,7 @@ static void test_server_async_does_not_swallow_later_request(void **state)
 {
     (void) state;
     static const uds_service_entry_t services[] = {
-        {0x31, 2, UDS_SESSION_ALL, 0, async_handler, NULL}};
+        {0x31, 2, UDS_SESSION_ALL, 0, async_handler, NULL, 0u}};
     uds_ctx_t ctx;
     uds_config_t cfg;
     make_server(&ctx, &cfg, services, 1);

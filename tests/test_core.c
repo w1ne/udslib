@@ -112,7 +112,7 @@ static void test_custom_service_registration(void **state)
     (void) state;
     uds_ctx_t ctx;
     uint8_t tx_buf[10];
-    uds_service_entry_t user_services[] = {{0x66, 1, UDS_SESSION_ALL, 0, custom_handler, NULL}};
+    uds_service_entry_t user_services[] = {{0x66, 1, UDS_SESSION_ALL, 0, custom_handler, NULL, 0u}};
     uds_config_t cfg = {.get_time_ms = mock_get_time,
                         .fn_tp_send = mock_tp_send,
                         .rx_buffer = g_rx_buf,
