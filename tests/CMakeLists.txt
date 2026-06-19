@@ -76,3 +76,7 @@ add_uds_test(test_integration integration/test_integration.c)
 # Regression for issue #29: multi-frame request must be dispatched (full stack,
 # real uds_input_sdu — intentionally NOT wrapped).
 add_uds_test(test_issue29_multiframe_request unit/test_issue29_multiframe_request.c)
+
+# Regression for issue #42: full-duplex inbound frame must not abort an
+# in-flight multi-frame response (full stack, real uds_input_sdu).
+add_uds_test(test_issue42_full_duplex_response unit/test_issue42_full_duplex_response.c)
