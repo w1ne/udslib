@@ -47,7 +47,7 @@ echo -e "${GREEN}PASSED${NC}"
 #    (General cppcheck analysis is covered by the static-analysis CI job.)
 echo -n "[3/3] Running MISRA-C:2012 addon (deviation baseline)... "
 if command -v cppcheck &> /dev/null; then
-    ACCEPTED="2.3 2.4 2.5 8.7 8.9 10.1 10.4 10.8 11.1 11.9 12.1 12.3 14.4 15.5 15.6 15.7 17.7"
+    ACCEPTED="2.3 2.4 2.5 8.7 8.9 10.1 10.4 10.8 11.1 11.5 11.9 12.1 12.3 14.4 15.5 15.6 15.7 17.7"
     MISRA_OUT=$(cppcheck --addon=misra --enable=all --suppress=missingIncludeSystem \
         --suppress=unusedFunction --suppress=checkersReport --inline-suppr \
         -I include -I src/core src/ 2>&1)

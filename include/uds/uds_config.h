@@ -134,8 +134,13 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t dtc;   /**< 3-byte DTC, right-aligned (high byte ignored) */
-    uint8_t status; /**< statusOfDTC byte (ISO 14229-1 Annex D) */
+    uint32_t dtc;                   /**< 3-byte DTC, right-aligned (high byte ignored) */
+    uint8_t status;                 /**< statusOfDTC byte (ISO 14229-1 Annex D) */
+    uint8_t severity;               /**< DTCSeverity bits (0x08/0x09/0x42) */
+    uint8_t functional_unit;        /**< DTCFunctionalUnit (0x08/0x09) */
+    int8_t fault_detection_counter; /**< signed -128..127 (0x14) */
+    uint8_t aging_counter;          /**< operation cycles since last fault */
+    uint8_t functional_group;       /**< WWH-OBD functional group (0x33/0xD0/0xFE) */
 } uds_dtc_record_t;
 
 /**
@@ -403,6 +408,13 @@ typedef struct
 
     /** DTCFormatIdentifier reported in 0x01 (default 0x01 = ISO_14229-1). */
     uint8_t dtc_format_id;
+
+    /** DTCSeverityAvailabilityMask reported in 0x42 responses. */
+    uint8_t dtc_severity_availability_mask;
+
+    /** Opaque application handle, recoverable inside callbacks via
+     *  ctx->config->app_data (e.g. a uds_dtc_store_t* for the reference store). */
+    void *app_data;
 
     /**
      * @brief Optional: Clear Diagnostic Information (SID 0x14).

@@ -95,11 +95,12 @@
     {                                                      \
         0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
-/* Allowed 0x19 subfunctions: byte0 0x57 = 0x01/0x02/0x04/0x06 (+0x00);
- * byte1 0x04 = 0x0A reportSupportedDTC. */
-#define UDS_MASK_SUB_19                                        \
-    {                                                          \
-        0x57u, 0x04u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+/* Allowed 0x19 subfunctions:
+ * byte0 0xD7 = 0x00/0x01/0x02/0x04/0x06/0x07; byte1 0x07 = 0x08/0x09/0x0A;
+ * byte2 0x10 = 0x14; byte8 0x04 = 0x42; byte10 0x20 = 0x55. */
+#define UDS_MASK_SUB_19                                                    \
+    {                                                                      \
+        0xD7u, 0x07u, 0x10u, 0, 0, 0, 0, 0, 0x04u, 0, 0x20u, 0, 0, 0, 0, 0 \
     }
 #define UDS_MASK_SUB_27                                                                            \
     {                                                                                              \
