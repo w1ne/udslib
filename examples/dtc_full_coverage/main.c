@@ -132,8 +132,14 @@ static int app_dtc_read(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, 
                         uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
-    (void) max_len;
     uint16_t pos = 0u;
+
+    /* Every response below fits well within this bound; a real handler that
+     * emits a variable-length DTC list must likewise ensure the payload it is
+     * about to write stays within max_len (here, a single up-front check). */
+    if (max_len < 32u) {
+        return -0x14; /* responseTooLong */
+    }
 
     switch (subfn) {
         case 0x03u: { /* reportDTCSnapshotIdentification: {DTC(3) snapshotRecordNumber(1)}... */
