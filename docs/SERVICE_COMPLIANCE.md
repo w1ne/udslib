@@ -22,7 +22,7 @@ below is grounded in the dispatcher's service table (`src/core/uds_core.c`).
 | 0x24 | ReadScalingDataByIdentifier | Library frames `0x64 <DID>`; scalingByte/scalingData via `fn_read_scaling`. |
 | 0x27 | SecurityAccess | App seed/key callbacks; requestSeed→sendKey sequencing (NRC 0x24); attempt counter + delay (NRC 0x36/0x37). |
 | 0x28 | CommunicationControl | Subfunctions 0x00–0x05 + validation. |
-| 0x29 | Authentication | Certificate exchange (ISO 14229-1:2020). |
+| 0x29 | Authentication | ISO 14229-1:2020 sub-function set 0x00–0x08 (mask-validated). Native deAuthenticate (0x00) and authenticationConfiguration (0x08); certificate/proof/challenge (0x01–0x07) delegated to `fn_auth` (crypto in app/HSM). `ctx.authenticated` state auto-clears on deAuth/session-change/S3/reset. |
 | 0x2A | ReadDataByPeriodicIdentifier | Integrated scheduler (Fast / Medium / Slow / Stop). |
 | 0x2C | DynamicallyDefineDataIdentifier | defineByIdentifier / defineByMemoryAddress / clear; bookkeeping via `fn_dynamic_did`. |
 | 0x2E | WriteDataByIdentifier | Table-driven registry; per-DID session/security gating. |
