@@ -671,8 +671,9 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
     uint8_t *out_payload = &ctx->config->tx_buffer[2];
     uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - 2u);
 
-    /* Pass subfunction and optional mask (data[2]) to the application */
-    int written = ctx->config->fn_dtc_read(ctx, sub, out_payload, max_payload);
+    /* Pass the sub-function and the full request so the application can read the
+     * status/severity mask, DTC, record number, or memory selection it needs. */
+    int written = ctx->config->fn_dtc_read(ctx, sub, data, len, out_payload, max_payload);
     if (written < 0) {
         return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) written);
     }

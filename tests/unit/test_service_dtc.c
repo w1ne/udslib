@@ -7,13 +7,60 @@
 #include "uds/uds_dtc.h"
 #include "uds/uds_dtc_store.h"
 
-static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len)
+static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, uint16_t req_len,
+                         uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
     (void) subfn;
+    (void) req;
+    (void) req_len;
     (void) max_len;
     out_buf[0] = 0xAA;
     return 1;
+}
+
+static uint8_t g_seen_req[8];
+static uint16_t g_seen_req_len;
+static uint8_t g_seen_sub;
+
+static int capture_dtc_read(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req,
+                            uint16_t req_len, uint8_t *out_buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) max_len;
+    g_seen_sub = subfn;
+    g_seen_req_len = req_len;
+    for (uint16_t i = 0u; (i < req_len) && (i < sizeof(g_seen_req)); i++) {
+        g_seen_req[i] = req[i];
+    }
+    out_buf[0] = 0xAA;
+    return 1;
+}
+
+static void test_read_dtc_info_fn_dtc_read_gets_request(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_read = capture_dtc_read; /* no fn_dtc_list: 0x0F routes to raw hook */
+    g_seen_req_len = 0u;
+    g_seen_sub = 0u;
+
+    /* 0x0F mirror-memory-by-status-mask carries a status mask byte. */
+    uint8_t req[] = {0x19, 0x0F, 0xA5};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 59 0F AA */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 3);
+
+    assert_int_equal(g_seen_sub, 0x0Fu);
+    assert_int_equal(g_seen_req_len, 3);
+    assert_int_equal(g_seen_req[0], 0x19); /* SID */
+    assert_int_equal(g_seen_req[1], 0x0F); /* sub-function */
+    assert_int_equal(g_seen_req[2], 0xA5); /* status mask reached the app */
 }
 
 static const uds_dtc_record_t k_dtcs[] = {
@@ -744,6 +791,7 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_0x0F_reaches_legacy),
         cmocka_unit_test(test_store_backed_read_dtc_0x02),
         cmocka_unit_test(test_store_backed_extdata_and_clear),
+        cmocka_unit_test(test_read_dtc_info_fn_dtc_read_gets_request),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

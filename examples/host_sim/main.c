@@ -172,9 +172,12 @@ static void mock_reset(uds_ctx_t *ctx, uint8_t type)
     printf("[APP] ECU RESET TRIGGERED: Type %s (0x%02X)\n", type_str, type);
 }
 
-static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, uint8_t *out_buf, uint16_t max_len)
+static int mock_dtc_read(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, uint16_t req_len,
+                         uint8_t *out_buf, uint16_t max_len)
 {
     (void) ctx;
+    (void) req;
+    (void) req_len;
     (void) max_len;
     printf("[APP] DTC READ: Subfunction 0x%02X\n", subfn);
     if (subfn == 0x01) {   /* count of DTCs matching status mask */
