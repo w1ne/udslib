@@ -32,7 +32,12 @@ void uds_dtc_store_init(uds_dtc_store_t *s, uds_dtc_record_t *backing, uint16_t 
                         uint8_t aging_threshold);
 
 /**
- * @brief Register (or update) a DTC. Status/counters start at zero.
+ * @brief Register (or update) a DTC.
+ *
+ * New entries start with zeroed status/counters; registering an already-present
+ * DTC updates only its severity/functional_unit/functional_group metadata and
+ * leaves runtime status/counters intact.
+ *
  * @return Index (>=0) on success, or -1 if the store is full.
  */
 int uds_dtc_store_register(uds_dtc_store_t *s, uint32_t dtc, uint8_t severity,

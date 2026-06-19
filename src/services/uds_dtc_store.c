@@ -65,6 +65,9 @@ void uds_dtc_store_report_test(uds_dtc_store_t *s, uint32_t dtc, bool failed)
         r->status |=
             (uint8_t) (UDS_DTC_STATUS_TEST_FAILED | UDS_DTC_STATUS_TEST_FAILED_THIS_OP_CYCLE |
                        UDS_DTC_STATUS_TEST_FAILED_SINCE_CLEAR);
+        if ((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u) {
+            r->aging_counter = 0u;
+        }
         if (r->fault_detection_counter >= 0x7F) {
             r->status |= (uint8_t) (UDS_DTC_STATUS_CONFIRMED | UDS_DTC_STATUS_PENDING);
             r->aging_counter = 0u;
@@ -86,12 +89,13 @@ void uds_dtc_store_operation_cycle(uds_dtc_store_t *s)
         /* Reset per-cycle bits and fault-detection counter for the new cycle. */
         r->status &= (uint8_t) ~UDS_DTC_STATUS_TEST_FAILED_THIS_OP_CYCLE;
         r->fault_detection_counter = 0;
-        /* Age all confirmed DTCs; self-heal only when not failed during the cycle. */
-        if ((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u) {
+        /* Age a confirmed DTC only on a cycle where it did not fail; self-heal
+         * once it has survived aging_threshold clean cycles. */
+        if (!failed_this_cycle && ((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u)) {
             if (r->aging_counter < 0xFFu) {
                 r->aging_counter++;
             }
-            if (!failed_this_cycle && (r->aging_counter >= s->aging_threshold)) {
+            if (r->aging_counter >= s->aging_threshold) {
                 r->status = 0u;
                 r->aging_counter = 0u;
             }
@@ -130,7 +134,6 @@ int uds_dtc_store_list_cb(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_reco
 int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
                              uint8_t *out_buf, uint16_t max_len)
 {
-    (void) record_num;
     uds_dtc_store_t *s = (uds_dtc_store_t *) ctx->config->app_data;
     uds_dtc_record_t *r = uds_dtc_store_get(s, dtc);
     if (r == NULL) {

@@ -76,11 +76,16 @@ static void test_store_aging_self_heal(void **state)
     uds_dtc_record_t *r = uds_dtc_store_get(&s, 0x111111u);
     assert_true((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u);
 
-    /* 3 clean operation cycles -> aging threshold -> self-heal. */
-    uds_dtc_store_operation_cycle(&s);
-    uds_dtc_store_operation_cycle(&s);
+    /* The drive-to-confirmed loop leaves TEST_FAILED_THIS_OP_CYCLE set, so
+     * cycle 1 is a "failed" cycle and does NOT advance aging.  Three
+     * subsequent clean cycles are required to reach the threshold (3). */
+    uds_dtc_store_operation_cycle(&s); /* cycle 1: consumes failed flag, aging stays 0 */
     assert_true((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u);
-    uds_dtc_store_operation_cycle(&s);
+    uds_dtc_store_operation_cycle(&s); /* cycle 2: aging_counter = 1 */
+    assert_true((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u);
+    uds_dtc_store_operation_cycle(&s); /* cycle 3: aging_counter = 2 */
+    assert_true((r->status & UDS_DTC_STATUS_CONFIRMED) != 0u);
+    uds_dtc_store_operation_cycle(&s); /* cycle 4: aging_counter = 3 >= threshold -> self-heal */
     assert_int_equal(r->status, 0u);
 }
 
