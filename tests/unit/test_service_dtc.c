@@ -510,6 +510,123 @@ static void test_read_dtc_info_0x55_permanent(void **state)
     assert_int_equal(g_tx_buf[8], 0x08); /* status */
 }
 
+static void test_read_dtc_info_0x0B_first_test_failed(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    uint8_t req[] = {0x19, 0x0B};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 7); /* 59 0B 7F + 12 34 56 09 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, 2);
+    assert_int_equal(g_tx_buf[0], 0x59);
+    assert_int_equal(g_tx_buf[1], 0x0B);
+    assert_int_equal(g_tx_buf[2], 0x7F);
+    assert_int_equal(g_tx_buf[3], 0x12);
+    assert_int_equal(g_tx_buf[4], 0x34);
+    assert_int_equal(g_tx_buf[5], 0x56);
+    assert_int_equal(g_tx_buf[6], 0x09);
+}
+
+static void test_read_dtc_info_0x0C_first_confirmed(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    uint8_t req[] = {0x19, 0x0C};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 7); /* first confirmed = 0x123456 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, 2);
+    assert_int_equal(g_tx_buf[1], 0x0C);
+    assert_int_equal(g_tx_buf[5], 0x56);
+    assert_int_equal(g_tx_buf[6], 0x09);
+}
+
+static void test_read_dtc_info_0x0D_most_recent_test_failed(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    uint8_t req[] = {0x19, 0x0D};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 7); /* last testFailed = 0xABCDEF / 0x01 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, 2);
+    assert_int_equal(g_tx_buf[1], 0x0D);
+    assert_int_equal(g_tx_buf[3], 0xAB);
+    assert_int_equal(g_tx_buf[4], 0xCD);
+    assert_int_equal(g_tx_buf[5], 0xEF);
+    assert_int_equal(g_tx_buf[6], 0x01);
+}
+
+static void test_read_dtc_info_0x0E_most_recent_confirmed(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    uint8_t req[] = {0x19, 0x0E};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 7); /* last confirmed = 0x123457 / 0x08 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, 2);
+    assert_int_equal(g_tx_buf[1], 0x0E);
+    assert_int_equal(g_tx_buf[5], 0x57);
+    assert_int_equal(g_tx_buf[6], 0x08);
+}
+
+static void test_read_dtc_info_0x15_permanent(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list;
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    uint8_t req[] = {0x19, 0x15};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 15 7F + 2 confirmed (0x123456/09, 0x123457/08) = 3 + 8 = 11 */
+    expect_value(mock_tp_send, len, 11);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, 2);
+    assert_int_equal(g_tx_buf[1], 0x15);
+    assert_int_equal(g_tx_buf[2], 0x7F);
+    assert_int_equal(g_tx_buf[3], 0x12);
+    assert_int_equal(g_tx_buf[6], 0x09);
+    assert_int_equal(g_tx_buf[7], 0x12);
+    assert_int_equal(g_tx_buf[10], 0x08);
+}
+
+static void test_read_dtc_info_0x0F_reaches_legacy(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_read = mock_dtc_read; /* no fn_dtc_list: niche sub now reachable via legacy hook */
+    uint8_t req[] = {0x19, 0x0F, 0xFF}; /* 0x0F mirror-memory requires a status mask */
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 59 0F AA -- proves it is NOT subFunctionNotSupported */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, 3);
+    assert_int_equal(g_tx_buf[0], 0x59);
+    assert_int_equal(g_tx_buf[1], 0x0F);
+    assert_int_equal(g_tx_buf[2], 0xAA);
+}
+
 static void test_store_backed_read_dtc_0x02(void **state)
 {
     (void) state;
@@ -619,6 +736,12 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_0x14_fault_counter),
         cmocka_unit_test(test_read_dtc_info_0x42_wwhobd),
         cmocka_unit_test(test_read_dtc_info_0x55_permanent),
+        cmocka_unit_test(test_read_dtc_info_0x0B_first_test_failed),
+        cmocka_unit_test(test_read_dtc_info_0x0C_first_confirmed),
+        cmocka_unit_test(test_read_dtc_info_0x0D_most_recent_test_failed),
+        cmocka_unit_test(test_read_dtc_info_0x0E_most_recent_confirmed),
+        cmocka_unit_test(test_read_dtc_info_0x15_permanent),
+        cmocka_unit_test(test_read_dtc_info_0x0F_reaches_legacy),
         cmocka_unit_test(test_store_backed_read_dtc_0x02),
         cmocka_unit_test(test_store_backed_extdata_and_clear),
     };
