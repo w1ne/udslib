@@ -86,6 +86,14 @@ void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled)
     iso->tx_dl = enabled ? ISOTP_MAX_DL_CANFD : ISOTP_MAX_DL_CAN;
 }
 
+void uds_tp_isotp_set_mode(uds_isotp_ctx_t *iso, uds_isotp_duplex_t mode)
+{
+    if (!iso) {
+        return;
+    }
+    iso->mode = mode;
+}
+
 /**
  * @brief Internal: Send Single Frame.
  */
@@ -183,6 +191,11 @@ int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
     if (!iso) {
         return -1;
+    }
+
+    /* Half-duplex: starting a transmission terminates an in-flight reception. */
+    if (iso->mode == ISOTP_HALF_DUPLEX) {
+        iso->rx_state = ISOTP_RX_IDLE;
     }
 
     /* Check if we can use Single Frame */
