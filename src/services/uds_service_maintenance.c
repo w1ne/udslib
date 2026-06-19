@@ -498,6 +498,102 @@ static int uds_internal_dtc_wwhobd_permanent(uds_ctx_t *ctx, uint8_t sub, const 
     return uds_send_response(ctx, pos);
 }
 
+/* Format reportFirstTestFailedDTC (0x0B), reportFirstConfirmedDTC (0x0C),
+ * reportMostRecentTestFailedDTC (0x0D), reportMostRecentConfirmedDTC (0x0E).
+ * Selects one DTC by occurrence order from fn_dtc_list (which the application
+ * returns oldest-first). Request: SID, sub. */
+static int uds_internal_dtc_first_or_recent(uds_ctx_t *ctx, uint8_t sub, bool suppress_pos_resp)
+{
+    uint8_t want = ((sub == 0x0Bu) || (sub == 0x0Du)) ? (uint8_t) UDS_DTC_STATUS_TEST_FAILED
+                                                      : (uint8_t) UDS_DTC_STATUS_CONFIRMED;
+    bool most_recent = (sub == 0x0Du) || (sub == 0x0Eu);
+
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, 0u, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = ctx->config->dtc_status_availability_mask;
+
+    int sel = -1;
+    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
+        if ((recs[i].status & want) != 0u) {
+            sel = (int) i;
+            if (!most_recent) {
+                break;
+            }
+        }
+    }
+
+    uint16_t pos = 3u;
+    if (sel >= 0) {
+        const uds_dtc_record_t *r = &recs[sel];
+        tx[pos] = (uint8_t) ((r->dtc >> 16) & 0xFFu);
+        tx[pos + 1u] = (uint8_t) ((r->dtc >> 8) & 0xFFu);
+        tx[pos + 2u] = (uint8_t) (r->dtc & 0xFFu);
+        tx[pos + 3u] = r->status;
+        pos = (uint16_t) (pos + 4u);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
+/* Format reportDTCWithPermanentStatus (0x15). Permanent DTCs are reported as
+ * the confirmed set (the library's documented definition; an application that
+ * distinguishes true permanent DTCs can filter them in fn_dtc_list). Request: SID, sub. */
+static int uds_internal_dtc_permanent(uds_ctx_t *ctx, uint8_t sub, bool suppress_pos_resp)
+{
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, 0u, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+    tx[2] = ctx->config->dtc_status_availability_mask;
+
+    uint16_t pos = 3u;
+    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
+        if ((recs[i].status & UDS_DTC_STATUS_CONFIRMED) == 0u) {
+            continue;
+        }
+        if ((uint16_t) (pos + 4u) > ctx->config->tx_buffer_size) {
+            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+        }
+        tx[pos] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+        tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+        tx[pos + 2u] = (uint8_t) (recs[i].dtc & 0xFFu);
+        tx[pos + 3u] = recs[i].status;
+        pos = (uint16_t) (pos + 4u);
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
 int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
@@ -550,6 +646,15 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
 
     if ((sub == 0x55u) && (ctx->config->fn_dtc_list != NULL)) {
         return uds_internal_dtc_wwhobd_permanent(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if (((sub == 0x0Bu) || (sub == 0x0Cu) || (sub == 0x0Du) || (sub == 0x0Eu)) &&
+        (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_first_or_recent(ctx, sub, suppress_pos_resp);
+    }
+
+    if ((sub == 0x15u) && (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_permanent(ctx, sub, suppress_pos_resp);
     }
 
     if (!ctx->config->fn_dtc_read) {
