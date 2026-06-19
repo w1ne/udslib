@@ -83,9 +83,9 @@ static void test_escape_ff_tx(void **state)
 
     int rc = uds_isotp_send(&g_iso, data, LEN);
     assert_int_equal(rc, 0);
-    assert_int_equal(g_iso.state, ISOTP_TX_WAIT_FC);
-    assert_int_equal(g_iso.msg_len, LEN);
-    assert_int_equal(g_iso.bytes_processed, 58);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(g_iso.tx_msg_len, LEN);
+    assert_int_equal(g_iso.tx_bytes_processed, 58);
 }
 
 /* --- #3: escape FirstFrame RX (FF_DL > 4095) full reassembly --- */
@@ -113,8 +113,8 @@ static void test_escape_ff_rx_reassembly(void **state)
     will_return(mock_can_send, 0);
 
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, ff, 64);
-    assert_int_equal(g_iso.state, ISOTP_RX_WAIT_CF);
-    assert_int_equal(g_iso.msg_len, LEN);
+    assert_int_equal(g_iso.rx_state, ISOTP_RX_WAIT_CF);
+    assert_int_equal(g_iso.rx_msg_len, LEN);
 
     /* Drive ConsecutiveFrames (FD CF carries 63 bytes) until complete */
     uint16_t sent = 58;
@@ -135,7 +135,7 @@ static void test_escape_ff_rx_reassembly(void **state)
         sent += chunk;
         sn = (sn + 1) & 0x0F;
     }
-    assert_int_equal(g_iso.state, ISOTP_IDLE);
+    assert_int_equal(g_iso.rx_state, ISOTP_RX_IDLE);
 }
 
 /* --- #3: oversize FF (FF_DL > rx buffer) must answer FC.OVFLW --- */
@@ -159,7 +159,7 @@ static void test_rx_ff_overflow(void **state)
     will_return(mock_can_send, 0);
 
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, ff, 64);
-    assert_int_equal(g_iso.state, ISOTP_IDLE);
+    assert_int_equal(g_iso.rx_state, ISOTP_RX_IDLE);
 }
 
 /* Helper: start a multi-frame TX and consume the FF */
@@ -174,7 +174,7 @@ static void start_mf_tx(uint16_t len)
     will_return(mock_can_send, 0);
 
     uds_isotp_send(&g_iso, data, len);
-    assert_int_equal(g_iso.state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
 }
 
 /* --- #5: FC.WAIT keeps the sender waiting, CTS later resumes --- */
@@ -186,16 +186,16 @@ static void test_fc_wait_then_cts(void **state)
     /* FC.WAIT: stay in WAIT_FC, send nothing */
     uint8_t fc_wait[8] = {0x31, 0x00, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_wait, 8);
-    assert_int_equal(g_iso.state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
 
     /* process() must NOT emit a CF while waiting (no mock expectation set) */
     uds_tp_isotp_process(&g_iso, 1);
-    assert_int_equal(g_iso.state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
 
     /* CTS now arrives -> resume sending */
     uint8_t fc_cts[8] = {0x30, 0x00, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_cts, 8);
-    assert_int_equal(g_iso.state, ISOTP_TX_SENDING_CF);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_SENDING_CF);
 
     expect_value(mock_can_send, id, 0x7E0);
     expect_any(mock_can_send, len);
@@ -212,11 +212,11 @@ static void test_fc_overflow_aborts(void **state)
 
     uint8_t fc_ovflw[8] = {0x32, 0x00, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_ovflw, 8);
-    assert_int_equal(g_iso.state, ISOTP_IDLE);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_IDLE);
 
     /* process() must be a no-op now (no CF) */
     uds_tp_isotp_process(&g_iso, 10);
-    assert_int_equal(g_iso.state, ISOTP_IDLE);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_IDLE);
 }
 
 /* --- #5: reserved/invalid FlowStatus aborts (N_INVALID_FS) --- */
@@ -227,10 +227,10 @@ static void test_fc_invalid_fs_aborts(void **state)
 
     uint8_t fc_bad[8] = {0x33, 0x00, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_bad, 8);
-    assert_int_equal(g_iso.state, ISOTP_IDLE);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_IDLE);
 
     uds_tp_isotp_process(&g_iso, 10);
-    assert_int_equal(g_iso.state, ISOTP_IDLE);
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_IDLE);
 }
 
 /* --- #1: classic CAN Single Frame RX regression --- */

@@ -63,10 +63,13 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
     iso->can_send = can_send;
     iso->tx_id = tx_id;
     iso->rx_id = rx_id;
-    iso->block_size = 8;           /* Default Block Size */
-    iso->st_min = 0;               /* Default No Delay */
+    iso->block_size = 8;           /* BS we advertise as receiver */
+    iso->st_min = 0;               /* STmin we advertise as receiver */
     iso->use_can_fd = 0;           /* Default: Classic CAN */
     iso->tx_dl = ISOTP_MAX_DL_CAN; /* Default: 8 bytes */
+    iso->mode = ISOTP_HALF_DUPLEX; /* Default: conservative, prior behavior */
+    iso->rx_state = ISOTP_RX_IDLE;
+    iso->tx_state = ISOTP_TX_IDLE;
     iso->tx_sdu_buf = tx_sdu_buf;
     iso->tx_sdu_size = tx_sdu_size;
     iso->tx_sdu_len = 0;
@@ -123,10 +126,10 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     memcpy(iso->tx_sdu_buf, data, len);
     iso->tx_sdu_len = len;
 
-    iso->msg_len = len;
-    iso->bytes_processed = 0;
-    iso->bs_counter = 0; /* fresh block accounting for this transfer */
-    iso->state = ISOTP_TX_WAIT_FC;
+    iso->tx_msg_len = len;
+    iso->tx_bytes_processed = 0;
+    iso->tx_bs_counter = 0; /* fresh block accounting for this transfer */
+    iso->tx_state = ISOTP_TX_WAIT_FC;
     iso->timer_n_bs = 0u; /* armed on the first process() tick in WAIT_FC */
 
     uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
@@ -159,8 +162,8 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     uint8_t to_copy = (len > max_data_in_ff) ? max_data_in_ff : (uint8_t) len;
     memcpy(&frame[header_len], data, to_copy);
 
-    iso->bytes_processed = to_copy;
-    iso->sn = 1u;
+    iso->tx_bytes_processed = to_copy;
+    iso->tx_sn = 1u;
 
     if (iso->use_can_fd) {
         dl = uds_dlc_align((uint8_t) (header_len + to_copy));
@@ -198,42 +201,41 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
         return;
     }
 
-    /* N_Cr: reception stalls if a consecutive frame never arrives. */
-    if (iso->state == ISOTP_RX_WAIT_CF) {
+    /* --- RX tick: N_Cr (reception stalls if a CF never arrives) --- */
+    if (iso->rx_state == ISOTP_RX_WAIT_CF) {
         if ((time_ms - iso->timer_n_cr) >= iso->n_cr_ms) {
-            iso->state = ISOTP_IDLE;
+            iso->rx_state = ISOTP_RX_IDLE;
         }
-        return;
     }
 
-    /* N_Bs: transmission stalls if flow control never arrives after the FF. */
-    if (iso->state == ISOTP_TX_WAIT_FC) {
+    /* --- TX tick: N_Bs (waiting for FC) --- */
+    if (iso->tx_state == ISOTP_TX_WAIT_FC) {
         if (iso->timer_n_bs == 0u) {
             /* Arm on first observation; avoid 0 which means "unarmed". */
             iso->timer_n_bs = (time_ms == 0u) ? 1u : time_ms;
         }
         else if ((time_ms - iso->timer_n_bs) >= iso->n_bs_ms) {
-            iso->state = ISOTP_IDLE;
+            iso->tx_state = ISOTP_TX_IDLE;
             iso->timer_n_bs = 0u;
         }
         return;
     }
 
-    if (iso->state == ISOTP_TX_SENDING_CF) {
-        uint16_t remaining = iso->msg_len - iso->bytes_processed;
+    /* --- TX tick: sending consecutive frames --- */
+    if (iso->tx_state == ISOTP_TX_SENDING_CF) {
+        uint16_t remaining = iso->tx_msg_len - iso->tx_bytes_processed;
         if (remaining == 0) {
-            iso->state = ISOTP_IDLE;
+            iso->tx_state = ISOTP_TX_IDLE;
             return;
         }
 
-        /* Check STmin (Separation Time) */
+        /* Check STmin (Separation Time) using the receiver-honored value. */
         uint32_t elapsed = time_ms - iso->timer_st;
-        uint32_t required_st = iso->st_min;
+        uint32_t required_st = iso->tx_st_min;
 
         /* Decode ISO-TP STmin:
            0x00 - 0x7F: 0ms - 127ms
-           0xF1 - 0xF9: 100us - 900us (we'll treat as 1ms for now as we have ms resolution)
-        */
+           0xF1 - 0xF9: 100us - 900us (treated as 1ms at ms resolution) */
         if (required_st >= 0xF1 && required_st <= 0xF9) {
             required_st = 1;
         }
@@ -245,21 +247,22 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
             return; /* Wait for STmin */
         }
 
-        /* Check Block Size (BS) */
-        if (iso->block_size > 0 && iso->bs_counter >= iso->block_size) {
-            iso->state = ISOTP_TX_WAIT_FC;
-            iso->bs_counter = 0;
+        /* Check Block Size (BS) the receiver told us to honor. */
+        if (iso->tx_block_size > 0 && iso->tx_bs_counter >= iso->tx_block_size) {
+            iso->tx_state = ISOTP_TX_WAIT_FC;
+            iso->tx_bs_counter = 0;
+            iso->timer_n_bs = 0u; /* re-arm N_Bs while waiting for the next FC */
             return;
         }
 
-        /* Calculate max payload per CF */
-        uint8_t max_cf_payload = (iso->use_can_fd) ? (ISOTP_MAX_DL_CANFD - 1)
-                                                   : (ISOTP_MAX_DL_CAN - 1); /* Header is 1 byte */
+        /* Calculate max payload per CF (header is 1 byte). */
+        uint8_t max_cf_payload =
+            (iso->use_can_fd) ? (ISOTP_MAX_DL_CANFD - 1) : (ISOTP_MAX_DL_CAN - 1);
 
         uint8_t to_copy = (remaining > max_cf_payload) ? max_cf_payload : (uint8_t) remaining;
         uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
-        frame[0] = (uint8_t) (ISOTP_PCI_CF | iso->sn);
-        memcpy(&frame[1], &iso->tx_sdu_buf[iso->bytes_processed], to_copy);
+        frame[0] = (uint8_t) (ISOTP_PCI_CF | iso->tx_sn);
+        memcpy(&frame[1], &iso->tx_sdu_buf[iso->tx_bytes_processed], to_copy);
 
         uint8_t dl = ISOTP_MAX_DL_CAN;
         if (iso->use_can_fd) {
@@ -267,13 +270,13 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
         }
 
         if (uds_internal_tp_send_frame(iso, frame, dl) == 0) {
-            iso->bytes_processed += to_copy;
-            iso->sn = (iso->sn + 1) & 0x0F;
-            iso->bs_counter++;
+            iso->tx_bytes_processed += to_copy;
+            iso->tx_sn = (iso->tx_sn + 1) & 0x0F;
+            iso->tx_bs_counter++;
             iso->timer_st = time_ms; /* Reset ST timer */
 
-            if (iso->bytes_processed >= iso->msg_len) {
-                iso->state = ISOTP_IDLE;
+            if (iso->tx_bytes_processed >= iso->tx_msg_len) {
+                iso->tx_state = ISOTP_TX_IDLE;
             }
         }
     }
@@ -281,8 +284,14 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
 
 static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
 {
-    /* Abort any active multi-frame on new Single Frame */
-    iso->state = ISOTP_IDLE;
+    /* A new reception supersedes any in-progress reception. */
+    iso->rx_state = ISOTP_RX_IDLE;
+
+    /* Half-duplex: a new inbound message terminates an in-flight transmission. */
+    if (iso->mode == ISOTP_HALF_DUPLEX) {
+        iso->tx_state = ISOTP_TX_IDLE;
+        iso->timer_n_bs = 0u;
+    }
 
     uint8_t sdu_len = (uint8_t) (data[0] & 0x0Fu);
     uint8_t data_offset = 1;
@@ -305,8 +314,14 @@ static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
 
 static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
 {
-    /* Abort any active multi-frame on new First Frame */
-    iso->state = ISOTP_IDLE;
+    /* A new reception supersedes any in-progress reception. */
+    iso->rx_state = ISOTP_RX_IDLE;
+
+    /* Half-duplex: a new inbound message terminates an in-flight transmission. */
+    if (iso->mode == ISOTP_HALF_DUPLEX) {
+        iso->tx_state = ISOTP_TX_IDLE;
+        iso->timer_n_bs = 0u;
+    }
 
     if (len < 2u) {
         return; /* FF requires at least PCI + length byte */
@@ -337,25 +352,25 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
 
     /* FF_DL exceeding the receive buffer: cancel and notify the sender (9.6.3.2). */
     if (sdu_len > uds->config->rx_buffer_size) {
-        iso->state = ISOTP_IDLE;
+        iso->rx_state = ISOTP_RX_IDLE;
         uint8_t fc_ov[8] = {0};
         fc_ov[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_OVA);
         uds_internal_tp_send_frame(iso, fc_ov, 8);
         return;
     }
 
-    iso->msg_len = (uint16_t) sdu_len;
+    iso->rx_msg_len = (uint16_t) sdu_len;
 
     uint8_t data_in_ff = (uint8_t) (len - header_len);
 
-    iso->bytes_processed = data_in_ff;
-    iso->sn = 1;
-    iso->state = ISOTP_RX_WAIT_CF;
+    iso->rx_bytes_processed = data_in_ff;
+    iso->rx_sn = 1;
+    iso->rx_state = ISOTP_RX_WAIT_CF;
     iso->timer_n_cr = uds->config->get_time_ms ? uds->config->get_time_ms() : 0u;
 
     memcpy(uds->config->rx_buffer, &data[header_len], data_in_ff);
 
-    /* Send Flow Control (CTS) */
+    /* Send Flow Control (CTS) advertising OUR receiver BS/STmin. */
     uint8_t fc[8] = {0};
     fc[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_CTS);
     fc[1] = iso->block_size;
@@ -365,37 +380,35 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
 
 static void uds_rx_cf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len)
 {
-    if (iso->state != ISOTP_RX_WAIT_CF) {
+    if (iso->rx_state != ISOTP_RX_WAIT_CF) {
         return;
     }
 
     uint8_t sn = data[0] & 0x0F;
-    if (sn != iso->sn) {
-        iso->state = ISOTP_IDLE;
+    if (sn != iso->rx_sn) {
+        iso->rx_state = ISOTP_RX_IDLE;
         return;
     }
-    iso->sn = (iso->sn + 1) & 0x0F;
+    iso->rx_sn = (iso->rx_sn + 1) & 0x0F;
 
-    uint16_t remaining = iso->msg_len - iso->bytes_processed;
+    uint16_t remaining = iso->rx_msg_len - iso->rx_bytes_processed;
 
-    /* Max payload in CF depends on whether we received FD frame (len > 8) or not. */
     uint8_t data_capacity = len - 1; /* Byte 0 is PCI+SN */
-
     uint8_t to_copy = (remaining > data_capacity) ? data_capacity : (uint8_t) remaining;
 
-    memcpy(&uds->config->rx_buffer[iso->bytes_processed], &data[1], to_copy);
-    iso->bytes_processed += to_copy;
+    memcpy(&uds->config->rx_buffer[iso->rx_bytes_processed], &data[1], to_copy);
+    iso->rx_bytes_processed += to_copy;
     iso->timer_n_cr = uds->config->get_time_ms ? uds->config->get_time_ms() : 0u;
 
-    if (iso->bytes_processed >= iso->msg_len) {
-        iso->state = ISOTP_IDLE;
-        uds_input_sdu(uds, uds->config->rx_buffer, iso->msg_len);
+    if (iso->rx_bytes_processed >= iso->rx_msg_len) {
+        iso->rx_state = ISOTP_RX_IDLE;
+        uds_input_sdu(uds, uds->config->rx_buffer, iso->rx_msg_len);
     }
 }
 
 static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
 {
-    if (iso->state != ISOTP_TX_WAIT_FC) {
+    if (iso->tx_state != ISOTP_TX_WAIT_FC) {
         return;
     }
     if (len < 3u) {
@@ -405,26 +418,24 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
     uint8_t fs = data[0] & 0x0F;
     switch (fs) {
         case ISOTP_FC_CTS:
-            /* ClearToSend: latch BS/STmin and resume the next block of CFs. */
-            iso->state = ISOTP_TX_SENDING_CF;
-            iso->block_size = data[1];
-            iso->st_min = data[2];
-            iso->bs_counter = 0u;
+            /* ClearToSend: latch the receiver's BS/STmin and resume CFs. */
+            iso->tx_state = ISOTP_TX_SENDING_CF;
+            iso->tx_block_size = data[1];
+            iso->tx_st_min = data[2];
+            iso->tx_bs_counter = 0u;
             iso->timer_n_bs = 0u; /* FC arrived: disarm N_Bs */
             break;
 
         case ISOTP_FC_WAIT:
-            /* Wait: keep waiting for a further FC and restart N_Bs. BS/STmin
-               in this frame are not relevant and are ignored (ISO 15765-2). */
-            iso->state = ISOTP_TX_WAIT_FC;
+            /* Wait: keep waiting for a further FC and restart N_Bs. */
+            iso->tx_state = ISOTP_TX_WAIT_FC;
             iso->timer_n_bs = 0u; /* re-armed on the next process() tick */
             break;
 
         case ISOTP_FC_OVA:
         default:
-            /* Overflow (receiver buffer too small) or reserved/invalid FS:
-               cancel the segmented transmission. */
-            iso->state = ISOTP_IDLE;
+            /* Overflow or reserved/invalid FS: cancel the transmission. */
+            iso->tx_state = ISOTP_TX_IDLE;
             iso->timer_n_bs = 0u;
             break;
     }
