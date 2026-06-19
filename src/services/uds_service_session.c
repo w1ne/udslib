@@ -35,6 +35,7 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
     /* Note: "Same" session transition usually also resets. ISO says (re-)initialize. */
     if (ctx->active_session != sub || sub == UDS_SESSION_ID_DEFAULT) {
         ctx->security_level = 0u;
+        ctx->authenticated = false;
         /* Drop any outstanding seed: the sequence restarts with the session. */
         ctx->security_seed_level = 0u;
         ctx->security_seed_len = 0u;
