@@ -347,6 +347,47 @@ static int uds_internal_dtc_severity_info(uds_ctx_t *ctx, uint8_t sub, const uin
     return uds_send_response(ctx, pos);
 }
 
+/* Format reportDTCFaultDetectionCounter (0x14). Request: SID, sub.
+ * Reports DTCs whose fault-detection counter is in progress (1..0x7E). */
+static int uds_internal_dtc_fault_counter(uds_ctx_t *ctx, uint8_t sub, bool suppress_pos_resp)
+{
+    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
+    int total = ctx->config->fn_dtc_list(ctx, 0u, recs, (uint16_t) UDS_DTC_LIST_BATCH);
+    if (total < 0) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
+    }
+    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
+        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+    }
+
+    if (suppress_pos_resp) {
+        ctx->suppress_pos_resp = true;
+    }
+
+    uint8_t *tx = ctx->config->tx_buffer;
+    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
+    tx[1] = sub;
+
+    uint16_t pos = 2u;
+    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
+        int8_t fdc = recs[i].fault_detection_counter;
+        if ((fdc >= 1) && (fdc <= 0x7E)) {
+            if ((uint16_t) (pos + 4u) > ctx->config->tx_buffer_size) {
+                return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
+            }
+            tx[pos] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
+            tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
+            tx[pos + 2u] = (uint8_t) (recs[i].dtc & 0xFFu);
+            tx[pos + 3u] = (uint8_t) fdc;
+            pos = (uint16_t) (pos + 4u);
+        }
+    }
+    if (suppress_pos_resp) {
+        return UDS_OK;
+    }
+    return uds_send_response(ctx, pos);
+}
+
 int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     if (len < 2u) {
@@ -387,6 +428,10 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
 
     if ((sub == 0x09u) && (ctx->config->fn_dtc_list != NULL)) {
         return uds_internal_dtc_severity_info(ctx, sub, data, len, suppress_pos_resp);
+    }
+
+    if ((sub == 0x14u) && (ctx->config->fn_dtc_list != NULL)) {
+        return uds_internal_dtc_fault_counter(ctx, sub, suppress_pos_resp);
     }
 
     if (!ctx->config->fn_dtc_read) {

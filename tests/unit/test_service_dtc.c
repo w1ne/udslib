@@ -378,6 +378,50 @@ static void test_read_dtc_info_0x09_severity_info(void **state)
     assert_int_equal(g_tx_buf[8], 0x08); /* status */
 }
 
+static const uds_dtc_record_t k_fdc_dtcs[] = {
+    {0x111111u, 0x04u, 0, 0, 0x20, 0, 0}, /* FDC 32 -> in progress, reported */
+    {0x222222u, 0x08u, 0, 0, 0x7F, 0, 0}, /* FDC 127 -> confirmed, not reported */
+    {0x333333u, 0x00u, 0, 0, 0x00, 0, 0}, /* FDC 0 -> not reported */
+};
+
+static int mock_dtc_list_fdc(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
+                             uint16_t max)
+{
+    (void) ctx;
+    (void) status_mask;
+    for (uint16_t i = 0u; i < 3u; i++) {
+        if ((out != NULL) && (i < max)) {
+            out[i] = k_fdc_dtcs[i];
+        }
+    }
+    return 3;
+}
+
+static void test_read_dtc_info_0x14_fault_counter(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_list = mock_dtc_list_fdc;
+
+    uint8_t req[] = {0x19, 0x14};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 14 + 1 * (DTC[3] FDC[1]) = 2 + 4 = 6 (only 0x111111 in range) */
+    expect_value(mock_tp_send, len, 6);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 2);
+
+    assert_int_equal(g_tx_buf[0], 0x59);
+    assert_int_equal(g_tx_buf[1], 0x14);
+    assert_int_equal(g_tx_buf[2], 0x11); /* DTC hi */
+    assert_int_equal(g_tx_buf[3], 0x11);
+    assert_int_equal(g_tx_buf[4], 0x11);
+    assert_int_equal(g_tx_buf[5], 0x20); /* FDC = 32 */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -394,6 +438,7 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_0x08_by_severity),
         cmocka_unit_test(test_read_dtc_info_0x07_number_by_severity),
         cmocka_unit_test(test_read_dtc_info_0x09_severity_info),
+        cmocka_unit_test(test_read_dtc_info_0x14_fault_counter),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
