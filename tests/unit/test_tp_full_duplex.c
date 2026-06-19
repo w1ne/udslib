@@ -150,6 +150,7 @@ static void test_full_duplex_simultaneous_rx_tx(void **state)
     uint8_t cf1[8] = {0x21, 0, 0, 0, 0, 0, 0, 0};
     memcpy(&cf1[1], &in_payload[6], 7);
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, cf1, 8);
+    assert_int_equal(g_iso.rx_state, ISOTP_RX_WAIT_CF); /* CF1 advanced reception, not dropped */
 
     /* CF2 (final, 1 byte) completes reassembly -> delivered. */
     uint8_t cf2[8] = {0x22, 0, 0, 0, 0, 0, 0, 0};
@@ -181,7 +182,16 @@ static void test_full_duplex_independent_timers(void **state)
     uds_tp_isotp_set_mode(&g_iso, ISOTP_FULL_DUPLEX);
     start_tx_30();
 
-    /* Start a reception so rx_state == WAIT_CF, timer_n_cr seeded at g_time. */
+    /*
+     * Use a small N_Cr (50 ms) and leave N_Bs at its 1000 ms default so the
+     * two windows are unambiguously separated: any process() tick in [150, 999]
+     * crosses N_Cr but cannot cross N_Bs regardless of when N_Bs was armed.
+     * This makes the result independent of N_Bs arm timing.
+     */
+    g_iso.n_cr_ms = 50; /* RX timeout: 50 ms */
+    /* n_bs_ms stays at 1000 ms default */
+
+    /* Start a reception so rx_state == WAIT_CF, timer_n_cr seeded at g_time=100. */
     static uint8_t in_payload[14];
     for (int i = 0; i < 14; i++) in_payload[i] = (uint8_t) i;
     uint8_t ff[8] = {0x10, 0x0E, 0, 0, 0, 0, 0, 0};
@@ -194,10 +204,10 @@ static void test_full_duplex_independent_timers(void **state)
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, ff, 8);
     assert_int_equal(g_iso.rx_state, ISOTP_RX_WAIT_CF);
 
-    /* Advance beyond N_Cr (default 1000ms). RX must reset; TX must remain WAIT_FC.
-       (TX timer_n_bs arms here but N_Bs default is 1000ms; 100+1100 - arm(=1101) < 1000,
-       so TX has NOT yet timed out at this tick.) */
-    uds_tp_isotp_process(&g_iso, 1101); /* arms N_Bs at 1101; N_Cr: 1101-100 >= 1000 -> reset RX */
+    /* At tick 160: N_Cr elapsed = 160-100 = 60 >= 50 -> RX resets.
+     * N_Bs worst-case arm at 0 -> 160 < 1000 -> TX stays WAIT_FC.
+     * The 940 ms gap between windows makes the assertion robust. */
+    uds_tp_isotp_process(&g_iso, 160);
     assert_int_equal(g_iso.rx_state, ISOTP_RX_IDLE);
     assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
 }
@@ -228,6 +238,7 @@ static void test_cross_direction_frames_ignored(void **state)
     uint8_t fc[8] = {0x30, 0x00, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, fc, 8);
     assert_int_equal(g_iso.rx_state, ISOTP_RX_WAIT_CF); /* unaffected */
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_IDLE);    /* stray FC on idle TX changes nothing */
 }
 
 /* --- 6: half-duplex send() aborts active RX (behavior lock) --- */
