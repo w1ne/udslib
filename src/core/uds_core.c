@@ -348,7 +348,10 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     }
 
     /* Dispatch the inner request with the secured-session gate granted,
-     * capturing its response instead of sending it. */
+     * capturing its response instead of sending it.
+     * Inner dispatch must always be treated as physical (design spec §2): save and
+     * force UDS_ADDR_PHYSICAL so the addressing gate does not read a stale
+     * functional req_addr_mode from the preceding top-level request. */
     uint8_t captured[UDS_SECURE_SCRATCH];
     ctx->in_secured_session = true;
     ctx->secure_capturing = true;
@@ -356,7 +359,10 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     ctx->secure_capture_size = (uint16_t) sizeof(captured);
     ctx->secure_capture_len = 0u;
 
+    uint8_t saved_addr_mode = ctx->req_addr_mode;
+    ctx->req_addr_mode = (uint8_t) UDS_ADDR_PHYSICAL;
     handle_request(ctx, inner, (uint16_t) inner_len);
+    ctx->req_addr_mode = saved_addr_mode;
 
     ctx->in_secured_session = false;
     ctx->secure_capturing = false;
@@ -394,7 +400,14 @@ int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_
     ctx->secure_capture_size = out_size;
     ctx->secure_capture_len = 0u;
 
+    /* Inner/captured dispatch must always be treated as physical (design spec §2):
+     * save and force UDS_ADDR_PHYSICAL so a stale functional req_addr_mode from
+     * the preceding top-level request does not cause the addressing gate in
+     * handle_request to silently drop the ROE/secured inner response. */
+    uint8_t saved_addr_mode = ctx->req_addr_mode;
+    ctx->req_addr_mode = (uint8_t) UDS_ADDR_PHYSICAL;
     handle_request(ctx, inner, inner_len);
+    ctx->req_addr_mode = saved_addr_mode;
 
     ctx->secure_capturing = false;
     ctx->secure_capture_buf = NULL;
@@ -704,7 +717,11 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
 
     /* ISO 14229-1: a functionally addressed request must not elicit these
        negative responses (avoid flooding a shared bus when many ECUs answer).
-       Captured inner dispatches (0x84/0x86) are never functional. */
+       Captured inner dispatches (0x84/0x86) are never functional.
+       INVARIANT: the suppress set {0x11,0x12,0x7E,0x7F,0x31} must remain disjoint
+       from any NRC that uds_process can emit on a deferred/pending path (currently
+       0x22 after RCRRP exhaustion and 0x78 RESPONSE_PENDING), since those run with a
+       persisted req_addr_mode. Both 0x22 and 0x78 are correctly NOT in this set. */
     if (ctx->req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL && !ctx->secure_capturing &&
         (nrc == UDS_NRC_SERVICE_NOT_SUPPORTED || nrc == UDS_NRC_SUBFUNCTION_NOT_SUPPORTED ||
          nrc == UDS_NRC_SUBFUNC_NOT_SUPP_IN_SESS || nrc == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS ||

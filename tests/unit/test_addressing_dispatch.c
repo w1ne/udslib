@@ -192,6 +192,58 @@ static void test_non_suppressable_nrc_functional(void **state)
     assert_int_equal(g_tx[2], 0x22u); /* conditionsNotCorrect */
 }
 
+/* 13: ROE inner dispatch must not be silenced by a stale functional req_addr_mode.
+ *
+ * Sequence:
+ *   (a) Setup ROE onChangeOfDataIdentifier(DID=0) with serviceToRespondTo = {0xA1}
+ *       (physical-only service) and start it — both via physical addressing.
+ *   (b) Feed a functional request for 0xA0 (both-mode service) to SET
+ *       ctx->req_addr_mode = UDS_ADDR_FUNCTIONAL, simulating a prior functional broadcast.
+ *   (c) Call uds_roe_trigger() which internally calls uds_internal_dispatch_captured()
+ *       -> handle_request().  Without Fix A the addressing gate sees req_addr_mode ==
+ *       UDS_ADDR_FUNCTIONAL, 0xA1 is physical-only, and silently returns — cap == 0,
+ *       no 0xC6 frame is emitted.  With Fix A, req_addr_mode is forced to PHYSICAL
+ *       for the duration of the inner dispatch, 0xA1 succeeds, and 0xC6 is sent.
+ */
+static void test_roe_inner_dispatch_not_silenced_by_stale_functional(void **state)
+{
+    (void) state;
+
+    /* (a) Setup ROE: onChangeOfDataIdentifier(0x0000) -> 0xA1 (physical-only).
+     *     86 03 <window=0x02 infinite> <DID hi=0x00> <DID lo=0x00> <STR=0xA1>
+     *     Use physical addressing so the setup ACK is not suppressed. */
+    uint8_t roe_setup[] = {0x86u, 0x03u, 0x02u, 0x00u, 0x00u, 0xA1u};
+    uds_input_sdu_addr(&g_ctx, roe_setup, sizeof(roe_setup), UDS_ADDR_PHYSICAL);
+    /* C6 03 <count=1> + echo of request body (data[2..5], 4 bytes) = 3 + 4 = 7 */
+    assert_int_equal(g_tx_calls, 1);
+    assert_int_equal(g_tx[0], 0xC6u);
+    g_tx_calls = 0;
+
+    /* Start ROE (86 05) via physical. */
+    uint8_t roe_start[] = {0x86u, 0x05u};
+    uds_input_sdu_addr(&g_ctx, roe_start, sizeof(roe_start), UDS_ADDR_PHYSICAL);
+    assert_int_equal(g_tx_calls, 1); /* ACK */
+    g_tx_calls = 0;
+
+    /* (b) Feed a functional request for 0xA0 (both-mode service) to pollute
+     *     req_addr_mode with UDS_ADDR_FUNCTIONAL. */
+    uint8_t func_req[] = {0xA0u};
+    uds_input_sdu_addr(&g_ctx, func_req, sizeof(func_req), UDS_ADDR_FUNCTIONAL);
+    g_tx_calls = 0; /* discard the 0xE0 positive response */
+    g_tx_len = 0;
+
+    /* (c) Trigger the ROE event. Without Fix A the inner 0xA1 dispatch is silently
+     *     dropped (stale functional mode hits the physical-only gate) and no 0xC6
+     *     frame appears. With Fix A it must appear. */
+    int emitted = uds_roe_trigger(&g_ctx, 0x03u, 0x0000u);
+    assert_int_equal(emitted, 1);
+    assert_int_equal(g_tx_calls, 1);  /* exactly one 0xC6 frame */
+    assert_int_equal(g_tx[0], 0xC6u); /* ResponseOnEvent positive response */
+    assert_int_equal(g_tx[1], 0x03u); /* event_type = onChangeOfDataIdentifier */
+    assert_int_equal(g_tx[2], 0x01u); /* numberOfIdentifiedEvents */
+    assert_int_equal(g_tx[3], (uint8_t) (0xA1u + 0x40u)); /* inner positive response SID */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -202,6 +254,8 @@ int main(void)
         cmocka_unit_test_setup_teardown(test_legacy_entry_physical, setup, NULL),
         cmocka_unit_test_setup_teardown(test_suppress_0x12_functional, setup, NULL),
         cmocka_unit_test_setup_teardown(test_non_suppressable_nrc_functional, setup, NULL),
+        cmocka_unit_test_setup_teardown(test_roe_inner_dispatch_not_silenced_by_stale_functional,
+                                        setup, NULL),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
