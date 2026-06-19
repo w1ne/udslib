@@ -58,6 +58,11 @@ Each ISO-TP channel operates in one of two modes, selected with
   an outgoing response, and vice versa. Use this when the node must accept new
   requests while still streaming a long response (e.g. gateways, or a server
   that must not drop its response when the tester sends TesterPresent).
+  **Scope note**: full-duplex permits one concurrent RX transfer and one TX
+  transfer on a channel — it does not support two simultaneous transmissions on
+  one N_AI (a single TX connection per N_AI, per ISO 15765-2). A Single-Frame
+  response (e.g. TesterPresent) emitted while a multi-frame response is in
+  flight is fine, because it does not open a second TX connection.
 
 The mode is per channel (mirrors AUTOSAR `CanTpChannelMode`). RX and TX use
 independent state, sequence numbers, block-size counters, and N_Cr/N_Bs timers;

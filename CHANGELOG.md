@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- **ISO-TP full-duplex mode**: `uds_tp_isotp_set_mode(iso, ISOTP_FULL_DUPLEX)` lets a segmented reception and a segmented transmission proceed simultaneously on the same N_AI; an inbound frame no longer aborts an in-flight multi-frame response. Default remains half-duplex (prior behavior). The ISO-TP context now keeps independent RX/TX state. (#42)
+- **ISO-TP full-duplex mode**: `uds_tp_isotp_set_mode(iso, ISOTP_FULL_DUPLEX)` lets a segmented reception and a segmented transmission proceed simultaneously on the same N_AI; an inbound frame no longer aborts an in-flight multi-frame response. Default remains half-duplex (prior behavior). The ISO-TP context now keeps independent RX/TX state. Scope: one concurrent RX and one TX per channel — two simultaneous transmissions on one N_AI are not supported (single TX connection per N_AI, per ISO 15765-2). (#42)
 - **DiagnosticSessionControl (0x10) — safetySystemDiagnosticSession ($04)**: the fourth standard ISO 14229-1 session type is now accepted (sub-function mask widened to $01–$04) and mapped to a new `UDS_SESSION_SAFETY` service-gate bit. (#40)
 - **Optional session-transition policy hook** `fn_session_transition_allowed(ctx, from, to)`: called before 0x10 changes the active session. Returning false rejects the request with NRC 0x22 (conditionsNotCorrect) and leaves the session unchanged. When unset (default), any session may be entered from any session — matching ISO 14229-1, which imposes no transition graph. Lets integrators enforce OEM-specific transition graphs (e.g. extended-before-programming) without baking a non-standard default into the library. (#40)
 

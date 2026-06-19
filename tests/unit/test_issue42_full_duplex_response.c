@@ -57,18 +57,26 @@ static uint32_t time_ms(void)
 {
     return g_time;
 }
+static uds_isotp_ctx_t g_iso;
+static uint8_t g_iso_sdu[256];
+
 static int g_tp_send_calls;
 static int fn_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
     (void) ctx;
-    (void) data;
-    (void) len;
     g_tp_send_calls++; /* TesterPresent positive response path */
-    return 0;
+    /*
+     * Realistic re-entrant path: in a real deployment the application wires
+     * fn_tp_send to uds_isotp_send on the same ISO-TP context.  The positive
+     * response to TesterPresent is 2 bytes (0x7E 0x00), which fits in a Single
+     * Frame.  uds_send_sf emits the SF without touching tx_state / tx_msg_len /
+     * tx_bytes_processed / tx_sdu_buf, so the in-flight multi-frame TX state is
+     * completely undisturbed.  This call exercises that guarantee: if the SF
+     * send were to clobber the MF TX state the reassembly assertions below
+     * would catch it, proving the headline #42 claim on a realistic code path.
+     */
+    return uds_isotp_send(&g_iso, data, len);
 }
-
-static uds_isotp_ctx_t g_iso;
-static uint8_t g_iso_sdu[256];
 
 static int setup(void **state)
 {
@@ -107,12 +115,13 @@ static void test_inbound_sf_does_not_abort_response(void **state)
     /* 2. Inbound TesterPresent SF arrives mid-stream (functionally irrelevant). */
     uint8_t tp[8] = {0x02, 0x3E, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, tp, 8);
-    /* Core serviced it (TesterPresent positive response sent via fn_tp_send). */
-    assert_true(g_tp_send_calls >= 1);
+    /* Core serviced it — exactly one positive response, no double-dispatch. */
+    assert_int_equal(g_tp_send_calls, 1);
     /* TX response untouched. */
     assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
 
-    /* 3. Receiver grants flow control; server streams remaining 24 bytes. */
+    /* 3. Tester (the receiver of our response) grants flow control; server streams remaining 24
+     * bytes. */
     uint8_t fc_cts[8] = {0x30, 0x00, 0x00, 0, 0, 0, 0, 0};
     uds_isotp_rx_callback(&g_iso, &g_ctx, 0x7E8, fc_cts, 8);
     for (int i = 0; i < 4; i++) {
