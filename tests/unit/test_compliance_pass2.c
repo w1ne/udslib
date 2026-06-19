@@ -33,11 +33,13 @@ static int mock_dtc_clear(struct uds_ctx *ctx, uint32_t group)
     return 0;
 }
 
-static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type)
+static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type,
+                             uint16_t node_id)
 {
     (void) ctx;
     (void) ctrl_type;
     (void) comm_type;
+    (void) node_id;
     return 0;
 }
 
@@ -108,7 +110,9 @@ static void test_comm_control_expanded(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_comm_control = mock_comm_control;
 
-    uint8_t request[] = {0x28, 0x04, 0x01}; /* 0x04 = enableRxAndDisableTx */
+    /* 0x04 = enableRxAndDisableTxWithEnhancedAddressInformation; carries a
+     * 2-byte nodeIdentificationNumber (0xABCD). */
+    uint8_t request[] = {0x28, 0x04, 0x01, 0xAB, 0xCD};
 
     will_return(mock_get_time, 4000);
     will_return(mock_get_time, 4000);

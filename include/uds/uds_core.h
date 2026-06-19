@@ -51,11 +51,24 @@ typedef enum
  */
 typedef enum
 {
-    UDS_COMM_ENABLE_RX_TX = 0x00,         /**< Normal communication */
-    UDS_COMM_ENABLE_RX_DISABLE_TX = 0x01, /**< Receive only */
-    UDS_COMM_DISABLE_RX_ENABLE_TX = 0x02, /**< Transmit only */
-    UDS_COMM_DISABLE_RX_TX = 0x03         /**< Total communication silence */
+    UDS_COMM_ENABLE_RX_TX = 0x00,             /**< Normal communication */
+    UDS_COMM_ENABLE_RX_DISABLE_TX = 0x01,     /**< Receive only */
+    UDS_COMM_DISABLE_RX_ENABLE_TX = 0x02,     /**< Transmit only */
+    UDS_COMM_DISABLE_RX_TX = 0x03,            /**< Total communication silence */
+    UDS_COMM_ENABLE_RX_DISABLE_TX_ENH = 0x04, /**< Receive only, enhanced address info */
+    UDS_COMM_ENABLE_RX_TX_ENH = 0x05          /**< Normal communication, enhanced address info */
 } uds_comm_control_type_t;
+
+/**
+ * @brief Communication Type message classes (SID 0x28, low nibble of the
+ *        communicationType byte). The high nibble carries the subnet number.
+ */
+typedef enum
+{
+    UDS_COMM_TYPE_NORMAL = 0x01,         /**< Normal communication messages */
+    UDS_COMM_TYPE_NWM = 0x02,            /**< Network management messages */
+    UDS_COMM_TYPE_NORMAL_AND_NWM = 0x03, /**< Normal + network management messages */
+} uds_comm_type_t;
 
 /**
  * @brief Authentication Sub-functions (SID 0x29).

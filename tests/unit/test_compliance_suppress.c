@@ -5,11 +5,13 @@
 
 #include "test_helpers.h"
 
-static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type)
+static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type,
+                             uint16_t node_id)
 {
     (void) ctx;
     (void) ctrl_type;
     (void) comm_type;
+    (void) node_id;
     return UDS_OK;
 }
 
