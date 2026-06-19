@@ -30,6 +30,16 @@ static const uint8_t mask_sub_86[] = UDS_MASK_SUB_86;
 static const uint8_t mask_sub_87[] = UDS_MASK_SUB_87;
 static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
 
+/* Service dispatch table. Columns mirror uds_service_entry_t:
+ *   { SID, min_len, session_mask, security_mask, handler, sub_mask }
+ *     SID          - service identifier (UDS_SID_*)
+ *     min_len      - shortest accepted request (incl. SID); shorter -> NRC 0x13
+ *     session_mask - sessions the service is allowed in (UDS_SESSION_*)
+ *     security_mask- required security level (0 = none)
+ *     handler      - service implementation
+ *     sub_mask     - allowed sub-functions bitmap, or NULL if none
+ * Applications add or override entries via config.user_services without
+ * editing this table (see examples/custom_service). */
 static const uds_service_entry_t core_services[] = {
     {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
      mask_sub_10},
