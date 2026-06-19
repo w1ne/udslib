@@ -8,7 +8,7 @@ Portable, MISRA-aligned UDS (ISO 14229-1) stack with deterministic memory, Zephy
 - **Evaluation**: Development/testing allowed under the community license. No production/for‑profit use without the commercial license.
 
 ## Key Capabilities
-- **Services**: 22 of 27 ISO 14229-1 services (0x10/11/14/19/22/23/27/28/29/2A/2E/2F/31/34/35/36/37/3D/3E/83/85/87). See [docs/SERVICE_COMPLIANCE.md](docs/SERVICE_COMPLIANCE.md).
+- **Services**: all 27 of 27 ISO 14229-1 application services (0x10/11/14/19/22/23/24/27/28/29/2A/2C/2E/2F/31/34/35/36/37/38/3D/3E/83/84/85/86/87). See [docs/SERVICE_COMPLIANCE.md](docs/SERVICE_COMPLIANCE.md).
 - **Safety & Quality**: Deterministic, zero-malloc memory model; NRC priority enforcement; Safety Gate callbacks; MISRA-C:2012 checked in CI (no mandatory-rule violations, [deviations documented](docs/MISRA.md)).
 - **Transports**: Zephyr ISO-TP sockets or built-in ISO-TP fallback (static buffers) with CAN-FD support.
 - **Tooling**: Host simulator, Wireshark dissector, Python `pyudslib` harness, Dockerized CI scripts.
@@ -64,7 +64,7 @@ The analyzer includes:
 Commercial inquiries: `andrii@shylenko.com`  
 Community questions: open an issue on GitHub.
 
-## 7. Documentation
+## Documentation
 
 For deeper dives into the project's design and future, please refer to the following documents:
 

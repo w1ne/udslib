@@ -60,6 +60,17 @@ typedef enum
 } uds_comm_control_type_t;
 
 /**
+ * @brief Communication Type message classes (SID 0x28, low nibble of the
+ *        communicationType byte). The high nibble carries the subnet number.
+ */
+typedef enum
+{
+    UDS_COMM_TYPE_NORMAL = 0x01,         /**< Normal communication messages */
+    UDS_COMM_TYPE_NWM = 0x02,            /**< Network management messages */
+    UDS_COMM_TYPE_NORMAL_AND_NWM = 0x03, /**< Normal + network management messages */
+} uds_comm_type_t;
+
+/**
  * @brief Authentication Sub-functions (SID 0x29).
  */
 typedef enum

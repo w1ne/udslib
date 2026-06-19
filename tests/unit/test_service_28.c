@@ -32,11 +32,13 @@ static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* --- Callback Mock --- */
-static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type)
+static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type,
+                             uint16_t node_id)
 {
     (void) ctx;
     check_expected(ctrl_type);
     check_expected(comm_type);
+    check_expected(node_id);
     return (int) mock();
 }
 
@@ -67,9 +69,10 @@ static void test_comm_control_accept(void **state)
     /* 28 01 01 (EnableRxAndDisableTx, Application) */
     uint8_t req[] = {0x28, 0x01, 0x01};
 
-    /* Expect callback with ctrl=1, comm=1 */
+    /* Expect callback with ctrl=1, comm=1, no enhanced node id */
     expect_value(mock_comm_control, ctrl_type, 0x01);
     expect_value(mock_comm_control, comm_type, 0x01);
+    expect_value(mock_comm_control, node_id, 0x0000);
     will_return(mock_comm_control, UDS_OK);
 
     /* Expect Positive Response 68 01 */
@@ -90,6 +93,7 @@ static void test_comm_control_reject(void **state)
     /* Expect callback */
     expect_value(mock_comm_control, ctrl_type, 0x03);
     expect_value(mock_comm_control, comm_type, 0x01);
+    expect_value(mock_comm_control, node_id, 0x0000);
     /* Mock failure: Return -0x22 (ConditionsNotCorrect) */
     will_return(mock_comm_control, -0x22);
 
@@ -125,6 +129,7 @@ static void test_comm_control_suppress_pos_resp(void **state)
 
     expect_value(mock_comm_control, ctrl_type, 0x01);
     expect_value(mock_comm_control, comm_type, 0x01);
+    expect_value(mock_comm_control, node_id, 0x0000);
     will_return(mock_comm_control, UDS_OK);
 
     /* NO expect_memory(mock_tp_send, ...) because suppressed */
@@ -134,6 +139,43 @@ static void test_comm_control_suppress_pos_resp(void **state)
     assert_int_equal(ctx.comm_state, 0x01);
 }
 
+static void test_comm_control_enhanced_passes_node_id(void **state)
+{
+    setup_test(state);
+
+    /* 28 04 01 12 34 (EnableRxAndDisableTx + EnhancedAddress, Application,
+     * nodeIdentificationNumber = 0x1234) */
+    uint8_t req[] = {0x28, 0x04, 0x01, 0x12, 0x34};
+
+    /* The parsed node id must reach the application callback. */
+    expect_value(mock_comm_control, ctrl_type, 0x04);
+    expect_value(mock_comm_control, comm_type, 0x01);
+    expect_value(mock_comm_control, node_id, 0x1234);
+    will_return(mock_comm_control, UDS_OK);
+
+    /* Positive Response 68 04 */
+    uint8_t resp[] = {0x68, 0x04};
+    expect_memory(mock_tp_send, data, resp, 2);
+    expect_value(mock_tp_send, len, 2);
+
+    uds_input_sdu(&ctx, req, sizeof(req));
+}
+
+static void test_comm_control_enhanced_missing_node_id_nrc(void **state)
+{
+    setup_test(state);
+
+    /* 28 04 01 (EnhancedAddress sub-function without the 2-byte node id) */
+    uint8_t req[] = {0x28, 0x04, 0x01};
+
+    /* Must be rejected as incorrectMessageLength; callback never runs. */
+    uint8_t resp[] = {0x7F, 0x28, 0x13};
+    expect_memory(mock_tp_send, data, resp, 3);
+    expect_value(mock_tp_send, len, 3);
+
+    uds_input_sdu(&ctx, req, sizeof(req));
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -141,6 +183,8 @@ int main(void)
         cmocka_unit_test(test_comm_control_reject),
         cmocka_unit_test(test_comm_control_invalid_length_nrc),
         cmocka_unit_test(test_comm_control_suppress_pos_resp),
+        cmocka_unit_test(test_comm_control_enhanced_passes_node_id),
+        cmocka_unit_test(test_comm_control_enhanced_missing_node_id_nrc),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -82,11 +82,13 @@ static int mock_did_error_read(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, 
     return -0x33;
 }
 
-static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type)
+static int mock_comm_control(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type,
+                             uint16_t node_id)
 {
     (void) ctx;
     (void) ctrl_type;
     (void) comm_type;
+    (void) node_id;
     return 0;
 }
 

@@ -236,11 +236,14 @@ typedef struct
     /**
      * @brief Optional: Communication Control callback (SID 0x28)
      * @param ctx  UDS Context
-     * @param ctrl_type Control Type (0-3)
-     * @param comm_type Communication Type (Data Byte 2)
+     * @param ctrl_type Control Type (0x00-0x05, see uds_comm_control_type_t)
+     * @param comm_type Communication Type byte (see uds_comm_type_t)
+     * @param node_id   nodeIdentificationNumber for the enhanced-address
+     *                  sub-functions (ctrl_type 0x04/0x05); 0 otherwise.
      * @return UDS_OK to accept, or negative NRC to reject (e.g. 0x22).
      */
-    int (*fn_comm_control)(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type);
+    int (*fn_comm_control)(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type,
+                           uint16_t node_id);
 
     /** Optional: Security Access Seed Provider (SID 0x27) */
     uds_security_seed_fn fn_security_seed;

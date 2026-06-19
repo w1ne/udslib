@@ -62,6 +62,16 @@ int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16
         return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
     }
 
+    /* The enhanced-address sub-functions (0x04/0x05) carry a 2-byte
+     * nodeIdentificationNumber after communicationType, so the message is at
+     * least 5 bytes. ISO 14229-1, CommunicationControl request layout. */
+    bool enhanced = (ctrl_type == UDS_COMM_ENABLE_RX_DISABLE_TX_ENH) ||
+                    (ctrl_type == UDS_COMM_ENABLE_RX_TX_ENH);
+    if (enhanced && (len < 5u)) {
+        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_INCORRECT_LENGTH);
+    }
+    uint16_t node_id = enhanced ? (uint16_t) (((uint16_t) data[3] << 8) | (uint16_t) data[4]) : 0u;
+
     /* ISO 14229-1: communicationType lower nibble must be 1, 2, or 3 */
     uint8_t type_nibble = (uint8_t) (comm_type & 0x0Fu);
     if ((type_nibble == 0u) || (type_nibble > 3u)) {
@@ -74,7 +84,7 @@ int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16
 
     /* Check App Callback */
     if (ctx->config->fn_comm_control) {
-        int ret = ctx->config->fn_comm_control(ctx, ctrl_type, comm_type);
+        int ret = ctx->config->fn_comm_control(ctx, ctrl_type, comm_type, node_id);
         if (ret != UDS_OK) {
             return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, (uint8_t) - (int32_t) ret);
         }
