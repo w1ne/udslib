@@ -98,6 +98,33 @@ jobs:
               cmake --build build --target uds_host_sim test_integration
               make -C examples/client_demo"
 
+      - name: Build & Run Crypto Examples (mbedTLS + wolfSSL)
+        run: |
+          docker run --rm \
+            -v $GITHUB_WORKSPACE:/app \
+            -u $(id -u):$(id -g) \
+            libuds-test-env \
+            bash -c "set -euo pipefail
+              # Each crypto example must build and run identically against both
+              # back-ends; assert a success marker so this is a real gate.
+              for ex in auth_challenge_mbedtls security_access_mbedtls; do
+                for crypto in mbedtls wolfssl; do
+                  make -C examples/\$ex clean
+                  make -C examples/\$ex CRYPTO=\$crypto
+                  out=\$(examples/\$ex/uds_\$ex)
+                  echo \"\$out\"
+                  case \$ex in
+                    auth_challenge_mbedtls)
+                      echo \"\$out\" | grep -q 'ctx.authenticated = true'
+                      echo \"\$out\" | grep -q '69 03 02' ;;
+                    security_access_mbedtls)
+                      echo \"\$out\" | grep -q 'ctx.security_level = 2'
+                      echo \"\$out\" | grep -q '7F BA 33' ;;
+                  esac
+                  make -C examples/\$ex clean
+                done
+              done"
+
       - name: Run C Integration Test (ctest)
         run: |
           docker run --rm \
