@@ -50,19 +50,32 @@ struct uds_ctx;
 /* --- Type Definitions --- */
 
 /**
- * @brief ISO-TP Internal State Machine.
+ * @brief ISO-TP reception state (independent of transmission).
  */
 typedef enum
 {
-    ISOTP_IDLE = 0,
+    ISOTP_RX_IDLE = 0,
+    ISOTP_RX_WAIT_CF /**< Received FF, sent FC, waiting for CFs */
+} uds_isotp_rx_state_t;
 
-    /* --- Reception States --- */
-    ISOTP_RX_WAIT_CF, /**< Received FF, sent FC, waiting for CFs */
-
-    /* --- Transmission States --- */
+/**
+ * @brief ISO-TP transmission state (independent of reception).
+ */
+typedef enum
+{
+    ISOTP_TX_IDLE = 0,
     ISOTP_TX_WAIT_FC,   /**< Sent FF, waiting for FC */
     ISOTP_TX_SENDING_CF /**< Received CTS, sending CFs */
-} uds_isotp_state_t;
+} uds_isotp_tx_state_t;
+
+/**
+ * @brief ISO-TP duplex mode (mirrors AUTOSAR CanTpChannelMode).
+ */
+typedef enum
+{
+    ISOTP_HALF_DUPLEX = 0, /**< One transfer per N_AI at a time (default) */
+    ISOTP_FULL_DUPLEX      /**< Simultaneous RX and TX on the same N_AI */
+} uds_isotp_duplex_t;
 
 /**
  * @brief CAN Frame Structure (Platform Agnostic).
@@ -92,33 +105,38 @@ typedef struct
     uds_can_send_fn can_send; /**< Output function for CAN frames */
 
     /* --- Configuration --- */
-    uint32_t tx_id;     /**< CAN ID to transmit on (Source) */
-    uint32_t rx_id;     /**< CAN ID to listen for (Target) */
-    uint8_t block_size; /**< BS: Number of blocks before next FC */
-    uint8_t st_min;     /**< STmin: Minimum separation time between frames */
-    uint8_t use_can_fd; /**< Flag: Enable CAN-FD support (0=Standard, 1=FD) */
+    uint32_t tx_id;          /**< CAN ID to transmit on (Source) */
+    uint32_t rx_id;          /**< CAN ID to listen for (Target) */
+    uint8_t block_size;      /**< BS we advertise as receiver (sent in our FC) */
+    uint8_t st_min;          /**< STmin we advertise as receiver (sent in our FC) */
+    uint8_t use_can_fd;      /**< Flag: Enable CAN-FD support (0=Standard, 1=FD) */
+    uint8_t tx_dl;           /**< Transmit Data Length (Max frame size: 8 or 64) */
+    uds_isotp_duplex_t mode; /**< Half- (default) or full-duplex operation */
 
-    /* --- State --- */
-    uds_isotp_state_t state;  /**< Current state machine position */
-    uint16_t msg_len;         /**< Total length of current message SDU */
-    uint16_t bytes_processed; /**< Number of SDU bytes handled so far */
-    uint8_t sn;               /**< Current Sequence Number (0-15) */
-    uint8_t bs_counter;       /**< Counter tracking blocks sent/received */
+    /* --- RX machine (reassembly of an inbound segmented message) --- */
+    uds_isotp_rx_state_t rx_state; /**< Current reception state */
+    uint16_t rx_msg_len;           /**< Total SDU length being received */
+    uint16_t rx_bytes_processed;   /**< SDU bytes received so far */
+    uint8_t rx_sn;                 /**< Expected next sequence number (0-15) */
+    uint32_t timer_n_cr;           /**< Timestamp of last RX progress (N_Cr base) */
 
-    /* --- Timers --- */
-    uint32_t timer_n_cr; /**< Timestamp of last RX progress (N_Cr deadline base) */
-    uint32_t timer_n_bs; /**< Timestamp FF was sent (N_Bs deadline base, 0 = unarmed) */
-    uint32_t timer_st;   /**< Separation Time timer (STmin) */
-    uint8_t tx_dl;       /**< Transmit Data Length (Max frame size: 8 or 64) */
+    /* --- TX machine (segmentation of an outbound message) --- */
+    uds_isotp_tx_state_t tx_state; /**< Current transmission state */
+    uint16_t tx_msg_len;           /**< Total SDU length being sent */
+    uint16_t tx_bytes_processed;   /**< SDU bytes sent so far */
+    uint8_t tx_sn;                 /**< Next sequence number to send (0-15) */
+    uint8_t tx_bs_counter;         /**< CFs sent in the current block */
+    uint8_t tx_block_size;         /**< BS the receiver told us to honor (from FC) */
+    uint8_t tx_st_min;             /**< STmin the receiver told us to honor (from FC) */
+    uint32_t timer_n_bs;           /**< Timestamp FF was sent (N_Bs base, 0 = unarmed) */
+    uint32_t timer_st;             /**< Separation Time timer (STmin) */
+    uint8_t *tx_sdu_buf;           /**< Caller buffer caching the SDU during TX */
+    uint16_t tx_sdu_size;          /**< Capacity of tx_sdu_buf in bytes */
+    uint16_t tx_sdu_len;           /**< Length of the SDU currently being transmitted */
 
     /* --- Timeout limits (ms); defaulted at init, overridable by the caller --- */
     uint32_t n_cr_ms; /**< Max wait for a consecutive frame during reception */
     uint32_t n_bs_ms; /**< Max wait for flow control after sending a First Frame */
-
-    /* --- Multi-frame TX cache (caller-provided, zero-malloc) --- */
-    uint8_t *tx_sdu_buf;  /**< Buffer caching the SDU during multi-frame TX */
-    uint16_t tx_sdu_size; /**< Capacity of tx_sdu_buf in bytes */
-    uint16_t tx_sdu_len;  /**< Length of the SDU currently being transmitted */
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
@@ -147,6 +165,19 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
  * @param enabled true to enable CAN-FD (64-byte frames), false for Classic CAN (8-byte).
  */
 void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled);
+
+/**
+ * @brief Select half- or full-duplex operation for this channel.
+ *
+ * Default after init is ISOTP_HALF_DUPLEX (preserves prior behavior: an
+ * inbound SF/FF aborts an in-flight transmission). In ISOTP_FULL_DUPLEX a
+ * segmented reception and a segmented transmission proceed simultaneously
+ * on the same N_AI without disturbing each other.
+ *
+ * @param iso  Pointer to the ISO-TP context.
+ * @param mode ISOTP_HALF_DUPLEX or ISOTP_FULL_DUPLEX.
+ */
+void uds_tp_isotp_set_mode(uds_isotp_ctx_t *iso, uds_isotp_duplex_t mode);
 
 /**
  * @brief Send an SDU via ISO-TP.

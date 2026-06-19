@@ -46,8 +46,8 @@ static void test_two_instances_have_independent_state(void **state)
     assert_int_equal(ret, 0);
 
     /* A is mid-transfer; B must be untouched. */
-    assert_int_equal(iso_a.state, ISOTP_TX_WAIT_FC);
-    assert_int_equal(iso_b.state, ISOTP_IDLE);
+    assert_int_equal(iso_a.tx_state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(iso_b.tx_state, ISOTP_TX_IDLE);
 
     /* Configuration stays per-instance. */
     assert_int_equal(iso_a.tx_id, 0x100);

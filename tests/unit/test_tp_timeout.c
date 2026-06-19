@@ -64,15 +64,15 @@ static void test_rx_times_out_when_no_cf(void **state)
     g_time = 1000;
     uint8_t ff[8] = {0x10, 0x14, 1, 2, 3, 4, 5, 6}; /* SDU length 20 */
     uds_isotp_rx_callback(&iso, &uds, 0x7E8, ff, 8);
-    assert_int_equal(iso.state, ISOTP_RX_WAIT_CF);
+    assert_int_equal(iso.rx_state, ISOTP_RX_WAIT_CF);
 
     /* Still within N_Cr: keep waiting. */
     uds_tp_isotp_process(&iso, 1500);
-    assert_int_equal(iso.state, ISOTP_RX_WAIT_CF);
+    assert_int_equal(iso.rx_state, ISOTP_RX_WAIT_CF);
 
     /* Past N_Cr: abort back to IDLE. */
     uds_tp_isotp_process(&iso, 1000 + ISOTP_N_CR_DEFAULT_MS + 1u);
-    assert_int_equal(iso.state, ISOTP_IDLE);
+    assert_int_equal(iso.rx_state, ISOTP_RX_IDLE);
 }
 
 /* TX: First Frame sent, then the peer never sends flow control. */
@@ -87,15 +87,15 @@ static void test_tx_times_out_when_no_fc(void **state)
     uint8_t data[20];
     memset(data, 0xAA, sizeof(data));
     assert_int_equal(uds_isotp_send(&iso, data, sizeof(data)), 0);
-    assert_int_equal(iso.state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(iso.tx_state, ISOTP_TX_WAIT_FC);
 
     /* Arm and stay within N_Bs. */
     uds_tp_isotp_process(&iso, 10);
-    assert_int_equal(iso.state, ISOTP_TX_WAIT_FC);
+    assert_int_equal(iso.tx_state, ISOTP_TX_WAIT_FC);
 
     /* Past N_Bs with no FC: abort. */
     uds_tp_isotp_process(&iso, 10 + ISOTP_N_BS_DEFAULT_MS + 1u);
-    assert_int_equal(iso.state, ISOTP_IDLE);
+    assert_int_equal(iso.tx_state, ISOTP_TX_IDLE);
 }
 
 int main(void)

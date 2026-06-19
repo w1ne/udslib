@@ -145,11 +145,28 @@ static void test_tp_bs_enforcement(void **state)
     uds_tp_isotp_process(&g_iso, 301);
 }
 
+/* 3. Verify duplex mode default and setter */
+static void test_tp_duplex_mode_default_and_set(void **state)
+{
+    (void) state;
+    /* g_iso is freshly initialized by setup() */
+    assert_int_equal(g_iso.mode, ISOTP_HALF_DUPLEX); /* default */
+
+    uds_tp_isotp_set_mode(&g_iso, ISOTP_FULL_DUPLEX);
+    assert_int_equal(g_iso.mode, ISOTP_FULL_DUPLEX);
+
+    uds_tp_isotp_set_mode(&g_iso, ISOTP_HALF_DUPLEX);
+    assert_int_equal(g_iso.mode, ISOTP_HALF_DUPLEX);
+
+    uds_tp_isotp_set_mode(NULL, ISOTP_FULL_DUPLEX); /* must not crash */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_tp_stmin_enforcement, setup, teardown),
         cmocka_unit_test_setup_teardown(test_tp_bs_enforcement, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_tp_duplex_mode_default_and_set, setup, teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

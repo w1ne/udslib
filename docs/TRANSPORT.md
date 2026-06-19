@@ -44,7 +44,32 @@ The fallback implementation handles standard ISO-TP flows:
 - **CF (Consecutive Frame)**: Reassembles payload.
 - **TX Flow Control**: When sending large SDUs, the stack sends FF and waits for the peer's FC before streaming CFs.
 
-## 4. Hardening & Flow Control
+## 4. Duplex mode (half / full)
+
+Each ISO-TP channel operates in one of two modes, selected with
+`uds_tp_isotp_set_mode(&iso, mode)`:
+
+- `ISOTP_HALF_DUPLEX` (default): one transfer per N_AI at a time. An inbound
+  Single/First Frame terminates an in-flight transmission, and starting a
+  transmission abandons an in-flight reception — matching ISO 15765-2 Table 23
+  for half-duplex nodes. This is the default to preserve compatibility.
+- `ISOTP_FULL_DUPLEX`: a segmented reception and a segmented transmission run
+  simultaneously and independently on the same N_AI. Inbound frames never abort
+  an outgoing response, and vice versa. Use this when the node must accept new
+  requests while still streaming a long response (e.g. gateways, or a server
+  that must not drop its response when the tester sends TesterPresent).
+  **Scope note**: full-duplex permits one concurrent RX transfer and one TX
+  transfer on a channel — it does not support two simultaneous transmissions on
+  one N_AI (a single TX connection per N_AI, per ISO 15765-2). A Single-Frame
+  response (e.g. TesterPresent) emitted while a multi-frame response is in
+  flight is fine, because it does not open a second TX connection.
+
+The mode is per channel (mirrors AUTOSAR `CanTpChannelMode`). RX and TX use
+independent state, sequence numbers, block-size counters, and N_Cr/N_Bs timers;
+the receiver-advertised BS/STmin (sent in our FlowControl) are kept separate
+from the sender-honored BS/STmin (received in the peer's FlowControl).
+
+## 5. Hardening & Flow Control
 
 UDSLib implements standard ISO-TP hardening features to ensure robust communication:
 - **STmin (Separation Time)**: Enforces minimum time between consecutive frames (CF) to prevent overwhelming the receiver.
@@ -52,7 +77,7 @@ UDSLib implements standard ISO-TP hardening features to ensure robust communicat
 - **Dynamic Timing**: STmin and Block Size parameters are dynamically extracted from peer Flow Control frames during transmission.
 - **Transfer Timeouts**: A stalled multi-frame transfer is aborted on timeout. `N_Cr` bounds the wait for the next Consecutive Frame during reception, and `N_Bs` bounds the wait for a Flow Control frame after sending a First Frame. Both default to 1000 ms (`ISOTP_N_CR_DEFAULT_MS` / `ISOTP_N_BS_DEFAULT_MS`) and are overridable per instance via `iso.n_cr_ms` / `iso.n_bs_ms`.
 
-## 5. CAN-FD Support
+## 6. CAN-FD Support
 
 The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames up to 64 bytes for higher throughput.
 - **Enable**: Call `uds_tp_isotp_set_fd(&iso, true)` after initialization (Classic CAN is the default).
@@ -60,6 +85,6 @@ The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames 
 - **Multi-Frame**: First Frame (FF) and Consecutive Frames (CF) utilize full 64-byte capacity (up to 62/63 bytes payload per frame).
 - **Compliance**: Adheres to ISO 15765-2 Table 9 for N_PCI bytes.
 
-## 6. Virtual CAN (Host Simulation)
+## 7. Virtual CAN (Host Simulation)
 
 For PC-based verification, we encapsulate CAN frames in UDP packets. This allows full stack execution without physical hardware.

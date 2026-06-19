@@ -43,6 +43,8 @@ add_uds_test(test_tp_isotp_integration unit/test_tp_isotp_integration.c)
 target_link_options(test_tp_isotp_integration PRIVATE -Wl,--wrap=uds_input_sdu)
 add_uds_test(test_tp_isotp_escape_fc unit/test_tp_isotp_escape_fc.c)
 target_link_options(test_tp_isotp_escape_fc PRIVATE -Wl,--wrap=uds_input_sdu)
+add_uds_test(test_tp_full_duplex unit/test_tp_full_duplex.c)
+target_link_options(test_tp_full_duplex PRIVATE -Wl,--wrap=uds_input_sdu)
 add_uds_test(test_tp_timeout unit/test_tp_timeout.c)
 add_uds_test(test_nrc_priority unit/test_nrc_priority.c)
 add_uds_test(test_concurrency unit/test_concurrency.c)
@@ -76,3 +78,7 @@ add_uds_test(test_integration integration/test_integration.c)
 # Regression for issue #29: multi-frame request must be dispatched (full stack,
 # real uds_input_sdu — intentionally NOT wrapped).
 add_uds_test(test_issue29_multiframe_request unit/test_issue29_multiframe_request.c)
+
+# Regression for issue #42: full-duplex inbound frame must not abort an
+# in-flight multi-frame response (full stack, real uds_input_sdu).
+add_uds_test(test_issue42_full_duplex_response unit/test_issue42_full_duplex_response.c)

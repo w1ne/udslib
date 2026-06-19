@@ -90,10 +90,14 @@ static void test_fuzz_sdu_layer(void **state)
     }
 }
 
-static bool valid_isotp_state(uds_isotp_state_t s)
+static bool valid_isotp_rx_state(uds_isotp_rx_state_t s)
 {
-    return s == ISOTP_IDLE || s == ISOTP_RX_WAIT_CF || s == ISOTP_TX_WAIT_FC ||
-           s == ISOTP_TX_SENDING_CF;
+    return s == ISOTP_RX_IDLE || s == ISOTP_RX_WAIT_CF;
+}
+
+static bool valid_isotp_tx_state(uds_isotp_tx_state_t s)
+{
+    return s == ISOTP_TX_IDLE || s == ISOTP_TX_WAIT_FC || s == ISOTP_TX_SENDING_CF;
 }
 
 /* Random CAN frames into the ISO-TP parser must never crash, must keep the
@@ -131,8 +135,9 @@ static void test_fuzz_isotp_framer(void **state)
         if (rand() & 1) {
             uds_tp_isotp_process(&iso, (g_fz_time += 7u));
         }
-        assert_true(iso.bytes_processed <= cfg.rx_buffer_size);
-        assert_true(valid_isotp_state(iso.state));
+        assert_true(iso.rx_bytes_processed <= cfg.rx_buffer_size);
+        assert_true(valid_isotp_rx_state(iso.rx_state));
+        assert_true(valid_isotp_tx_state(iso.tx_state));
     }
 }
 
