@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     git \
     libcmocka-dev \
     libmbedtls-dev \
+    libwolfssl-dev \
     lcov \
     cppcheck \
     clang-format \

@@ -6,8 +6,9 @@
 /**
  * @file main.c
  * @brief Authentication service (SID 0x29) with REAL crypto: the proof of
- *        ownership is verified with AES-128-CMAC from mbedTLS, plugged into
- *        udslib's `fn_auth` hook.
+ *        ownership is verified with AES-128-CMAC from a vetted library
+ *        (mbedTLS by default, or wolfSSL via `make CRYPTO=wolfssl`), plugged
+ *        into udslib's `fn_auth` hook.
  *
  * This is the production-shaped sibling of `examples/auth_challenge`, which
  * uses a non-cryptographic placeholder tag to keep its build dependency-free.
@@ -24,16 +25,21 @@
  *     would be computed by the HSM; swapping mbedTLS for a wolfSSL or HSM call
  *     touches only the `aes_cmac()` helper below, never the library.
  *
- * wolfSSL note: the only thing that changes is `aes_cmac()`. wolfSSL's
- * equivalent is `wc_AesCmacGenerate(out, &outlen, msg, msg_len, key, 16)`.
- *
- * Build needs mbedTLS (`-lmbedcrypto`); see the Makefile / README.
+ * The ONLY library-specific code is the include block below and the body of
+ * `aes_cmac()`. Both back-ends produce a byte-identical CMAC, so the rest of
+ * the example — and the library — is unchanged either way. Build needs the
+ * matching dev package (`-lmbedcrypto` or `-lwolfssl`); see the Makefile.
  */
 
 #include "uds/uds_core.h"
 
+#if defined(USE_WOLFSSL)
+#include "wolfssl/options.h"
+#include "wolfssl/wolfcrypt/cmac.h"
+#else
 #include "mbedtls/cipher.h"
 #include "mbedtls/cmac.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -61,7 +67,15 @@ static const uint8_t k_aes_key[16] = {0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 
                                       0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C};
 static uint8_t g_challenge[CHALLENGE_LEN];
 
-/* ---- The one and only crypto call site. Swap this for wolfSSL / HSM. ---- */
+/* ---- The one and only crypto call site. Swap this for another lib / HSM. ---- */
+#if defined(USE_WOLFSSL)
+static int aes_cmac(const uint8_t *key, const uint8_t *msg, size_t msg_len, uint8_t out[CMAC_LEN])
+{
+    word32 out_len = CMAC_LEN;
+    /* wolfSSL must be built with WOLFSSL_CMAC + WOLFSSL_AES_DIRECT. */
+    return wc_AesCmacGenerate(out, &out_len, msg, (word32) msg_len, key, 16u);
+}
+#else
 static int aes_cmac(const uint8_t *key, const uint8_t *msg, size_t msg_len, uint8_t out[CMAC_LEN])
 {
     const mbedtls_cipher_info_t *ci = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
@@ -71,6 +85,7 @@ static int aes_cmac(const uint8_t *key, const uint8_t *msg, size_t msg_len, uint
     /* keylen is in BITS for the mbedTLS CMAC one-shot. */
     return mbedtls_cipher_cmac(ci, key, 128u, msg, msg_len, out);
 }
+#endif
 
 /* Constant-time tag compare: do not leak how many bytes matched. */
 static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len)

@@ -1,9 +1,15 @@
-# Authentication (0x29) with mbedTLS — real AES-CMAC
+# Authentication (0x29) with real AES-CMAC (mbedTLS or wolfSSL)
 
 The production-shaped sibling of [`../auth_challenge`](../auth_challenge). That
 example uses a non-cryptographic placeholder tag so it builds with zero
 dependencies; **this one verifies the proof of ownership with real
-AES-128-CMAC from mbedTLS**, plugged into the same `fn_auth` hook.
+AES-128-CMAC**, plugged into the same `fn_auth` hook.
+
+The same example builds against **two** crypto libraries — `make` (mbedTLS,
+default) or `make CRYPTO=wolfssl` — and both produce **byte-identical** output
+through the full flow. Only `aes_cmac()` and the linked library differ; udslib
+itself is untouched. That is the point: the hook contract is bytes-in /
+bytes-out, so the back-end is interchangeable.
 
 ## What changes vs. the placeholder example — and what does not
 
@@ -24,10 +30,30 @@ static int aes_cmac(const uint8_t *key, const uint8_t *msg, size_t msg_len,
 }
 ```
 
-That is the only call site. To move to **wolfSSL**, replace its body with
-`wc_AesCmacGenerate(out, &outlen, msg, msg_len, key, 16)`. To move to an
-**HSM/SHE**, replace it with your key-handle CMAC call — `k_aes_key` becomes a
-handle the CPU can't read, which is exactly why the crypto has to be a hook.
+That is the only call site. The **wolfSSL** back-end (selected by
+`-DUSE_WOLFSSL`) is the same helper with one different body:
+
+```c
+static int aes_cmac(const uint8_t *key, const uint8_t *msg, size_t msg_len,
+                    uint8_t out[16])
+{
+    word32 out_len = 16;
+    return wc_AesCmacGenerate(out, &out_len, msg, (word32) msg_len, key, 16);
+}
+```
+
+To move to an **HSM/SHE**, replace it with your key-handle CMAC call —
+`k_aes_key` becomes a handle the CPU can't read, which is exactly why the crypto
+has to be a hook.
+
+> **Caveat — "interchangeable" is not "zero-config".** The *code* swap is one
+> function, but the library must actually ship the primitive **and be built with
+> it**: wolfSSL needs `WOLFSSL_CMAC` + `WOLFSSL_AES_DIRECT` compiled in (the
+> Debian/Ubuntu `libwolfssl-dev` package has them; a trimmed embedded build may
+> not). And both ends must agree on the *scheme* — if your tester uses
+> HMAC-SHA256 or a certificate chain instead of AES-CMAC, you implement that
+> scheme in the hook. The udslib seam works regardless; the crypto choice is
+> yours to match.
 
 ## Why the library still doesn't bundle the cipher
 
@@ -73,14 +99,21 @@ deterministic, and both are marked in `main.c`:
 
 ## Build & run
 
-Needs mbedTLS development headers (`-lmbedcrypto`):
+Default (mbedTLS):
 
 ```sh
 sudo apt-get install libmbedtls-dev   # Debian/Ubuntu
 make run
 ```
 
-Expected output:
+Or wolfSSL — same example, same output:
+
+```sh
+sudo apt-get install libwolfssl-dev   # Debian/Ubuntu (built with WOLFSSL_CMAC)
+make CRYPTO=wolfssl run
+```
+
+Expected output (identical for both back-ends):
 
 ```
 === 1. Gated service 0xBA BEFORE auth -> NRC 0x34 (authenticationRequired) ===
