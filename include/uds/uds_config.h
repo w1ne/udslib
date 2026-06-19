@@ -412,6 +412,10 @@ typedef struct
     /** DTCSeverityAvailabilityMask reported in 0x42/0x55 responses. */
     uint8_t dtc_severity_availability_mask;
 
+    /** Opaque application handle, recoverable inside callbacks via
+     *  ctx->config->app_data (e.g. a uds_dtc_store_t* for the reference store). */
+    void *app_data;
+
     /**
      * @brief Optional: Clear Diagnostic Information (SID 0x14).
      * @param ctx       Pointer to context.

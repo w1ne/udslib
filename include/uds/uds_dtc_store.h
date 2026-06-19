@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
+#ifndef UDS_DTC_STORE_H
+#define UDS_DTC_STORE_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "uds/uds_config.h"
+
+/**
+ * @brief Optional reference DTC store (opt-in; not used by the core).
+ *
+ * The application supplies the backing array (no allocation). The store
+ * implements the ReadDTCInformation callbacks and owns the diagnostic
+ * policy the protocol core deliberately avoids (fault-detection counter,
+ * aging, self-heal). Wire it up by setting cfg.app_data = &store and
+ * cfg.fn_dtc_list = uds_dtc_store_list_cb (plus extdata/clear as needed).
+ */
+typedef struct
+{
+    uds_dtc_record_t *entries; /**< Application-provided backing array. */
+    uint16_t capacity;         /**< Number of slots in @ref entries. */
+    uint16_t count;            /**< Registered DTCs. */
+    uint8_t aging_threshold;   /**< Operation cycles to self-heal (e.g. 40). */
+} uds_dtc_store_t;
+
+/** Initialise a store over an application-provided backing array. */
+void uds_dtc_store_init(uds_dtc_store_t *s, uds_dtc_record_t *backing, uint16_t capacity,
+                        uint8_t aging_threshold);
+
+/**
+ * @brief Register (or update) a DTC. Status/counters start at zero.
+ * @return Index (>=0) on success, or -1 if the store is full.
+ */
+int uds_dtc_store_register(uds_dtc_store_t *s, uint32_t dtc, uint8_t severity,
+                           uint8_t functional_unit, uint8_t functional_group);
+
+/** Find a registered DTC, or NULL. */
+uds_dtc_record_t *uds_dtc_store_get(uds_dtc_store_t *s, uint32_t dtc);
+
+/**
+ * @brief Report a self-test result for a DTC.
+ *
+ * failed=true: fault-detection counter increments (saturates at +127),
+ * testFailed/testFailedThisOperationCycle set; at +127 the DTC is confirmed.
+ * failed=false: counter decrements (floors at -128), testFailed cleared.
+ */
+void uds_dtc_store_report_test(uds_dtc_store_t *s, uint32_t dtc, bool failed);
+
+/**
+ * @brief Advance one operation cycle: age DTCs not failed this cycle; when a
+ * DTC's aging counter reaches the threshold it self-heals (status cleared).
+ * Per-cycle status bits and the fault-detection counter are reset.
+ */
+void uds_dtc_store_operation_cycle(uds_dtc_store_t *s);
+
+/** Clear DTC(s): group 0xFFFFFF clears all, else clears the matching DTC. */
+void uds_dtc_store_clear(uds_dtc_store_t *s, uint32_t group);
+
+/* --- Ready-made uds_config_t callbacks (store reached via ctx->config->app_data) --- */
+int uds_dtc_store_list_cb(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
+                          uint16_t max);
+int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
+                             uint8_t *out_buf, uint16_t max_len);
+int uds_dtc_store_clear_cb(struct uds_ctx *ctx, uint32_t group);
+
+#endif /* UDS_DTC_STORE_H */
