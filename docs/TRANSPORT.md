@@ -69,7 +69,29 @@ independent state, sequence numbers, block-size counters, and N_Cr/N_Bs timers;
 the receiver-advertised BS/STmin (sent in our FlowControl) are kept separate
 from the sender-honored BS/STmin (received in the peer's FlowControl).
 
-## 5. Hardening & Flow Control
+## 5. Physical vs. functional addressing
+
+Each ISO-TP channel recognises a physical (point-to-point) RX ID and an optional
+functional (broadcast, one-to-many) RX ID, set with
+`uds_tp_isotp_set_functional_id(&iso, id)` (pass 0 to disable; disabled by
+default). A frame on the physical `rx_id` is delivered as `UDS_ADDR_PHYSICAL`; a
+frame on the functional ID as `UDS_ADDR_FUNCTIONAL`.
+
+Functional addressing is **Single-Frame only** (ISO 15765-2 has no flow control
+for one-to-many): a functionally addressed FF/CF/FC is ignored. Responses are
+always sent on the physical `tx_id`.
+
+A service declares which addressing it accepts via `address_mode` in its
+`uds_service_entry_t` (a `UDS_ADDR_*` bitmask). `0` (the default, and every
+built-in core service) means **both**. A functionally addressed request to a
+service that does not accept it is silently dropped.
+
+Per ISO 14229-1, a functionally addressed request never elicits the negative
+response codes `0x11`, `0x12`, `0x7E`, `0x7F`, or `0x31` (these are suppressed to
+avoid flooding a shared bus); all other negative responses and all positive
+responses are still sent.
+
+## 7. Hardening & Flow Control
 
 UDSLib implements standard ISO-TP hardening features to ensure robust communication:
 - **STmin (Separation Time)**: Enforces minimum time between consecutive frames (CF) to prevent overwhelming the receiver.
@@ -77,7 +99,7 @@ UDSLib implements standard ISO-TP hardening features to ensure robust communicat
 - **Dynamic Timing**: STmin and Block Size parameters are dynamically extracted from peer Flow Control frames during transmission.
 - **Transfer Timeouts**: A stalled multi-frame transfer is aborted on timeout. `N_Cr` bounds the wait for the next Consecutive Frame during reception, and `N_Bs` bounds the wait for a Flow Control frame after sending a First Frame. Both default to 1000 ms (`ISOTP_N_CR_DEFAULT_MS` / `ISOTP_N_BS_DEFAULT_MS`) and are overridable per instance via `iso.n_cr_ms` / `iso.n_bs_ms`.
 
-## 6. CAN-FD Support
+## 8. CAN-FD Support
 
 The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames up to 64 bytes for higher throughput.
 - **Enable**: Call `uds_tp_isotp_set_fd(&iso, true)` after initialization (Classic CAN is the default).
@@ -85,6 +107,6 @@ The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames 
 - **Multi-Frame**: First Frame (FF) and Consecutive Frames (CF) utilize full 64-byte capacity (up to 62/63 bytes payload per frame).
 - **Compliance**: Adheres to ISO 15765-2 Table 9 for N_PCI bytes.
 
-## 7. Virtual CAN (Host Simulation)
+## 9. Virtual CAN (Host Simulation)
 
 For PC-based verification, we encapsulate CAN frames in UDP packets. This allows full stack execution without physical hardware.
