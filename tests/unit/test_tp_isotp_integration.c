@@ -84,7 +84,8 @@ static uint8_t g_iso_sdu[1024];
 static int setup(void **state)
 {
     (void) state;
-    uds_tp_isotp_init(&g_iso, mock_can_send, 0x7E0, 0x7E8, g_iso_sdu, sizeof(g_iso_sdu));  // TX=7E0, RX=7E8
+    uds_tp_isotp_init(&g_iso, mock_can_send, 0x7E0, 0x7E8, g_iso_sdu,
+                      sizeof(g_iso_sdu));  // TX=7E0, RX=7E8
     uds_tp_isotp_set_fd(&g_iso, true);
 
     // Setup server context for RX callbacks (though library doesn't strictly use it for state)
@@ -152,7 +153,8 @@ static void test_integration_large_transfer(void **state)
     expect_value(mock_can_send, len, 64);
     expect_memory(mock_can_send, data, expected_cf2, 64);
 
-    uds_tp_isotp_process(&g_iso, 100); /* ST=0, so ready immediately? Timer logic resets to time_ms. */
+    uds_tp_isotp_process(&g_iso,
+                         100); /* ST=0, so ready immediately? Timer logic resets to time_ms. */
     /* Logic: timer_st = 100. Call with 100. Elapsed=0. If ST=0, OK. */
 
     /* Remaining: 75 - 63 = 12 bytes */
