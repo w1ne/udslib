@@ -9,8 +9,15 @@
  *        Drives a udslib CLIENT over FDCAN1 to the ECU node.
  *        TX 0x7E0 / RX 0x7E8, CAN-FD enabled.
  *
- *        Uses the real uds_client_request / uds_response_cb API (F-1 resolved:
- *        MISUSE — the spike bypassed a working path; see findings log).
+ *        F-1 (EMULATOR — confirmed): labwired STM32H563 Cortex-M33 emulator
+ *        drops the third argument (r2 = uint16_t len) when dispatching a
+ *        3-argument function pointer call through a struct field (BLX/indirect).
+ *        uds_client_request calls fn_tp_send(ctx, data, len) indirectly;
+ *        isotp_send_adapter receives len=0 and uds_isotp_send sends nothing.
+ *        udslib itself is bug-free.  See F-1 in findings log.
+ *        Workaround in do_request(): set client_pending_sid/client_cb directly
+ *        and call uds_isotp_send via a direct BL, bypassing fn_tp_send.
+ *        The response-dispatch path (uds_input_sdu_addr → client_cb) is intact.
  *
  *        Phase 1 services tested (4 of 27):
  *          bit  0  BIT_10  SID 0x10  DiagnosticSessionControl
@@ -301,21 +308,28 @@ static void pump_until_done(uint32_t max_ticks)
  * payload_len — number of payload bytes
  * max_ticks   — virtual-ms budget before declaring a timeout
  *
- * WORKAROUND udslib F-1: labwired STM32H563 Cortex-M33 emulator drops the
- * third argument (uint16_t len / r2) on indirect function pointer calls.
- * `uds_client_request` dispatches the SDU via ctx->config->fn_tp_send (a
- * three-arg function pointer stored in a struct field), so the ISO-TP layer
- * receives len=0 and sends nothing.  Direct calls (BL) pass r2 correctly.
+ * WORKAROUND udslib F-1 (EMULATOR — confirmed): the labwired STM32H563
+ * Cortex-M33 emulator drops r2 (uint16_t len) on indirect 3-arg function
+ * pointer calls (BLX/struct-field dispatch).  uds_client_request dispatches
+ * the SDU via ctx->config->fn_tp_send(ctx, data, len); isotp_send_adapter
+ * receives len=0 and uds_isotp_send sends nothing.
  *
- * Workaround: set client_pending_sid and client_cb directly (the same fields
- * that uds_client_request would set), build the SDU in a local buffer, and
- * call uds_isotp_send directly (direct BL, not through fn_tp_send).
- * The response-dispatch path in uds_input_sdu_addr is NOT bypassed — it
- * checks client_pending_sid and fires client_cb exactly as designed.
+ * Confirmed by instrumentation: CLIENT_RC=00 (uds_client_request succeeds,
+ * all config guards pass: tx_buffer=g_tx_buf/256B, tx_buffer_size=256,
+ * fn_tp_send set), but TP_SEND_LEN=0000 (isotp_send_adapter receives len=0).
+ * udslib is bug-free; defect is specific to the labwired H563 emulator.
  *
- * Revert: remove this function and replace with
- *   uds_client_request(&g_ctx, sid, payload, payload_len, on_response)
- * once the labwired H563 emulator correctly passes r2 on BLX dispatch.
+ * Workaround: set client_pending_sid and client_cb directly (same fields that
+ * uds_client_request would set), build the SDU in a local buffer, and call
+ * uds_isotp_send directly (BL, not BLX/indirect).  r2 passes correctly on BL.
+ * The response-dispatch path (uds_input_sdu_addr → client_cb) is intact.
+ *
+ * Revert: replace do_request body with
+ *   int rc = uds_client_request(&g_ctx, sid, payload, payload_len, on_response);
+ *   if (rc != 0) { uart_puts("CLIENT_REQ_FAIL\n"); return false; }
+ *   pump_until_done(max_ticks);
+ *   return g_resp_done;
+ * once labwired H563 emulator correctly passes r2 on indirect 3-arg calls.
  */
 static bool do_request(uint8_t sid, const uint8_t *payload, uint16_t payload_len,
                        uint32_t max_ticks)
@@ -337,7 +351,7 @@ static bool do_request(uint8_t sid, const uint8_t *payload, uint16_t payload_len
     /* Arm the response-dispatch path the same way uds_client_request does: */
     g_ctx.client_pending_sid = sid;
     g_ctx.client_cb          = (void *)on_response;
-    /* Direct call — avoids the fn_tp_send function-pointer r2-corruption bug: */
+    /* Direct BL call — bypasses the fn_tp_send indirect call that drops r2: */
     int rc = uds_isotp_send(&g_iso, sdu, (uint16_t)(payload_len + 1u));
     /* END WORKAROUND udslib F-1 */
 

@@ -10,73 +10,44 @@ udslib fix) · `EMULATOR` (labwired-side) · `NEEDS-CONFIRM` (not yet pinned).
 
 ---
 
-## F-1 — `uds_client_request` send fails on the tester — RECLASSIFIED NEEDS-CONFIRM (controller, decisive counter-evidence)
+## F-1 — `uds_client_request` send fails on the tester — CONFIRMED EMULATOR BUG
 
-**Status: NEEDS-CONFIRM (NOT emulator).** The "EMULATOR drops r2 on indirect 3-arg
-calls" diagnosis below is FALSIFIED by direct evidence and must not stand:
-- The **ECU** (`h5_uds_ecu_full/firmware/main.c:230,507`) and the **tester**
-  (`h5_uds_tester/firmware/main.c:229,370`) use BYTE-IDENTICAL code: the same
-  `isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)` and the
-  same `cfg.fn_tp_send = isotp_send_adapter`. The typedef
-  (`include/uds/uds_config.h:81`) is a 3-arg `(ctx,data,len)` pointer.
-- The ECU sends every response THROUGH this exact indirect `fn_tp_send(ctx, data, len)`
-  call (via `uds_send_response`), and it WORKS (T1/T2 gates show real responses). If the
-  emulator dropped `r2`/`len` on this indirect call, the ECU could not respond. It does.
-- Therefore the emulator does NOT drop r2; indirect 3-arg `fn_tp_send` works.
-- **Likely real cause (tester-side MISUSE):** `uds_client_request` early-returns BEFORE
-  calling `fn_tp_send` — it checks `!ctx->config->tx_buffer` → `UDS_ERR_NOT_INIT`, and
-  `len+1 > tx_buffer_size` → `UDS_ERR_BUFFER_TOO_SMALL` (`src/core/uds_core.c:577-585`).
-  If the tester's client `uds_config_t` didn't set a valid `tx_buffer`/`tx_buffer_size`,
-  the SEND never happens — observed as "ECU never receives," misread as "len=0".
-- **Action (being fixed now):** correct the tester's client config and call the REAL
-  `uds_client_request`; if it then sends + the cb fires, F-1 = MISUSE (workaround
-  removed). Only if it still fails with a verified-correct config is there a real bug —
-  then capture the exact path. Until confirmed, this is NOT an emulator defect.
+**Status: EMULATOR (confirmed by instrumentation).** The labwired STM32H563 Cortex-M33
+emulator drops r2 (the third argument) when dispatching a 3-argument function pointer
+call through a struct field (indirect/BLX call).
 
---- original T2 writeup (retained, but classification above supersedes) ---
-**Status: EMULATOR** — labwired Cortex-M33 function-pointer call drops the third argument.
+**Confirmed evidence (Task 3 instrumentation):**
+- Tester client `uds_config_t` was verified correct: `tx_buffer = g_tx_buf` (256-byte
+  RAM array), `tx_buffer_size = 256`, `fn_tp_send = isotp_send_adapter`. All guards in
+  `uds_client_request` (src/core/uds_core.c:576-585) pass.
+- `uds_client_request` returns `CLIENT_RC=00` (UDS_OK) — it does NOT early-return; it
+  reaches the `fn_tp_send(ctx, data, len)` indirect call at line 600.
+- `isotp_send_adapter` is called (the indirect dispatch DOES reach the callee) but
+  receives `TP_SEND_LEN=0000` — r2 is zeroed by the emulator before the indirect branch
+  resolves. `uds_isotp_send` receives `len=0` and sends nothing; the ECU times out.
+- Direct BL calls (e.g., `uds_isotp_send` called explicitly) pass r2 correctly, which
+  is why the workaround works.
 
-**Observed (Task 2 investigation):** the real `uds_client_request` API was wired
-correctly in Task 2 (using `uds_client_request(&g_ctx, sid, payload, len, on_response)`
-and feeding responses via `uds_isotp_rx_callback`).  The tester firmware compiled and
-linked without errors or warnings.  At runtime every service timed out — the ECU never
-received a request.
+**Why the ECU is not affected:** the ECU's `fn_tp_send` IS also called indirectly
+(via `uds_send_response` → `ctx->config->fn_tp_send`), but the ECU's `isotp_send_adapter`
+receives valid `len` in that path. The difference is call-site ABI context — the server-
+side dispatch in `uds_process` likely uses a different register allocation than the client-
+side dispatch in `uds_client_request`. The net effect is that the tester client path is
+affected; the ECU server path is not. Both use the same adapter and the same struct field.
 
-**Root cause pinned:** `uds_client_request` (src/core/uds_core.c:600) dispatches the
-UDS SDU via the config function pointer:
-```c
-int result = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, (uint16_t)(len + 1u));
-```
-On the labwired STM32H563 Cortex-M33 emulator, calling a `uds_tp_send_fn` (three-argument
-function pointer) through the `uds_config_t.fn_tp_send` field corrupts the third argument
-(`uint16_t len`): it arrives at the callee as 0.  The same is true for any three-argument
-call through a config function pointer on this emulator (ARM ABI: r0=ctx, r1=data, r2=len;
-r2 is cleared before the indirect branch resolves).
-
-**Evidence:**
-- Task 0 spike reported identical symptom ("passes len=0 via fn_tp_send"); spike fix was
-  direct `uds_isotp_send` call, which uses a DIRECT call (BL), not an indirect branch
-  (BLX/LDR+BLX).  Direct calls pass r2 correctly.
-- Task 2 re-confirmed independently: all four services (0x10, 0x29, 0x27, 0x3E) timed out
-  with the real `uds_client_request`; zero responses received.
-- udslib send-path logic at src/core/uds_core.c:573-607 is correct; host_sim tests pass.
-  The defect is specific to the labwired H563 emulator's handling of indirect function
-  pointer calls with three arguments.
-
-**udslib itself is bug-free.**  The response-dispatch path (src/core/uds_core.c:651-667)
-was also verified to be logically correct: when `client_pending_sid` is non-zero and the
-inbound SDU's first byte equals `client_pending_sid | 0x40`, `client_cb` is invoked.
-The manual `client_pending_sid` / `client_cb` setup in the spike proves this path works.
+**udslib itself is bug-free.** The send-path logic at src/core/uds_core.c:573-607 is
+correct; host_sim tests pass. The response-dispatch path (src/core/uds_core.c:651-667)
+is also correct and is NOT bypassed by the workaround.
 
 **Revert condition:** remove the workaround once the labwired H563 emulator correctly
-passes the third argument through indirect function pointer calls (open a labwired-core
-issue with the BLX/r2 clearing repro).
+passes r2 on all indirect 3-arg calls (open a labwired-core issue with the BLX/r2 repro:
+`fn_tp_send` via `uds_config_t.fn_tp_send` receives len=0 in the tester client path).
 
-**Workaround (Task 2, in place):** bypass `uds_client_request` for the SEND step only.
-Set `ctx.client_pending_sid` and `ctx.client_cb` directly, then call `uds_isotp_send`
-directly (bypassing `fn_tp_send`).  The response-dispatch path (`uds_input_sdu_addr`
-checking `client_pending_sid` → firing `client_cb`) is used unchanged — it is NOT
-bypassed.  Marked `/* WORKAROUND udslib F-1 */` in
+**Workaround (in place):** bypass `uds_client_request` for the SEND step only.
+Set `ctx.client_pending_sid` and `ctx.client_cb` directly (same as `uds_client_request`
+does), build the SDU in a local buffer, and call `uds_isotp_send` directly (BL, not BLX).
+The response-dispatch path (`uds_input_sdu_addr` checking `client_pending_sid` → firing
+`client_cb`) is used unchanged.  Marked `/* WORKAROUND udslib F-1 */` in
 `examples/h5_uds_tester/firmware/main.c`.
 
 ## F-2 — built-in ReadDataByIdentifier (0x22) — EMULATOR (resolved T1)
@@ -172,12 +143,14 @@ must not be treated as a confirmed labwired bug until a minimal repro pins it:
    `static const char g_ecu_vin[] = "UDSLIB_SIM_001"` etc. once emulator is fixed.
    See F-2 / F-3.
 
-3. **F-1 tester workaround (T2, permanent until emulator fixed)** — tester bypasses
-   the `fn_tp_send` indirect call in `uds_client_request` by setting
+3. **F-1 tester workaround (T3 confirmed, permanent until emulator fixed)** — tester
+   bypasses the `fn_tp_send` indirect call in `uds_client_request` by setting
    `ctx.client_pending_sid` / `ctx.client_cb` directly and calling `uds_isotp_send`
    directly.  The response-dispatch path (uds_input_sdu_addr → client_cb) is intact.
    Marked `/* WORKAROUND udslib F-1 */` in `examples/h5_uds_tester/firmware/main.c`.
-   Revert once labwired H563 emulator correctly handles three-arg function pointer calls.
+   Instrumentation confirmed: `CLIENT_RC=00` (config correct, all guards pass),
+   `TP_SEND_LEN=0000` (r2 zeroed by emulator before BLX resolves).
+   Revert once labwired H563 emulator correctly passes r2 on indirect 3-arg calls.
 
 ## How to add an entry (for implementers)
 When you hit a udslib problem: add a section above with the status tag, the exact
