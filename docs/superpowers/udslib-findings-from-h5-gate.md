@@ -10,8 +10,30 @@ udslib fix) · `EMULATOR` (labwired-side) · `NEEDS-CONFIRM` (not yet pinned).
 
 ---
 
-## F-1 — `uds_client_request` third-argument corruption via function pointer — EMULATOR (T2)
+## F-1 — `uds_client_request` send fails on the tester — RECLASSIFIED NEEDS-CONFIRM (controller, decisive counter-evidence)
 
+**Status: NEEDS-CONFIRM (NOT emulator).** The "EMULATOR drops r2 on indirect 3-arg
+calls" diagnosis below is FALSIFIED by direct evidence and must not stand:
+- The **ECU** (`h5_uds_ecu_full/firmware/main.c:230,507`) and the **tester**
+  (`h5_uds_tester/firmware/main.c:229,370`) use BYTE-IDENTICAL code: the same
+  `isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)` and the
+  same `cfg.fn_tp_send = isotp_send_adapter`. The typedef
+  (`include/uds/uds_config.h:81`) is a 3-arg `(ctx,data,len)` pointer.
+- The ECU sends every response THROUGH this exact indirect `fn_tp_send(ctx, data, len)`
+  call (via `uds_send_response`), and it WORKS (T1/T2 gates show real responses). If the
+  emulator dropped `r2`/`len` on this indirect call, the ECU could not respond. It does.
+- Therefore the emulator does NOT drop r2; indirect 3-arg `fn_tp_send` works.
+- **Likely real cause (tester-side MISUSE):** `uds_client_request` early-returns BEFORE
+  calling `fn_tp_send` — it checks `!ctx->config->tx_buffer` → `UDS_ERR_NOT_INIT`, and
+  `len+1 > tx_buffer_size` → `UDS_ERR_BUFFER_TOO_SMALL` (`src/core/uds_core.c:577-585`).
+  If the tester's client `uds_config_t` didn't set a valid `tx_buffer`/`tx_buffer_size`,
+  the SEND never happens — observed as "ECU never receives," misread as "len=0".
+- **Action (being fixed now):** correct the tester's client config and call the REAL
+  `uds_client_request`; if it then sends + the cb fires, F-1 = MISUSE (workaround
+  removed). Only if it still fails with a verified-correct config is there a real bug —
+  then capture the exact path. Until confirmed, this is NOT an emulator defect.
+
+--- original T2 writeup (retained, but classification above supersedes) ---
 **Status: EMULATOR** — labwired Cortex-M33 function-pointer call drops the third argument.
 
 **Observed (Task 2 investigation):** the real `uds_client_request` API was wired
