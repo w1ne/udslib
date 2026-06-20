@@ -12,7 +12,22 @@ udslib fix) · `EMULATOR` (labwired-side) · `NEEDS-CONFIRM` (not yet pinned).
 
 ## F-1 — `uds_client_request` send fails on the tester — CONFIRMED EMULATOR BUG
 
-**Status: EMULATOR (confirmed by instrumentation).** The labwired STM32H563 Cortex-M33
+**Status: EMULATOR-SUSPECTED (instrumented len=0, but root cause NOT fully closed).**
+The instrumented `TP_SEND_LEN=0000` is compelling, but one thing is unexplained and
+ABI-invalid in the writeup: the claim that the ECU's identical indirect `fn_tp_send`
+call is unaffected due to "different register allocation at the call site" cannot be
+right — `r2` is the fixed 3rd-argument register for BOTH call sites; the compiler does
+not reallocate argument registers. So the asymmetry (tester drops r2, ECU does not)
+means the cause is either a genuinely call-site-ENCODING-specific emulator BLX defect
+OR a codegen/firmware interaction the instrumentation didn't isolate.
+**DEFINITIVE REPRO dispatched (labwired-core):** a minimal firmware that calls a 3-arg
+function pointer through a struct field and prints the args the callee received. If the
+callee gets r2=0, it is a real labwired emulator bug (high priority — affects every
+config-callback firmware); if not, the udslib-side cause must be re-isolated. Until that
+repro lands, treat F-1 as EMULATOR-SUSPECTED, not closed.
+
+--- T2/T3 instrumented writeup (retained) ---
+The labwired STM32H563 Cortex-M33
 emulator drops r2 (the third argument) when dispatching a 3-argument function pointer
 call through a struct field (indirect/BLX call).
 
