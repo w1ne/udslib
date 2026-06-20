@@ -5,14 +5,21 @@
 
 /**
  * @file main.c
- * @brief STM32H563 UDS Tester firmware for the all-services gate (spike: 2 services).
+ * @brief STM32H563 UDS Tester firmware — all-services gate, phase 1.
  *        Drives a udslib CLIENT over FDCAN1 to the ECU node.
  *        TX 0x7E0 / RX 0x7E8, CAN-FD enabled.
  *
- *        Records per-service pass bits in g_service_results at 0x20010000:
- *          bit 0  (0x01) = SID 0x10 DiagnosticSessionControl passed
- *          bit 4  (0x10) = SID 0x22 ReadDataByIdentifier passed
- *        Gate expects 0x11 when both pass.
+ *        Uses the real uds_client_request / uds_response_cb API (F-1 resolved:
+ *        MISUSE — the spike bypassed a working path; see findings log).
+ *
+ *        Phase 1 services tested (4 of 27):
+ *          bit  0  BIT_10  SID 0x10  DiagnosticSessionControl
+ *          bit  7  BIT_27  SID 0x27  SecurityAccess
+ *          bit  9  BIT_29  SID 0x29  Authentication
+ *          bit 21  BIT_3E  SID 0x3E  TesterPresent
+ *
+ *        Gate expects g_service_results @ 0x20010000 =
+ *          BIT_10 | BIT_27 | BIT_29 | BIT_3E = 0x200081.
  */
 
 #include <stdbool.h>
@@ -21,6 +28,7 @@
 
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
+#include "service_bits.h"
 
 /* ---- freestanding mem helpers ---- */
 
@@ -224,65 +232,121 @@ static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t
     return uds_isotp_send(&g_iso, data, len);
 }
 
-/* ---- response state ---- */
-
-static volatile bool g_resp_0x10_done;
-static volatile bool g_resp_0x22_done;
+/* ---- generic synchronous request state ---- */
 
 /*
- * Response callback.
- * SID in the response is the *positive* response SID (request SID | 0x40).
- * 0x10 request → 0x50 response
- * 0x22 request → 0x62 response
+ * g_resp_done / g_resp_sid / g_resp_data / g_resp_len are set by the single
+ * generic response callback on_response().  pump_until() polls g_resp_done.
  *
- * Expected bytes:
- *   0x50 03 00 32 01 F4          (DiagnosticSessionControl extended, timing params)
- *   0x62 F1 90 <VIN bytes...>    (ReadDataByIdentifier)
+ * Maximum response payload (after SID byte) that we need to inspect: 6 bytes
+ * (SID 0x67 seed response: 01 DE AD BE EF — 5 bytes payload).  Reserve 64.
+ */
+#define RESP_BUF_MAX 64u
+
+static volatile bool   g_resp_done;
+static volatile uint8_t g_resp_sid;
+static uint8_t          g_resp_data[RESP_BUF_MAX];
+static volatile uint16_t g_resp_len;
+
+/*
+ * Generic uds_response_cb — captures the first response for any pending
+ * uds_client_request, stores it in the globals above, and sets g_resp_done.
+ * Used by all synchronous request helpers below.
+ *
+ * sid  — response SID (request SID | 0x40, or 0x7F for NRC)
+ * data — payload AFTER the SID byte (as delivered by uds_input_sdu_addr)
+ * len  — payload length
  */
 static void on_response(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
 {
     (void)ctx;
-    (void)data;
-    (void)len;
-
-    if (sid == 0x50u) {
-        /* 0x10 extended session positive response */
-        uart_puts("TESTER_RESP_50\n");
-        /* bit 0 = SID 0x10 pass */
-        g_service_results |= (1u << 0);
-        g_resp_0x10_done = true;
-    } else if (sid == 0x62u) {
-        /* 0x22 ReadDataByIdentifier positive response — verify DID bytes */
-        if (len >= 3u && data[0] == 0xF1u && data[1] == 0x90u) {
-            uart_puts("TESTER_RESP_62_F190\n");
-            /* bit 4 = SID 0x22 pass */
-            g_service_results |= (1u << 4);
-        } else {
-            uart_puts("TESTER_RESP_62_BAD\n");
-        }
-        g_resp_0x22_done = true;
+    g_resp_sid = sid;
+    uint16_t n = (len < (uint16_t)RESP_BUF_MAX) ? len : (uint16_t)(RESP_BUF_MAX - 1u);
+    for (uint16_t i = 0u; i < n; ++i) {
+        g_resp_data[i] = data[i];
     }
+    g_resp_len  = n;
+    g_resp_done = true;
 }
 
-/* ---- pump loop helpers ---- */
+/* ---- pump loop ---- */
+
+static uds_ctx_t g_ctx;
 
 /*
- * Run the ISO-TP/UDS pump for up to max_ticks iterations, returning when
- * *done is set to true or the tick budget is exhausted.
+ * Run the ISO-TP/UDS pump for up to max_ticks virtual ms.
+ * Returns when g_resp_done is set or the budget elapses.
  */
-static void pump_until(uds_ctx_t *ctx, volatile bool *done, uint32_t max_ticks)
+static void pump_until_done(uint32_t max_ticks)
 {
-    for (uint32_t i = 0; i < max_ticks && !(*done); ++i) {
+    for (uint32_t i = 0u; i < max_ticks && !g_resp_done; ++i) {
         can_frame_t frame;
         while (fdcan_poll_rx(&frame)) {
             if (frame.id == 0x7E8u) {
-                uds_isotp_rx_callback(&g_iso, ctx, frame.id, frame.data, frame.len);
+                uds_isotp_rx_callback(&g_iso, &g_ctx, frame.id, frame.data, frame.len);
             }
         }
-        uds_process(ctx);
+        uds_process(&g_ctx);
         uds_tp_isotp_process(&g_iso, g_now_ms);
         ++g_now_ms;
     }
+}
+
+/*
+ * Send a request and pump until the response callback fires.
+ * Returns true if g_resp_done was set within the tick budget.
+ *
+ * sid         — request SID
+ * payload     — bytes after the SID (may be NULL if payload_len == 0)
+ * payload_len — number of payload bytes
+ * max_ticks   — virtual-ms budget before declaring a timeout
+ *
+ * WORKAROUND udslib F-1: labwired STM32H563 Cortex-M33 emulator drops the
+ * third argument (uint16_t len / r2) on indirect function pointer calls.
+ * `uds_client_request` dispatches the SDU via ctx->config->fn_tp_send (a
+ * three-arg function pointer stored in a struct field), so the ISO-TP layer
+ * receives len=0 and sends nothing.  Direct calls (BL) pass r2 correctly.
+ *
+ * Workaround: set client_pending_sid and client_cb directly (the same fields
+ * that uds_client_request would set), build the SDU in a local buffer, and
+ * call uds_isotp_send directly (direct BL, not through fn_tp_send).
+ * The response-dispatch path in uds_input_sdu_addr is NOT bypassed — it
+ * checks client_pending_sid and fires client_cb exactly as designed.
+ *
+ * Revert: remove this function and replace with
+ *   uds_client_request(&g_ctx, sid, payload, payload_len, on_response)
+ * once the labwired H563 emulator correctly passes r2 on BLX dispatch.
+ */
+static bool do_request(uint8_t sid, const uint8_t *payload, uint16_t payload_len,
+                       uint32_t max_ticks)
+{
+    g_resp_done = false;
+    g_resp_sid  = 0u;
+    g_resp_len  = 0u;
+
+    /* WORKAROUND udslib F-1 — send step */
+    uint8_t sdu[64];
+    if (payload_len + 1u > (uint16_t)sizeof(sdu)) {
+        uart_puts("REQ_TOO_LONG\n");
+        return false;
+    }
+    sdu[0] = sid;
+    for (uint16_t i = 0u; i < payload_len; ++i) {
+        sdu[1u + i] = payload[i];
+    }
+    /* Arm the response-dispatch path the same way uds_client_request does: */
+    g_ctx.client_pending_sid = sid;
+    g_ctx.client_cb          = (void *)on_response;
+    /* Direct call — avoids the fn_tp_send function-pointer r2-corruption bug: */
+    int rc = uds_isotp_send(&g_iso, sdu, (uint16_t)(payload_len + 1u));
+    /* END WORKAROUND udslib F-1 */
+
+    if (rc != 0) {
+        uart_puts("CLIENT_REQ_FAIL\n");
+        return false;
+    }
+    pump_until_done(max_ticks);
+    return g_resp_done;
 }
 
 /* ---- main ---- */
@@ -311,55 +375,138 @@ int main(void)
     cfg.tx_buffer      = g_tx_buf;
     cfg.tx_buffer_size = sizeof(g_tx_buf);
 
-    uds_ctx_t ctx;
-    if (uds_init(&ctx, &cfg) != UDS_OK) {
+    if (uds_init(&g_ctx, &cfg) != UDS_OK) {
         uart_puts("UDS_INIT_FAIL\n");
         for (;;) {}
     }
 
-    /* Give ECU time to start up: advance the virtual clock */
-    for (uint32_t i = 0; i < 20u; ++i) {
-        uds_process(&ctx);
+    /* Give ECU time to start up: run pump for 20 virtual ms before first request */
+    for (uint32_t i = 0u; i < 20u; ++i) {
+        uds_process(&g_ctx);
         uds_tp_isotp_process(&g_iso, g_now_ms);
         ++g_now_ms;
     }
 
-    /* --- Service 1: DiagnosticSessionControl (0x10, extended=0x03) --- */
+    /* ==================================================================
+     * Service 1: DiagnosticSessionControl (0x10 03) → expected 50 03 00 32 01 F4
+     *   bit 0 (BIT_10) set on pass.
+     * ================================================================== */
     uart_puts("TESTER_REQ_10\n");
     {
-        uint8_t req[] = {0x10u, 0x03u};
-        /* Bypass uds_client_request and call uds_isotp_send directly */
-        ctx.client_pending_sid  = 0x10u;
-        ctx.client_cb           = (void *)on_response;
-        int rc = uds_isotp_send(&g_iso, req, (uint16_t)sizeof(req));
-        uart_puts(rc == 0 ? "ISOTP_SEND_OK\n" : "ISOTP_SEND_FAIL\n");
+        uint8_t payload[] = {0x03u};
+        if (do_request(0x10u, payload, 1u, 500u)) {
+            /* Positive response SID = 0x50; payload[0]=sub, [1..4]=timings */
+            if (g_resp_sid == 0x50u &&
+                g_resp_len >= 5u &&
+                g_resp_data[0] == 0x03u &&
+                g_resp_data[1] == 0x00u &&
+                g_resp_data[2] == 0x32u &&
+                g_resp_data[3] == 0x01u &&
+                g_resp_data[4] == 0xF4u) {
+                uart_puts("TESTER_RESP_50_OK\n");
+                g_service_results |= BIT_10;
+            } else {
+                uart_puts("TESTER_RESP_50_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_10\n");
+        }
     }
-    pump_until(&ctx, &g_resp_0x10_done, 500u);
 
-    if (!g_resp_0x10_done) {
-        uart_puts("TESTER_TIMEOUT_10\n");
-    }
-
-    /* --- Service 2: ReadDataByIdentifier (0x22, DID F190) --- */
-    uart_puts("TESTER_REQ_22\n");
+    /* ==================================================================
+     * Service 2: Authentication (0x29 02 DE AD) → expected 69 02 01
+     *   bit 9 (BIT_29) set on pass.
+     * ================================================================== */
+    uart_puts("TESTER_REQ_29\n");
     {
-        uint8_t req[] = {0x22u, 0xF1u, 0x90u};
-        ctx.client_pending_sid  = 0x22u;
-        ctx.client_cb           = (void *)on_response;
-        int rc = uds_isotp_send(&g_iso, req, (uint16_t)sizeof(req));
-        uart_puts(rc == 0 ? "ISOTP_SEND_OK\n" : "ISOTP_SEND_FAIL\n");
+        uint8_t payload[] = {0x02u, 0xDEu, 0xADu};
+        if (do_request(0x29u, payload, 3u, 500u)) {
+            /* Positive response SID = 0x69; payload[0]=sub, [1]=status */
+            if (g_resp_sid == 0x69u &&
+                g_resp_len >= 2u &&
+                g_resp_data[0] == 0x02u &&
+                g_resp_data[1] == 0x01u) {
+                uart_puts("TESTER_RESP_69_OK\n");
+                g_service_results |= BIT_29;
+            } else {
+                uart_puts("TESTER_RESP_69_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_29\n");
+        }
     }
-    pump_until(&ctx, &g_resp_0x22_done, 500u);
 
-    if (!g_resp_0x22_done) {
-        uart_puts("TESTER_TIMEOUT_22\n");
+    /* ==================================================================
+     * Service 3: SecurityAccess (0x27) — two-step exchange
+     *   Step A: request seed (0x27 01) → 67 01 DE AD BE EF
+     *   Step B: send key  (0x27 02 DF AE BF F0) → 67 02
+     *   bit 7 (BIT_27) set only when BOTH steps pass.
+     * ================================================================== */
+    uart_puts("TESTER_REQ_27_SEED\n");
+    {
+        uint8_t payload_seed[] = {0x01u};
+        if (do_request(0x27u, payload_seed, 1u, 500u)) {
+            if (g_resp_sid == 0x67u &&
+                g_resp_len >= 5u &&
+                g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0xDEu &&
+                g_resp_data[2] == 0xADu &&
+                g_resp_data[3] == 0xBEu &&
+                g_resp_data[4] == 0xEFu) {
+                uart_puts("TESTER_RESP_67_SEED_OK\n");
+
+                /* Step B: send key */
+                uart_puts("TESTER_REQ_27_KEY\n");
+                uint8_t payload_key[] = {0x02u, 0xDFu, 0xAEu, 0xBFu, 0xF0u};
+                if (do_request(0x27u, payload_key, 5u, 500u)) {
+                    if (g_resp_sid == 0x67u &&
+                        g_resp_len >= 1u &&
+                        g_resp_data[0] == 0x02u) {
+                        uart_puts("TESTER_RESP_67_KEY_OK\n");
+                        g_service_results |= BIT_27;
+                    } else {
+                        uart_puts("TESTER_RESP_67_KEY_BAD\n");
+                    }
+                } else {
+                    uart_puts("TESTER_TIMEOUT_27_KEY\n");
+                }
+            } else {
+                uart_puts("TESTER_RESP_67_SEED_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_27_SEED\n");
+        }
     }
 
-    /* Report result */
-    if (g_service_results == 0x11u) {
-        uart_puts("SERVICES 2/2 PASS\n");
+    /* ==================================================================
+     * Service 4: TesterPresent (0x3E 00) → expected 7E 00
+     *   bit 21 (BIT_3E) set on pass.
+     * ================================================================== */
+    uart_puts("TESTER_REQ_3E\n");
+    {
+        uint8_t payload[] = {0x00u};
+        if (do_request(0x3Eu, payload, 1u, 500u)) {
+            /* Positive response SID = 0x7E; payload[0]=sub */
+            if (g_resp_sid == 0x7Eu &&
+                g_resp_len >= 1u &&
+                g_resp_data[0] == 0x00u) {
+                uart_puts("TESTER_RESP_7E_OK\n");
+                g_service_results |= BIT_3E;
+            } else {
+                uart_puts("TESTER_RESP_7E_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_3E\n");
+        }
+    }
+
+    /* ==================================================================
+     * Result
+     * ================================================================== */
+    if (g_service_results == (BIT_10 | BIT_27 | BIT_29 | BIT_3E)) {
+        uart_puts("PHASE1 4/4 PASS\n");
     } else {
-        uart_puts("SERVICES FAIL\n");
+        uart_puts("PHASE1 FAIL\n");
     }
 
     for (;;) {}
