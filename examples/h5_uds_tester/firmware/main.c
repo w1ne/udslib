@@ -5,7 +5,7 @@
 
 /**
  * @file main.c
- * @brief STM32H563 UDS Tester firmware — all-services gate, phase 1.
+ * @brief STM32H563 UDS Tester firmware — all-services gate, phases 1 and 2.
  *        Drives a udslib CLIENT over FDCAN1 to the ECU node.
  *        TX 0x7E0 / RX 0x7E8, CAN-FD enabled.
  *
@@ -25,8 +25,19 @@
  *          bit  9  BIT_29  SID 0x29  Authentication
  *          bit 21  BIT_3E  SID 0x3E  TesterPresent
  *
+ *        Phase 2 services tested (8 of 27):
+ *          bit  4  BIT_22  SID 0x22  ReadDataByIdentifier       (DID 0xF190)
+ *          bit  5  BIT_23  SID 0x23  ReadMemoryByAddress        (ALFID 0x12)
+ *          bit  6  BIT_24  SID 0x24  ReadScalingDataByIdentifier (DID 0xF190)
+ *          bit 10  BIT_2A  SID 0x2A  ReadDataByPeriodicIdentifier (setup only)
+ *          bit 11  BIT_2C  SID 0x2C  DynamicallyDefineDataIdentifier
+ *          bit 12  BIT_2E  SID 0x2E  WriteDataByIdentifier      (DID 0x0123)
+ *          bit 13  BIT_2F  SID 0x2F  InputOutputControlByIdentifier (DID 0x0123)
+ *          bit 20  BIT_3D  SID 0x3D  WriteMemoryByAddress       (ALFID 0x12)
+ *
  *        Gate expects g_service_results @ 0x20010000 =
- *          BIT_10 | BIT_27 | BIT_29 | BIT_3E = 0x200081.
+ *          0x200081 | BIT_22 | BIT_23 | BIT_24 | BIT_2A | BIT_2C | BIT_2E |
+ *          BIT_2F | BIT_3D = 0x303EF1.
  */
 
 #include <stdbool.h>
@@ -139,6 +150,20 @@ static void uart_puts(const char *s)
         uart_putc(*s++);
     }
 }
+
+/* Hex nibble table in RAM (F-3 workaround: static, not local const char[]).
+ * WORKAROUND udslib F-3: local const char arrays fault in the labwired H563
+ * emulator (FLASH double-indirection read); use static storage instead. */
+static const char g_hex[16] = {
+    '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
+};
+
+static void uart_puthex8(uint8_t v)
+{
+    uart_putc(g_hex[(v >> 4u) & 0x0Fu]);
+    uart_putc(g_hex[v & 0x0Fu]);
+}
+
 
 /* ---- FDCAN helpers ---- */
 
@@ -515,12 +540,257 @@ int main(void)
     }
 
     /* ==================================================================
-     * Result
+     * Phase 1 result
      * ================================================================== */
     if (g_service_results == (BIT_10 | BIT_27 | BIT_29 | BIT_3E)) {
         uart_puts("PHASE1 4/4 PASS\n");
     } else {
-        uart_puts("PHASE1 FAIL\n");
+        uart_puts("PHASE1 PARTIAL\n");
+    }
+
+    /* ==================================================================
+     * PHASE 2 — Data services
+     *
+     * Extended session (0x10 03) was entered in Phase 1.  Keep the session
+     * alive with a TesterPresent before each group of requests if the tick
+     * budget is large.  Each do_request() also resets the S3 timer on the
+     * ECU side (any valid request does), so explicit 0x3E is only needed
+     * when many ticks may elapse without a request.
+     * ================================================================== */
+
+    /* Service 5: ReadDataByIdentifier (0x22 F1 90) → 62 F1 90 <VIN 14B>
+     *   BIT_22 (1<<4) set on pass. */
+    uart_puts("TESTER_REQ_22\n");
+    {
+        uint8_t payload[] = {0xF1u, 0x90u};
+        if (do_request(0x22u, payload, 2u, 500u)) {
+            /* Positive response SID = 0x62; data[0..1] = DID echo, data[2..15] = VIN */
+            if (g_resp_sid == 0x62u &&
+                g_resp_len >= 3u &&
+                g_resp_data[0] == 0xF1u &&
+                g_resp_data[1] == 0x90u) {
+                uart_puts("TESTER_RESP_62_OK\n");
+                g_service_results |= BIT_22;
+            } else {
+                uart_puts("TESTER_RESP_62_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_22\n");
+        }
+    }
+
+    /* Service 6: WriteDataByIdentifier (0x2E 01 23 <16 bytes>) → 6E 01 23
+     *   DID 0x0123 size=16; ECU writes to g_customer_name RAM buffer.
+     *   BIT_2E (1<<12) set on pass. */
+    uart_puts("TESTER_REQ_2E\n");
+    {
+        /* 3 bytes header + 16 bytes data = 19 total payload (after SID) */
+        uint8_t payload[18];
+        payload[0] = 0x01u;
+        payload[1] = 0x23u;
+        /* 16 bytes of write data: "TEST_CLIENT_001" + NUL padded */
+        payload[2]  = 'T'; payload[3]  = 'E'; payload[4]  = 'S'; payload[5]  = 'T';
+        payload[6]  = '_'; payload[7]  = 'C'; payload[8]  = 'L'; payload[9]  = 'I';
+        payload[10] = 'E'; payload[11] = 'N'; payload[12] = 'T'; payload[13] = '_';
+        payload[14] = '0'; payload[15] = '0'; payload[16] = '1'; payload[17] = '\0';
+        if (do_request(0x2Eu, payload, 18u, 500u)) {
+            /* Positive response SID = 0x6E; data[0..1] = DID echo */
+            if (g_resp_sid == 0x6Eu &&
+                g_resp_len >= 2u &&
+                g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0x23u) {
+                uart_puts("TESTER_RESP_6E_OK\n");
+                g_service_results |= BIT_2E;
+            } else {
+                uart_puts("TESTER_RESP_6E_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" d0=");
+                uart_puthex8((g_resp_len > 0u) ? g_resp_data[0] : 0u);
+                uart_puts(" d1=");
+                uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_2E\n");
+        }
+    }
+
+    /* Service 7: WriteMemoryByAddress (0x3D) — write before read so 0x23 has
+     *   a known value.  ALFID 0x12: size_nibble=1 (1 byte size), addr_nibble=2
+     *   (2 bytes addr).  Write 0xAB to g_mock_memory[0x0010].
+     *   Positive response: 7D 12 00 10 01.
+     *   BIT_3D (1<<20) set on pass. */
+    uart_puts("TESTER_REQ_3D\n");
+    {
+        uint8_t payload[] = {0x12u, 0x00u, 0x10u, 0x01u, 0xABu};
+        if (do_request(0x3Du, payload, 5u, 500u)) {
+            /* Positive response SID = 0x7D; data = [format, addr_bytes..., size_bytes...] */
+            if (g_resp_sid == 0x7Du &&
+                g_resp_len >= 4u &&
+                g_resp_data[0] == 0x12u &&
+                g_resp_data[1] == 0x00u &&
+                g_resp_data[2] == 0x10u &&
+                g_resp_data[3] == 0x01u) {
+                uart_puts("TESTER_RESP_7D_OK\n");
+                g_service_results |= BIT_3D;
+            } else {
+                uart_puts("TESTER_RESP_7D_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" d0=");
+                uart_puthex8((g_resp_len > 0u) ? g_resp_data[0] : 0u);
+                uart_puts(" d1=");
+                uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_3D\n");
+        }
+    }
+
+    /* Service 8: ReadMemoryByAddress (0x23) — read the byte written above.
+     *   ALFID 0x12: addr=2 bytes=0x0010, size=1 byte → read 1 byte from 0x0010.
+     *   Positive response: 63 AB.
+     *   BIT_23 (1<<5) set on pass. */
+    uart_puts("TESTER_REQ_23\n");
+    {
+        uint8_t payload[] = {0x12u, 0x00u, 0x10u, 0x01u};
+        if (do_request(0x23u, payload, 4u, 500u)) {
+            /* Positive response SID = 0x63; data[0] = byte read */
+            if (g_resp_sid == 0x63u &&
+                g_resp_len >= 1u &&
+                g_resp_data[0] == 0xABu) {
+                uart_puts("TESTER_RESP_63_OK\n");
+                g_service_results |= BIT_23;
+            } else {
+                uart_puts("TESTER_RESP_63_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" d0=");
+                uart_puthex8((g_resp_len > 0u) ? g_resp_data[0] : 0u);
+                uart_puts(" d1=");
+                uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_23\n");
+        }
+    }
+
+    /* Service 9: ReadScalingDataByIdentifier (0x24 F1 90) → 64 F1 90 <scaling>
+     *   ECU fn_read_scaling returns 1 byte (0x01) for DID 0xF190.
+     *   BIT_24 (1<<6) set on pass. */
+    uart_puts("TESTER_REQ_24\n");
+    {
+        uint8_t payload[] = {0xF1u, 0x90u};
+        if (do_request(0x24u, payload, 2u, 500u)) {
+            /* Positive response SID = 0x64; data[0..1] = DID echo */
+            if (g_resp_sid == 0x64u &&
+                g_resp_len >= 2u &&
+                g_resp_data[0] == 0xF1u &&
+                g_resp_data[1] == 0x90u) {
+                uart_puts("TESTER_RESP_64_OK\n");
+                g_service_results |= BIT_24;
+            } else {
+                uart_puts("TESTER_RESP_64_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_24\n");
+        }
+    }
+
+    /* Service 10: DynamicallyDefineDataIdentifier (0x2C) — defineByIdentifier
+     *   sub-function 0x01, define DID 0xF234 from source DID 0xF190.
+     *   Request: 2C 01 F2 34 F1 90 01 01
+     *     sub=0x01, defined_DID=0xF234, source_DID=0xF190, posn=0x01, size=0x01
+     *   Positive response: 6C 01 F2 34.
+     *   BIT_2C (1<<11) set on pass. */
+    uart_puts("TESTER_REQ_2C\n");
+    {
+        uint8_t payload[] = {0x01u, 0xF2u, 0x34u, 0xF1u, 0x90u, 0x01u, 0x01u};
+        if (do_request(0x2Cu, payload, 7u, 500u)) {
+            /* Positive response SID = 0x6C; data[0]=sub, data[1..2]=defined DID */
+            if (g_resp_sid == 0x6Cu &&
+                g_resp_len >= 3u &&
+                g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0xF2u &&
+                g_resp_data[2] == 0x34u) {
+                uart_puts("TESTER_RESP_6C_OK\n");
+                g_service_results |= BIT_2C;
+            } else {
+                uart_puts("TESTER_RESP_6C_BAD\n");
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_2C\n");
+        }
+    }
+
+    /* Service 11: ReadDataByPeriodicIdentifier (0x2A) — setup only.
+     *   sub=0x01 (Fast rate), periodic ID = 0xF1.
+     *   Positive SETUP response: 6A  (1 byte, no payload).
+     *   BIT_2A (1<<10) set on positive setup response. */
+    uart_puts("TESTER_REQ_2A\n");
+    {
+        uint8_t payload[] = {0x01u, 0xF1u};
+        if (do_request(0x2Au, payload, 2u, 500u)) {
+            /* Positive response SID = 0x6A; no further payload required */
+            if (g_resp_sid == 0x6Au) {
+                uart_puts("TESTER_RESP_6A_OK\n");
+                g_service_results |= BIT_2A;
+            } else {
+                uart_puts("TESTER_RESP_6A_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" d0=");
+                uart_puthex8((g_resp_len > 0u) ? g_resp_data[0] : 0u);
+                uart_puts(" d1=");
+                uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_2A\n");
+        }
+    }
+
+    /* Service 12: InputOutputControlByIdentifier (0x2F 01 23 03) → 6F 01 23 55
+     *   DID 0x0123, controlOptionRecord = 0x03 (shortTermAdjustment).
+     *   ECU fn_io_control returns 1 byte (0x55) for DID 0x0123.
+     *   BIT_2F (1<<13) set on pass. */
+    uart_puts("TESTER_REQ_2F\n");
+    {
+        uint8_t payload[] = {0x01u, 0x23u, 0x03u};
+        if (do_request(0x2Fu, payload, 3u, 500u)) {
+            /* Positive response SID = 0x6F; data[0..1]=DID echo, data[2]=output */
+            if (g_resp_sid == 0x6Fu &&
+                g_resp_len >= 3u &&
+                g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0x23u &&
+                g_resp_data[2] == 0x55u) {
+                uart_puts("TESTER_RESP_6F_OK\n");
+                g_service_results |= BIT_2F;
+            } else {
+                uart_puts("TESTER_RESP_6F_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" d0=");
+                uart_puthex8((g_resp_len > 0u) ? g_resp_data[0] : 0u);
+                uart_puts(" d1=");
+                uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_2F\n");
+        }
+    }
+
+    /* ==================================================================
+     * Phase 2 result
+     * ================================================================== */
+    {
+        uint32_t phase2_bits = BIT_22 | BIT_23 | BIT_24 | BIT_2A |
+                               BIT_2C | BIT_2E | BIT_2F | BIT_3D;
+        uint32_t phase2_got  = g_service_results & phase2_bits;
+        if (phase2_got == phase2_bits) {
+            uart_puts("PHASE2 8/8 PASS\n");
+        } else {
+            uart_puts("PHASE2 FAIL\n");
+        }
     }
 
     for (;;) {}

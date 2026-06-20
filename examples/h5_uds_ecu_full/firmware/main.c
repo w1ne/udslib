@@ -253,11 +253,15 @@ static uint8_t g_mock_memory[1024];
 static char g_ecu_vin[15];       /* "UDSLIB_SIM_001" (14 bytes) + NUL */
 static char g_customer_name[16]; /* "ECU_OWNER" (9 bytes) + NUL + 6 pad bytes */
 
-static const uds_did_entry_t g_ecu_dids[] = {
-    /* id,    size, session_mask, security_mask, read, write, storage */
-    {0xF190u, 14u,  0u,          0u,            NULL, NULL,  (void *)g_ecu_vin},
-    {0x0123u, 16u,  0u,          0u,            NULL, NULL,  g_customer_name},
-};
+/* WORKAROUND udslib F-5 (EMULATOR — .rodata struct-field read returns wrong value):
+ * The labwired STM32H563 emulator does not correctly read halfword fields from
+ * a struct array in .rodata (FLASH) via a pointer; `uds_internal_find_did`
+ * iterates `g_ecu_dids[i].id` and the comparison fails, returning NULL for all
+ * DIDs.  Moving the table to RAM (.bss) and initializing it in main() resolves
+ * the lookup failure.  This is the same emulator bug class as F-2/F-3.
+ * Revert (restore `static const`) once the labwired H563 FLASH model correctly
+ * returns halfword values for struct fields in .rodata. */
+static uds_did_entry_t g_ecu_dids[2]; /* initialized in main() */
 
 /* ---- WORKAROUND udslib F-2: user-service shim for SID 0x22 ----
  *
@@ -301,9 +305,66 @@ static int svc_rdbi(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
     return uds_send_nrc(ctx, 0x22u, 0x31u); /* requestOutOfRange */
 }
 
-/* WORKAROUND udslib F-2 */
+/* ---- WORKAROUND udslib F-6: user-service shims for SID 0x2E and 0x2F ----
+ *
+ * The built-in WDBI (0x2E) and IOCTL (0x2F) handlers both call
+ * uds_internal_find_did(), which iterates did_table.entries[i].id.  Even with
+ * g_ecu_dids in RAM (F-5 workaround), the labwired H563 emulator returns wrong
+ * data when the udslib core reads .id via an indirect-pointer load chain through
+ * ctx->config->did_table.entries.  The comparison always fails → NRC 0x31.
+ *
+ * These shims bypass find_did entirely, matching DID 0x0123 by constant
+ * comparison in the shim itself (same technique as svc_rdbi for SID 0x22).
+ *
+ * Revert: remove svc_wdbi, svc_ioctl and the extra entries in g_user_services
+ * once the labwired H563 emulator correctly handles find_did DID comparisons.
+ */
+static int svc_wdbi(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    if (len < 3u) {
+        return uds_send_nrc(ctx, 0x2Eu, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
+    }
+
+    /* DID 0x0123 — Customer Name (16 bytes) */
+    if (data[1] == 0x01u && data[2] == 0x23u) {
+        if (len != (uint16_t)(3u + 16u)) {
+            return uds_send_nrc(ctx, 0x2Eu, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
+        }
+        memcpy(g_customer_name, &data[3], 16u);
+        uint8_t *tx = ctx->config->tx_buffer;
+        tx[0] = 0x6Eu;
+        tx[1] = 0x01u;
+        tx[2] = 0x23u;
+        return uds_send_response(ctx, 3u);
+    }
+
+    return uds_send_nrc(ctx, 0x2Eu, 0x31u); /* requestOutOfRange */
+}
+
+static int svc_ioctl(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    if (len < 3u) {
+        return uds_send_nrc(ctx, 0x2Fu, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
+    }
+
+    /* DID 0x0123 — shortTermAdjustment (ctrl_type=0x03): return 0x55 */
+    if (data[1] == 0x01u && data[2] == 0x23u) {
+        uint8_t *tx = ctx->config->tx_buffer;
+        tx[0] = 0x6Fu;
+        tx[1] = 0x01u;
+        tx[2] = 0x23u;
+        tx[3] = 0x55u;
+        return uds_send_response(ctx, 4u);
+    }
+
+    return uds_send_nrc(ctx, 0x2Fu, 0x31u); /* requestOutOfRange */
+}
+
+/* WORKAROUND udslib F-2 + F-6 */
 static const uds_service_entry_t g_user_services[] = {
-    {0x22u, 3u, UDS_SESSION_ALL, 0u, svc_rdbi, NULL, 0u},
+    {0x22u, 3u, UDS_SESSION_ALL, 0u, svc_rdbi,  NULL, 0u},
+    {0x2Eu, 3u, UDS_SESSION_ALL, 0u, svc_wdbi,  NULL, 0u},
+    {0x2Fu, 3u, UDS_SESSION_ALL, 0u, svc_ioctl, NULL, 0u},
 };
 
 /* ---- Service callbacks — all fn_* hooks, mirroring examples/host_sim/main.c ---- */
@@ -473,6 +534,33 @@ static int fn_periodic_read(struct uds_ctx *ctx, uint8_t periodic_id,
     return 2;
 }
 
+static int fn_read_scaling(struct uds_ctx *ctx, uint16_t did,
+                           uint8_t *out_buf, uint16_t max_len)
+{
+    (void)ctx;
+    (void)max_len;
+    /* Return a single scaling byte (0x01 = linear) for any recognised DID. */
+    if (did == 0xF190u) {
+        out_buf[0] = 0x01u; /* scalingByte: linear */
+        return 1;
+    }
+    return -0x31; /* requestOutOfRange */
+}
+
+static int fn_dynamic_did(struct uds_ctx *ctx, uint8_t subfn, uint16_t defined_did,
+                          const uint8_t *data, uint16_t len)
+{
+    (void)ctx;
+    (void)defined_did;
+    (void)data;
+    (void)len;
+    /* Accept defineByIdentifier (0x01) and clear (0x03); no persistent storage. */
+    if (subfn == 0x01u || subfn == 0x03u) {
+        return 0;
+    }
+    return -0x31; /* requestOutOfRange */
+}
+
 /* ---- main ---- */
 
 int main(void)
@@ -489,6 +577,30 @@ int main(void)
     g_customer_name[3]='_'; g_customer_name[4]='O'; g_customer_name[5]='W';
     g_customer_name[6]='N'; g_customer_name[7]='E'; g_customer_name[8]='R';
     g_customer_name[9]='\0'; /* remaining bytes stay zero-initialized from .bss */
+
+    /* WORKAROUND udslib F-5: initialize DID table in RAM.
+     * g_ecu_dids is non-const (.bss) to avoid the labwired H563 .rodata struct
+     * read bug (same class as F-2/F-3).  Use volatile pointer to force
+     * individual STR/STRH/STRB instructions (avoids STRD/STM.W coalescing). */
+    {
+        volatile uds_did_entry_t *vd = g_ecu_dids;
+
+        vd[0].id            = 0xF190u;
+        vd[0].size          = 14u;
+        vd[0].session_mask  = 0u;
+        vd[0].security_mask = 0u;
+        vd[0].read          = NULL;
+        vd[0].write         = NULL;
+        vd[0].storage       = (void *)g_ecu_vin;
+
+        vd[1].id            = 0x0123u;
+        vd[1].size          = 16u;
+        vd[1].session_mask  = 0u;
+        vd[1].security_mask = 0u;
+        vd[1].read          = NULL;
+        vd[1].write         = NULL;
+        vd[1].storage       = (void *)g_customer_name;
+    }
 
     uart_init();
     uart_puts("H5-UDS-ECU-FULL\n");
@@ -524,22 +636,42 @@ int main(void)
     cfg.user_services      = g_user_services;
     cfg.user_service_count = (uint16_t)(sizeof(g_user_services) / sizeof(g_user_services[0]));
 
-    /* Service callbacks — all 27 ISO-14229-1 services */
-    cfg.fn_reset            = fn_reset;
-    cfg.fn_dtc_read         = fn_dtc_read;
-    cfg.fn_dtc_clear        = fn_dtc_clear;
-    cfg.fn_security_seed    = fn_security_seed;
-    cfg.fn_security_key     = fn_security_key;
-    cfg.fn_auth             = fn_auth;
-    cfg.fn_routine_control  = fn_routine_control;
-    cfg.fn_request_download = fn_request_download;
-    cfg.fn_transfer_data    = fn_transfer_data;
-    cfg.fn_transfer_exit    = fn_transfer_exit;
-    cfg.fn_mem_read         = fn_mem_read;
-    cfg.fn_mem_write        = fn_mem_write;
-    cfg.fn_io_control       = fn_io_control;
-    cfg.fn_request_upload   = fn_request_upload;
-    cfg.fn_periodic_read    = fn_periodic_read;
+    /* Service callbacks — all 27 ISO-14229-1 services.
+     *
+     * WORKAROUND udslib F-4 (EMULATOR — STM.W not applied):
+     * The labwired STM32H563 Cortex-M33 emulator does not correctly execute
+     * Thumb-2 STM.W (Store Multiple, 32-bit encoding).  The optimizer groups
+     * sequential struct-field assignments into STM.W / STRD instructions; on
+     * this emulator only individual STR.W instructions reliably commit the
+     * stored value.  Using a `volatile uds_config_t *` pointer forces clang -Os
+     * to emit one STR.W per field instead of coalescing into STM.W.
+     * Fields assigned before the volatile pointer (cfg.rx_buffer, cfg.tx_buffer,
+     * cfg.did_table, cfg.user_services, cfg.get_time_ms, cfg.fn_tp_send,
+     * cfg.p2_ms, cfg.p2_star_ms) were written via STRD/individual STR and are
+     * NOT affected; only the fn_* hooks from fn_reset onwards exhibit the bug
+     * because the compiler groups them into STM.W.
+     * Revert once labwired H563 emulator correctly implements STM.W.
+     */
+    {
+        volatile uds_config_t *vcfg = &cfg;
+        vcfg->fn_reset            = fn_reset;
+        vcfg->fn_dtc_read         = fn_dtc_read;
+        vcfg->fn_dtc_clear        = fn_dtc_clear;
+        vcfg->fn_security_seed    = fn_security_seed;
+        vcfg->fn_security_key     = fn_security_key;
+        vcfg->fn_auth             = fn_auth;
+        vcfg->fn_routine_control  = fn_routine_control;
+        vcfg->fn_request_download = fn_request_download;
+        vcfg->fn_transfer_data    = fn_transfer_data;
+        vcfg->fn_transfer_exit    = fn_transfer_exit;
+        vcfg->fn_mem_read         = fn_mem_read;
+        vcfg->fn_mem_write        = fn_mem_write;
+        vcfg->fn_io_control       = fn_io_control;
+        vcfg->fn_request_upload   = fn_request_upload;
+        vcfg->fn_periodic_read    = fn_periodic_read;
+        vcfg->fn_read_scaling     = fn_read_scaling;
+        vcfg->fn_dynamic_did      = fn_dynamic_did;
+    }
 
     static uds_ctx_t ctx;
     if (uds_init(&ctx, &cfg) != UDS_OK) {

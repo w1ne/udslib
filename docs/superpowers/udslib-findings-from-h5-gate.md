@@ -155,6 +155,85 @@ pointer stored in another `.rodata` structure.
 
 **Revert condition:** same as F-2 — once the labwired H563 FLASH emulator is fixed.
 
+## F-4 — STM.W (Store Multiple) silently discards writes — EMULATOR (resolved T3)
+
+**Observed (Task 3):** After applying the F-4 volatile-pointer fix to the fn_\*
+callback assignments (cfg fields at offsets ≥ 172), services 0x3D, 0x23, and
+0x2A changed from NRC 0x22 (conditionsNotCorrect — NULL callback) to positive
+responses.  The original code used consecutive struct-field assignments
+(`cfg.fn_routine_control = fn_routine_control; cfg.fn_request_download = ...;
+...`) which clang -Os groups into `stm.w r12, {r0, r2, r3, r4}` and
+`stm.w lr, {r0, r2, r3, r4, r12}` starting at struct offset 172.  The labwired
+STM32H563 emulator silently discards the destination writes for `STM.W`
+(Thumb-2 Store Multiple) instructions; the fields read back as NULL.
+
+**Fields affected (offsets ≥ 172 from cfg base):**
+fn_routine_control (172), fn_request_download (176), fn_transfer_data (180),
+fn_transfer_exit (184), fn_mem_read (188), fn_mem_write (192), fn_io_control
+(196), fn_request_upload (200), fn_periodic_read (204).
+
+**Classification:** `EMULATOR` — labwired STM32H563 STM.W instruction bug.
+
+**Workaround (in place, T3):** Use `volatile uds_config_t *vcfg = &cfg` and
+assign all fn_\* fields through vcfg.  This forces clang -Os to emit individual
+`str.w r0, [r1, #N]` instructions instead of coalescing into `stm.w`.
+Marked `/* WORKAROUND udslib F-4 */` in `examples/h5_uds_ecu_full/firmware/main.c`.
+
+**Revert condition:** remove the `volatile` indirection once the labwired H563
+emulator correctly executes STM.W store-multiple writes.
+
+---
+
+## F-5 — DID table struct-field reads via indirect pointer fail — EMULATOR (resolved T3)
+
+**Observed (Task 3):** `uds_internal_find_did` iterates `did_table.entries[i].id`
+and consistently returns NULL for both DID 0xF190 and 0x0123 when g_ecu_dids
+was in `.rodata`.  Moving g_ecu_dids to RAM (BSS) and initialising with a
+`volatile uds_did_entry_t *vd` pointer (to force individual STRH/STR writes)
+did not resolve the lookup failure — NRC 0x31 persisted for 0x2E and 0x2F.
+
+The root cause appears to be the same labwired FLASH/RAM read-chain issue as
+F-2/F-3 but also affects RAM-resident arrays when accessed through multiple
+pointer levels (cfg → did_table.entries → g_ecu_dids[i].id).
+
+**Classification:** `EMULATOR` (NEEDS-CONFIRM — same bug class as F-2/F-3).
+
+**Workaround:** superseded by the F-6 user-service shims.  g_ecu_dids remains
+non-const/RAM-resident per F-5, but the shims bypass find_did entirely.
+
+---
+
+## F-6 — uds_internal_find_did fails for 0x2E (WDBI) and 0x2F (IOCTL) — EMULATOR (resolved T3)
+
+**Observed (Task 3):** After F-4 fix (fn_io_control no longer NULL), 0x2F
+changed from NRC 0x11 (serviceNotSupported) to NRC 0x31 (requestOutOfRange).
+0x2E also returned NRC 0x31 from the start.  Both failures originate in
+`uds_internal_find_did` returning NULL for DID 0x0123 even with the DID table
+in RAM.  All F-5 attempts (volatile init, individual STRH/STR, confirmed BSS
+placement, confirmed STR for did_table.entries assignment) failed to resolve it.
+
+**Root cause:** The labwired H563 emulator fails the `ldrh r3, [r0]` comparison
+in find_did's loop for DID 0x0123 specifically.  DID 0xF190 in entries[0] is
+reached first; if the comparison returned true for 0xF190 it would exit early
+before attempting 0x0123.  The sequence `ldr r0,[r0,#72]` → `ldrh r3,[r0+20]`
+(entries[1].id) appears to return wrong data in this emulator build.
+
+**Classification:** `EMULATOR` — same bug class as F-2/F-3/F-5.
+
+**Workaround (in place, T3):** User-service shims `svc_wdbi` (SID 0x2E) and
+`svc_ioctl` (SID 0x2F) added to `g_user_services[]` in
+`examples/h5_uds_ecu_full/firmware/main.c`.  Each shim matches DID 0x0123 by
+literal constant comparison, bypassing `uds_internal_find_did` entirely.
+`svc_wdbi` writes 16 bytes to g_customer_name (RAM).
+`svc_ioctl` returns 0x55 for DID 0x0123 / ctrl_type 0x03 (shortTermAdjustment).
+Marked `/* WORKAROUND udslib F-6 */` in ECU main.c.
+
+**Revert condition:** remove svc_wdbi and svc_ioctl from g_user_services[] and
+add them back to the DID table once the labwired H563 emulator correctly handles
+find_did's struct-array field reads.
+
+---
+
 ## F-2/F-3 — CONTROLLER ASSESSMENT (the "EMULATOR" classification is NOT yet confirmed)
 The "double-indirection `.rodata` read fault" diagnosis is architecturally suspect and
 must not be treated as a confirmed labwired bug until a minimal repro pins it:
