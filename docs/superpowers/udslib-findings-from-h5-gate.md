@@ -10,7 +10,37 @@ udslib fix) · `EMULATOR` (labwired-side) · `NEEDS-CONFIRM` (not yet pinned).
 
 ---
 
-## F-1 — `uds_client_request` send fails on the tester — CONFIRMED EMULATOR BUG
+## F-1 — `uds_client_request` send fails on the tester — NOT EMULATOR (disproven by minimal repro)
+
+**FINAL STATUS: NOT an emulator bug. Real cause is firmware/udslib-side, not yet isolated. Workaround retained (functional).**
+
+**Definitive repro (labwired-core, `.superpowers/sdd/fnptr-repro-report.md`):** a minimal
+firmware calling a 3-arg function pointer through a struct field with value `0x1234`:
+| call | result |
+|---|---|
+| direct `BL` | `0x1234` |
+| struct-field indirect `BLX` | `0x1234` |
+| local-ptr indirect `BLX` | `0x1234` |
+Disassembly: `movw r2,#4660` before each `blx r3`; the emulator delivers `r2` in ALL
+cases. **The emulator does NOT drop r2.** The "EMULATOR drops r2" diagnosis below is
+FALSE.
+
+**So the tester's `len=0` is firmware/udslib-side.** Candidates (revisit when not
+mid-T3): `(uint16_t)(len+1u)` overflow if a caller passes `len=0xFFFF`; a
+prototype/signature mismatch at the tester call site (e.g. `uds_core.h` not in scope so
+the compiler assumes `int` args and misplaces the `uint16_t`/callback); or the T2/T3
+instrumentation itself misread the value. The workaround (direct `uds_isotp_send` BL)
+works and the gate is green — so this is a QUALITY follow-up, not a blocker. Re-isolate
+the real cause and remove the workaround once the tester firmware is otherwise stable.
+
+> META: F-1, F-2, F-3 were all classified "EMULATOR" by the implementing agents. F-1 is
+> now DISPROVEN. Treat F-2/F-3 ("double-indirection .rodata FLASH fault") as
+> NEEDS-CONFIRM / likely-firmware too (probable `uds_did_entry_t` struct-layout mismatch
+> — see the F-2/F-3 controller assessment below). A dedicated root-cause pass should
+> revisit all three; the labwired H563 emulator has shown NO confirmed defect.
+
+--- original "CONFIRMED EMULATOR BUG" writeup (retained, but DISPROVEN above) ---
+### (former) F-1 — CONFIRMED EMULATOR BUG
 
 **Status: EMULATOR-SUSPECTED (instrumented len=0, but root cause NOT fully closed).**
 The instrumented `TP_SEND_LEN=0000` is compelling, but one thing is unexplained and
