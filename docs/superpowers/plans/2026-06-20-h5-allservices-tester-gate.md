@@ -141,6 +141,20 @@ git commit -m "spike: minimal 2-service dual-H5 cross-node sweep over virtual CA
 
 ---
 
+### Task 9: labwired showcase article — "Run a full ECU UDS check with no hardware" (post-gate, content)
+
+**Do this ONLY after the gate is green (Task 6/7).** A marketing/content showcase for **labwired** demonstrating its core pitch: run a *real* udslib UDS stack across two virtual STM32H5 ECUs over a *simulated* CAN network and get a full 27-service ECU diagnostic check — zero CAN hardware, no PCAN, runs in CI. This is a labwired artifact, not udslib code.
+
+**Files:** authored in the **labwired blog/landing repo** via the editor tool (`labwired.com/editor.html` → exports `blog/<slug>.html`). NOT in udslib.
+
+- [ ] **Step 1 — capture real evidence:** run the green gate and capture the headless output (`27/27 PASS`, exit 0); optionally open the run in the labwired UI and capture the two-node CAN traffic / FDCAN waveform as figures. Figures MUST be real captures from the passing run — never fabricated.
+- [ ] **Step 2 — draft (human-sounding):** narrative arc — the problem (UDS/ECU testing normally needs CAN hardware + tools like PCAN), the labwired approach (two virtual H5s + a virtual CAN bus + real udslib firmware, all headless in CI), the payoff (a full 27-service ECU check, nightly, $0 hardware). Reference udslib as the open ISO-14229 stack under test. Write it human — no AI templating.
+- [ ] **Step 3 — hand to user for review; DO NOT auto-publish.** No website deploy without the user's visual inspection of the rendered page. Iterate on the draft per feedback.
+
+**Constraints:** human-sounding prose, hand-drafted to the user, never auto-published; figures are real captures from the green run/UI; use the labwired editor tool; this task is content/showcase and is explicitly outside the CI gate's correctness scope.
+
+---
+
 ## Self-Review
 
 **Spec coverage:** §3 B1→Task 1; B2→Tasks 2-6 (+service_bits.h); B3→Task 7; B4→Task 8. §4 A-dependency→Global Constraints + Task 0 + Task 8. §5 data flow→Tasks 2-6. §2 reuse (host_sim/test_full_sequence)→referenced per task. Task 0 spike (de-risk) front-loaded. The 27-bit mask `0x07FFFFFF` and per-service bit layout are pinned in Global Constraints and consumed identically by Tasks 2-6 and the gate YAML.
