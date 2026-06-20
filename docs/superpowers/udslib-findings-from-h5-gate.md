@@ -87,6 +87,25 @@ pointer stored in another `.rodata` structure.
 
 **Revert condition:** same as F-2 — once the labwired H563 FLASH emulator is fixed.
 
+## F-2/F-3 — CONTROLLER ASSESSMENT (the "EMULATOR" classification is NOT yet confirmed)
+The "double-indirection `.rodata` read fault" diagnosis is architecturally suspect and
+must not be treated as a confirmed labwired bug until a minimal repro pins it:
+- **Counter-evidence:** the firmware's `uart_puts(const char*)` reads `.rodata` string
+  data via a pointer and works. The emulator models *load instructions*, not
+  "indirection levels"; if single `.rodata`-via-pointer reads work and reading a
+  pointer-width value from `.rodata` works, the combined memcpy should too.
+- **More likely real cause:** a `uds_did_entry_t` STRUCT-LAYOUT mismatch — the
+  firmware's initializer vs the CURRENT udslib header (the sibling `uds_service_entry_t`
+  recently gained a 7th field `address_mode`; if `uds_did_entry_t` shifted similarly,
+  `.storage` is read from the wrong offset → garbage pointer → fault). That is a
+  firmware/version bug, fixable in the example, NOT an emulator defect.
+- **Action (deferred, do NOT block B):** a focused repro — (a) print
+  `sizeof(uds_did_entry_t)` and `offsetof(.storage)` from the firmware and compare to
+  the current header; (b) try the built-in path with the DID struct + VIN in RAM vs
+  `.rodata` to isolate whether it's layout or genuinely the FLASH model. Only if (a)
+  matches and (b) still faults from `.rodata` is this a real labwired H563 FLASH bug
+  (then open a labwired-core finding). Until then this stays NEEDS-CONFIRM, not EMULATOR.
+
 ---
 
 ## Hand-rolled workarounds currently in the tree (Task 1) — REVERT when emulator fixed
