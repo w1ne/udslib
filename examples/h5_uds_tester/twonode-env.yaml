@@ -1,0 +1,13 @@
+name: "h5-uds-twonode"
+nodes:
+  - id: "tester"
+    system: "/home/andrii/projects/udslib-h5-gate/examples/h5_uds_tester/system.yaml"
+    firmware: "/home/andrii/projects/udslib-h5-gate/examples/h5_uds_tester/firmware/build/h5_uds_tester.elf"
+  - id: "ecu"
+    system: "/home/andrii/projects/udslib-h5-gate/examples/h5_uds_ecu_full/system.yaml"
+    firmware: "/home/andrii/projects/udslib-h5-gate/examples/h5_uds_ecu_full/firmware/build/h5_uds_ecu_full.elf"
+interconnects:
+  - type: "can_bus"
+    nodes: ["tester", "ecu"]
+    config:
+      peripheral: "fdcan1"

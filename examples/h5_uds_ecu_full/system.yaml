@@ -1,0 +1,4 @@
+name: "h5-uds-ecu-full"
+chip: "/home/andrii/projects/labwired/.worktrees/core-fdcan-multinode/configs/chips/stm32h563.yaml"
+external_devices: []
+board_io: []
