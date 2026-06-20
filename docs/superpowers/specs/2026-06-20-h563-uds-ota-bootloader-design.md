@@ -63,7 +63,8 @@ Bank 1 @0x08000000           Bank 2 @0x08100000
 | `bootloader/main.c` | udslib server: `restrict_sessions`, flash service (0x34/36/37/31), 0x27 AES-CMAC, 0x10/0x11/0x3E; validity check; jump-to-app (set MSP, VTOR, branch) | udslib, mbedTLS |
 | `app/` | tiny demo app (LED + a 0x22 DID returning "A"/"B"), linked at the app offset, carries a validity footer | — |
 | `host/flash_tool.c` | extends the `pro_flash_tool` flow over SocketCAN (vcan in CI, PCAN for the reporter); takes a `.bin`, computes CRC | udslib client |
-| `labwired-core/examples/h563-uds-bootloader/` | thin sim harness: builds the bootloader ELF and runs the FDCAN OTA loop end-to-end as a CI smoke test | labwired H563 model |
+| `labwired-core` FLASH model (`crates/core/src/peripherals/flash.rs`) | extend the H5 branch with NSCR program/erase (mutating flash bytes), OPTSR_PRG `SWAP_BANK` + `OBL_LAUNCH`, and reset-time bank remap | labwired memory bus, loader, reset |
+| `labwired-core/examples/h563-uds-bootloader/` | thin sim harness: builds the bootloader ELF and runs the FDCAN OTA loop end-to-end (incl. swap + jump) as a CI smoke test | labwired H563 model (extended) |
 
 Each unit has a single clear purpose and a narrow interface: the flash driver
 exposes program/erase/swap; the transport exposes send/receive frames; main
@@ -101,10 +102,16 @@ SF/FF/CF framing. Enabled via `uds_tp_isotp_set_can_fd(1)`. No TP changes needed
 
 ## Validation matrix
 
+> **Note:** labwired's stock H5 FLASH model is interface-registers-only
+> (`crates/core/src/peripherals/flash.rs:50` — "program/erase is not modeled").
+> We extend it (Plan A) so the sim can validate the full loop, then cross-check
+> the model's behaviour against the real H563 over SWD.
+
 | Aspect | Where | How |
 |---|---|---|
-| Transport + bank swap + jump | labwired H563 sim | CI smoke test: full loop, assert App B runs after swap; bad-CRC test asserts rollback |
-| Flash driver (program/erase/read-back), `SWAP_BANK` + reset | real H563 | SWD via probe-rs / openocd |
+| Flash program/erase + `SWAP_BANK` + bank remap on reset | labwired H5 model | Rust unit tests in `flash.rs` (Plan A) |
+| Transport + bank swap + jump (full loop) | labwired H563 sim | CI smoke test: full loop, assert App B runs after swap; bad-CRC test asserts rollback (Plan B) |
+| Flash driver (program/erase/read-back), `SWAP_BANK` + reset on silicon | real H563 | SWD via probe-rs / openocd; cross-checks the sim model |
 | Host flash tool | CI | driven against `vcan0` |
 | Real firmware over real CAN wire | reporter only | documented as reporter-validated (no local PCAN) |
 
@@ -127,8 +134,21 @@ labwired-core/examples/h563-uds-bootloader/
 - Production key management / secure boot chain (the example shows the hook;
   real key provisioning is the integrator's responsibility).
 
-## Open item to confirm during planning
+## Implementation: two plans
 
-The exact toolchain/build pattern used by the existing
-`labwired-core/examples/h563-uds-ecu`, so the bootloader firmware builds and
-sim-runs the same way.
+Because the labwired flash-model work is an independently testable subsystem and
+a prerequisite for the sim validation, implementation is split:
+
+- **Plan A — labwired-core H5 flash program/erase + bank swap.** Extend
+  `crates/core/src/peripherals/flash.rs`; Rust unit tests; no udslib dependency.
+- **Plan B — udslib H563 UDS OTA bootloader example.** Bootloader firmware, demo
+  app, SocketCAN host tool, and the labwired sim harness. Depends on Plan A.
+
+## Resolved during planning
+
+- **Build/toolchain:** mirror `examples/h563-uds-ecu` — clang
+  `--target=arm-none-eabi -mcpu=cortex-m33 -mthumb`, `rust-lld` linker, udslib
+  sources compiled directly from `UDSLIB_DIR`; `system.yaml` + a `*-smoke.yaml`
+  asserting UART output strings; run via `cargo run -p labwired-cli -- test`.
+- **ISO-TP FD API:** `uds_tp_isotp_init(can_send, tx_id, rx_id)` +
+  `uds_tp_isotp_set_fd(true)` (public name confirmed in the existing example).
