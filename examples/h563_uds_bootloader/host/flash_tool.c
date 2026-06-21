@@ -69,6 +69,10 @@ static uint8_t canfd_round_len(uint16_t n)
 {
     static const uint8_t dlc_sizes[] = {0, 1, 2, 3, 4, 5, 6, 7, 8,
                                          12, 16, 20, 24, 32, 48, 64};
+    /* Guard: zero-length payload must still produce a valid 1-byte frame */
+    if (n == 0u) {
+        n = 1u;
+    }
     for (int i = 0; i < 16; i++) {
         if ((uint16_t)dlc_sizes[i] >= n) {
             return dlc_sizes[i];
@@ -198,13 +202,85 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
         fprintf(stderr, "isotp_send: FC PCI wrong: 0x%02X\n", fc_frame.data[0]);
         return -1;
     }
-    /* Parse FC: data[1]=block_size (0=no limit), data[2]=ST_min (ignored here) */
-    /* uint8_t block_size = fc_frame.data[1]; */
 
-    /* Send Consecutive Frames */
-    uint16_t sent = ff_data;
-    uint8_t  sn   = 1u;
+    /*
+     * Parse Flow Control fields (ISO 15765-2 §9.8.4):
+     *   data[0] & 0x0F = FS  (0=ContinueToSend, 1=Wait, 2=Overflow)
+     *   data[1]        = BlockSize (0 = send all CFs without waiting for another FC)
+     *   data[2]        = STmin
+     *
+     * STmin decode (ISO 15765-2 Table 6):
+     *   0x00-0x7F : 0-127 ms
+     *   0xF1-0xF9 : 100-900 µs (in 100 µs steps)
+     *   other     : treat as 0 (undefined, be conservative)
+     */
+    uint8_t fc_fs         = fc_frame.data[0] & 0x0Fu;
+    uint8_t fc_block_size = fc_frame.data[1];
+    uint8_t fc_stmin_raw  = fc_frame.data[2];
+    unsigned int stmin_us;   /* inter-CF gap in microseconds */
+
+    if (fc_fs == 2u) {
+        fprintf(stderr, "isotp_send: FC Overflow — ECU cannot receive\n");
+        return -1;
+    }
+    /* fc_fs == 1 (Wait) is handled per-FC receive below */
+
+    if (fc_stmin_raw <= 0x7Fu) {
+        stmin_us = (unsigned int)fc_stmin_raw * 1000u; /* ms → µs */
+    } else if (fc_stmin_raw >= 0xF1u && fc_stmin_raw <= 0xF9u) {
+        stmin_us = (unsigned int)(fc_stmin_raw - 0xF0u) * 100u; /* 100-900 µs */
+    } else {
+        stmin_us = 0u; /* reserved range — treat as 0 */
+    }
+
+    /* Send Consecutive Frames, respecting block_size and STmin */
+    uint16_t sent          = ff_data;
+    uint8_t  sn            = 1u;
+    uint8_t  cfs_in_block  = 0u; /* CFs sent since last FC */
+
     while (sent < len) {
+        /*
+         * If block_size != 0 and we have filled the current block, wait for
+         * the next FC before continuing.
+         */
+        if (fc_block_size != 0u && cfs_in_block >= fc_block_size) {
+            cfs_in_block = 0u;
+            /* Wait for next FC */
+            for (;;) {
+                int rc2 = can_recv_frame(sock, &fc_frame, 1000);
+                if (rc2 != 0) {
+                    fprintf(stderr, "isotp_send: no FC after block (rc=%d)\n", rc2);
+                    return -1;
+                }
+                if ((fc_frame.can_id & CAN_SFF_MASK) != (fc_rx_id & CAN_SFF_MASK)) {
+                    continue; /* ignore other IDs */
+                }
+                if ((fc_frame.data[0] & 0xF0u) != 0x30u) {
+                    fprintf(stderr, "isotp_send: expected FC, got 0x%02X\n",
+                            fc_frame.data[0]);
+                    return -1;
+                }
+                fc_fs         = fc_frame.data[0] & 0x0Fu;
+                fc_block_size = fc_frame.data[1];
+                fc_stmin_raw  = fc_frame.data[2];
+                if (fc_stmin_raw <= 0x7Fu) {
+                    stmin_us = (unsigned int)fc_stmin_raw * 1000u;
+                } else if (fc_stmin_raw >= 0xF1u && fc_stmin_raw <= 0xF9u) {
+                    stmin_us = (unsigned int)(fc_stmin_raw - 0xF0u) * 100u;
+                } else {
+                    stmin_us = 0u;
+                }
+                if (fc_fs == 2u) {
+                    fprintf(stderr, "isotp_send: FC Overflow on block boundary\n");
+                    return -1;
+                }
+                if (fc_fs == 0u) {
+                    break; /* ContinueToSend */
+                }
+                /* fc_fs == 1 (Wait) — keep waiting for another FC */
+            }
+        }
+
         uint16_t remain = (uint16_t)(len - sent);
         uint8_t  chunk  = (remain > 63u) ? 63u : (uint8_t)remain;
         frame_buf[0] = (uint8_t)(0x20u | (sn & 0x0Fu));
@@ -214,6 +290,12 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
         }
         sent = (uint16_t)(sent + chunk);
         sn   = (uint8_t)((sn + 1u) & 0x0Fu);
+        cfs_in_block++;
+
+        /* Honor STmin inter-frame gap */
+        if (stmin_us > 0u && sent < len) {
+            usleep((useconds_t)stmin_us);
+        }
     }
     return 0;
 }
@@ -255,13 +337,36 @@ static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id,
     uint8_t pci_type = (fr.data[0] >> 4u) & 0x0Fu;
 
     if (pci_type == 0u) {
-        /* Single Frame */
-        uint8_t sf_len = fr.data[0] & 0x0Fu;
-        if (sf_len == 0u || sf_len > 62u || sf_len > (uint8_t)buf_cap) {
-            fprintf(stderr, "isotp_recv: SF len=%u out of range\n", sf_len);
+        /*
+         * Single Frame — two variants (ISO 15765-2 §9.6.1):
+         *   Classic SF  : data[0] = 0x0L (L = length 1-7), data starts at byte 1
+         *   CAN-FD escape SF: data[0] = 0x00, data[1] = length (>7), data starts at byte 2
+         *
+         * The escape form is used when the payload does not fit in the classic nibble
+         * (i.e. length > 7).  The udslib bootloader uses it for the 0x27 seed response
+         * (18 bytes: 0x67 0x01 + 16-byte seed).
+         */
+        uint8_t sf_len, off;
+        if (fr.data[0] == 0x00u) {
+            /* CAN-FD escape SF: [0x00][len][data...] */
+            if (fr.len < 2u) {
+                fprintf(stderr, "isotp_recv: escape-SF frame too short (len=%u)\n", fr.len);
+                return -1;
+            }
+            sf_len = fr.data[1];
+            off    = 2u;
+        } else {
+            /* Classic SF: [0x0L][data...] */
+            sf_len = fr.data[0] & 0x0Fu;
+            off    = 1u;
+        }
+        if (sf_len == 0u || sf_len > (uint8_t)buf_cap ||
+                (uint32_t)off + (uint32_t)sf_len > (uint32_t)fr.len) {
+            fprintf(stderr, "isotp_recv: SF len=%u out of range (off=%u, frame_len=%u, cap=%u)\n",
+                    sf_len, off, fr.len, buf_cap);
             return -1;
         }
-        memcpy(buf, &fr.data[1], sf_len);
+        memcpy(buf, &fr.data[off], sf_len);
         *out_len = sf_len;
         return 0;
     }
@@ -643,7 +748,12 @@ int main(int argc, char **argv)
             for (uint8_t i = 0u; i < len_bytes; i++) {
                 mbl = (mbl << 8u) | resp[2u + i];
             }
-            if (mbl > 0u) {
+            /*
+             * Only accept mbl if it leaves room for at least one data byte
+             * after SID (1 byte) + blockSequenceCounter (1 byte) = 2-byte overhead.
+             * mbl <= 1 would cause chunk_data_size = mbl - 2 to underflow.
+             */
+            if (mbl > 1u) {
                 max_block_len = mbl;
             }
         }
@@ -658,7 +768,8 @@ int main(int argc, char **argv)
     printf("\n[6/9] TransferData (%u bytes in chunks of %u)...\n",
            img_size, max_block_len - 2u);
     {
-        uint32_t chunk_data_size = max_block_len - 2u; /* subtract SID + seq# */
+        /* max_block_len is guaranteed > 1 (default 4095 or validated from response) */
+        uint32_t chunk_data_size = max_block_len - 2u; /* subtract SID + blockSequenceCounter */
         uint8_t *req_buf = (uint8_t *)malloc(max_block_len);
         if (req_buf == NULL) {
             fprintf(stderr, "FAIL: malloc chunk buffer\n");
