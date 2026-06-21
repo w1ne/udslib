@@ -40,6 +40,10 @@ UDS_SRCS := \
   $(UDSLIB_DIR)/src/services/uds_service_flash.c \
   $(UDSLIB_DIR)/src/services/uds_service_data.c \
   $(UDSLIB_DIR)/src/services/uds_service_maintenance.c \
+  $(UDSLIB_DIR)/src/services/uds_service_mem.c \
+  $(UDSLIB_DIR)/src/services/uds_service_io.c \
+  $(UDSLIB_DIR)/src/services/uds_service_link.c \
+  $(UDSLIB_DIR)/src/services/uds_service_roe.c \
   $(UDSLIB_DIR)/src/transport/uds_tp_isotp.c
 
 MBEDTLS_SRCS := \
