@@ -15,7 +15,7 @@ UDS_CFLAGS   := $(COMMON_CFLAGS) -Wall -Wextra -Wno-unused-parameter \
 LDFLAGS := -flavor gnu -m armelf -T bootloader.ld --gc-sections \
            -Map=$(BUILD_DIR)/$(TARGET).map
 
-APP_SRCS := startup.c main.c libc_stubs.c fdcan.c
+APP_SRCS := startup.c main.c libc_stubs.c fdcan.c flash_h5.c
 UDS_SRCS := \
   $(UDSLIB_DIR)/src/core/uds_core.c \
   $(UDSLIB_DIR)/src/services/uds_service_session.c \
