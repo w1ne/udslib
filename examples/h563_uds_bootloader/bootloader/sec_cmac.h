@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
 #ifndef SEC_CMAC_H
 #define SEC_CMAC_H
 

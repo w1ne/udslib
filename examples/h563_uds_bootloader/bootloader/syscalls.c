@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
 /*
  * Newlib port layer (NOT a shim): the standard glue newlib-nano expects an
  * embedded target to supply. nosys.specs provides _exit/_write/_close/_read/

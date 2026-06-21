@@ -70,6 +70,8 @@ examples/client_demo/uds_client_demo
 examples/h563_uds_bootloader/app/app_*.elf
 examples/h563_uds_bootloader/app/app_*.bin
 examples/h563_uds_bootloader/app/image_verify.c
+# H563 bootloader host tool binary
+examples/h563_uds_bootloader/host/flash_tool
 
 
 # Local issue-fetch scratch (never commit; may contain copyrighted specs)

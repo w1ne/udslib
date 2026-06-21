@@ -1,4 +1,7 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Copyright (c) 2026 Andrii Shylenko
+ * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+ */
 /*
  * Minimal mbedTLS configuration for bare-metal AES-128-CMAC on Cortex-M33.
  * Included via -DMBEDTLS_CONFIG_FILE='"bootloader_mbedtls_config.h"'.
