@@ -56,6 +56,44 @@ void *memmove(void *dst, const void *src, size_t n)
     return dst;
 }
 
+/* strcmp is needed by mbedTLS cipher.c for cipher name lookup. */
+int strcmp(const char *s1, const char *s2)
+{
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return (int) (unsigned char) *s1 - (int) (unsigned char) *s2;
+}
+
+/* strlen is needed by mbedTLS error.c / platform_util.c. */
+size_t strlen(const char *s)
+{
+    const char *p = s;
+    while (*p != '\0') {
+        p++;
+    }
+    return (size_t) (p - s);
+}
+
+/* exit: bare-metal spin on BKPT — mbedtls_exit() in memory_buffer_alloc.c
+ * calls this only on allocator heap corruption (should never happen). */
+__attribute__((noreturn)) void exit(int status)
+{
+    (void) status;
+    for (;;) {
+        __asm__ volatile("bkpt #0");
+    }
+}
+
+/* abort: same treatment. */
+__attribute__((noreturn)) void abort(void)
+{
+    for (;;) {
+        __asm__ volatile("bkpt #0");
+    }
+}
+
 /* AEABI runtime helpers (IHI0043) return void — the compiler emits these as
  * intrinsics and ignores any return value. */
 void __aeabi_memcpy(void *dst, const void *src, size_t n)
