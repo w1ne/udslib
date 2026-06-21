@@ -26,7 +26,7 @@ CFLAGS := $(CPUFLAGS) \
           -ffreestanding \
           -ffunction-sections -fdata-sections \
           -Wall -Wextra -Werror \
-          -DAPP_VARIANT=$(APP)
+          -DAPP_VARIANT=$(if $(filter A,$(APP)),1,2)
 
 LDFLAGS := $(CPUFLAGS) \
            -ffreestanding \

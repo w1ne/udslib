@@ -55,18 +55,16 @@ static void uart_puts(const char *s)
 /* ---- Variant selection ------------------------------------------------- */
 
 /*
- * Stringification: turn APP_VARIANT token (A or B) into "A" / "B" without
- * relying on sprintf or any other libc call.
+ * APP_VARIANT is a NUMBER (1 = App A, 2 = App B) set by the Makefile. Comparing
+ * bare token names in `#if` does not work — undefined identifiers evaluate to 0,
+ * so `#if APP_VARIANT == A` is `0 == 0` for BOTH builds. Use integers.
  */
-#define _STR(x)  #x
-#define STR(x)   _STR(x)
-
-#if APP_VARIANT == A
+#if APP_VARIANT == 1
 #define BANNER "APP-A v1\n"
-#elif APP_VARIANT == B
+#elif APP_VARIANT == 2
 #define BANNER "APP-B v2\n"
 #else
-#error "APP_VARIANT must be A or B"
+#error "APP_VARIANT must be 1 (App A) or 2 (App B)"
 #endif
 
 /* ---- Entry point ------------------------------------------------------- */
