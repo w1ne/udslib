@@ -38,7 +38,9 @@ struct uds_ctx;
 #define ISOTP_MAX_SDU_LEN_STD 4095u /**< Max SDU size with 12-bit length */
 
 /* --- Padding --- */
-#define ISOTP_PAD_BYTE_DEFAULT 0x00u /**< Default fill for unused frame bytes */
+/* ISO 15765-2:2016 recommends 0xCC as the default frame-padding value: it
+   minimizes stuff-bit insertions and bit alterations on the wire. */
+#define ISOTP_PAD_BYTE_DEFAULT 0xCCu /**< Default fill for unused frame bytes */
 
 /* --- Timeout Defaults (ISO 15765-2, milliseconds) --- */
 #define ISOTP_N_CR_DEFAULT_MS 1000u /**< Max wait for a consecutive frame (RX) */

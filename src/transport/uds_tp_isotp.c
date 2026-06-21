@@ -69,7 +69,7 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
     iso->use_can_fd = 0;                    /* Default: Classic CAN */
     iso->tx_dl = ISOTP_MAX_DL_CAN;          /* Default: 8 bytes */
     iso->mode = ISOTP_HALF_DUPLEX;          /* Default: conservative, prior behavior */
-    iso->pad_byte = ISOTP_PAD_BYTE_DEFAULT; /* Default fill for unused bytes */
+    iso->pad_byte = ISOTP_PAD_BYTE_DEFAULT; /* ISO 15765-2 default: 0xCC */
     iso->rx_state = ISOTP_RX_IDLE;
     iso->tx_state = ISOTP_TX_IDLE;
     iso->tx_sdu_buf = tx_sdu_buf;

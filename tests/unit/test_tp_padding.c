@@ -51,12 +51,12 @@ static int teardown(void **state)
     return 0;
 }
 
-/* Default pad byte is 0x00 (preserves prior behavior). */
-static void test_default_pad_is_zero(void **state)
+/* Default pad byte is 0xCC (ISO 15765-2 recommendation). */
+static void test_default_pad_is_cc(void **state)
 {
     (void) state;
     uint8_t data[] = {0x01, 0x02, 0x03};
-    uint8_t expected[] = {0x03, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00};
+    uint8_t expected[] = {0x03, 0x01, 0x02, 0x03, 0xCC, 0xCC, 0xCC, 0xCC};
 
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
@@ -144,7 +144,7 @@ static void test_fc_uses_configured_pad(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(test_default_pad_is_zero, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_default_pad_is_cc, setup, teardown),
         cmocka_unit_test_setup_teardown(test_sf_uses_configured_pad, setup, teardown),
         cmocka_unit_test_setup_teardown(test_cf_uses_configured_pad, setup, teardown),
         cmocka_unit_test_setup_teardown(test_fc_uses_configured_pad, setup, teardown),

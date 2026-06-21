@@ -104,10 +104,10 @@ UDSLib implements standard ISO-TP hardening features to ensure robust communicat
 Unused bytes in transmitted frames are padded so every Classic-CAN frame is a
 full 8 bytes (and CAN-FD frames fill to a valid DLC). The pad value is
 configurable per channel with `uds_tp_isotp_set_pad_byte(&iso, value)` and
-applies to all transmitted frames (SF, FF, CF, FC). ISO 15765-2 leaves the
-padding value implementation-defined; the default is `0x00`
-(`ISOTP_PAD_BYTE_DEFAULT`). Set `0xAA` or `0xCC` for bus partners or test tools
-that require a specific value.
+applies to all transmitted frames (SF, FF, CF, FC). The default is `0xCC`
+(`ISOTP_PAD_BYTE_DEFAULT`) — the value ISO 15765-2:2016 recommends to minimize
+stuff-bit insertions and bit alterations on the wire. Set another value (e.g.
+`0xAA`, or `0x00`) for bus partners or test tools that require a specific fill.
 
 ## 8. CAN-FD Support
 

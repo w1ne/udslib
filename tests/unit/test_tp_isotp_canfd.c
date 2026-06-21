@@ -71,7 +71,8 @@ static void test_tp_canfd_sf(void **state)
        If we say len=16, mock_can_send likely checks 16 bytes.
        We initialized expected_frame to size 14. We need to resize it.
     */
-    uint8_t expected_frame_aligned[16] = {0};
+    uint8_t expected_frame_aligned[16];
+    memset(expected_frame_aligned, 0xCC, sizeof(expected_frame_aligned));
     expected_frame_aligned[0] = 0x00;
     expected_frame_aligned[1] = 12;
     memcpy(&expected_frame_aligned[2], data, 12);
@@ -114,7 +115,8 @@ static void test_tp_canfd_ff_cf(void **state)
 
     /* Expected CF */
     /* Len 39 -> Aligned to 48 */
-    uint8_t expected_cf[48] = {0};
+    uint8_t expected_cf[48];
+    memset(expected_cf, 0xCC, sizeof(expected_cf));
     expected_cf[0] = 0x21; /* CF | SN=1 */
     memcpy(&expected_cf[1], &data[62], 38);
 

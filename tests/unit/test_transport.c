@@ -54,7 +54,7 @@ static void test_send_sf(void **state)
 {
     (void) state;
     uint8_t data[] = {0x01, 0x02, 0x03};
-    uint8_t expected_frame[] = {0x03, 0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00};
+    uint8_t expected_frame[] = {0x03, 0x01, 0x02, 0x03, 0xCC, 0xCC, 0xCC, 0xCC};
 
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
@@ -106,7 +106,7 @@ static void test_recv_fc_send_cf(void **state)
     /* CF Frame: 21 07 08 09 0A 00 00 00 */
     uint8_t expected_cf[] = {
         0x21, 0x07, 0x08, 0x09,
-        0x0A, 0x00, 0x00, 0x00};  // Note: padding from g_pending_tx_sdu init? No, usage copies from
+        0x0A, 0xCC, 0xCC, 0xCC};  // Note: padding from g_pending_tx_sdu init? No, usage copies from
                                   // g_pending_tx_sdu which is populated.
     // g_pending_tx_sdu is static, but memcpy uses exact content.
     // Wait, uds_tp_isotp.c:103 sends 8 bytes always?
@@ -159,7 +159,7 @@ static void test_recv_multiframe(void **state)
 
     /* Expect FC (CTS) to be sent */
     /* FC: 30 08 00 ... (BlockSize=8, STmin=0 from params) */
-    uint8_t expected_fc[] = {0x30, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    uint8_t expected_fc[] = {0x30, 0x08, 0x00, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC};
 
     expect_value(mock_can_send, id,
                  0x7E0);  // TX ID (Server -> Client? depends on init. Init passed 7E0 as TX)
