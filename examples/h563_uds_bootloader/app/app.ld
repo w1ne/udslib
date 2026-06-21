@@ -6,25 +6,25 @@
 /*
  * app.ld — linker script for the demo App A / App B payloads.
  *
- * The 16-byte ota_image_header_t at 0x08018000..0x08018010 is NOT part of
+ * The 0x400-byte OTA image header at 0x08018000..0x08018400 is NOT part of
  * the application link; mkimage.py prepends it.  The app therefore links
- * its vector table at 0x08018010 (= bank1_base + 0x18000 + OTA_IMAGE_HDR_SIZE).
+ * its vector table at 0x08018400 (= bank1_base + 0x18000 + OTA_IMAGE_HDR_SIZE).
  *
  * SWAP_BANK note: the active bank ALWAYS appears at 0x08000000.
  * Both App A and App B are therefore linked at the SAME address.  The OTA
  * flow downloads the image to the inactive bank (physical 0x08118000);
  * after SWAP_BANK that physical address maps to 0x08000000, so the code
- * at 0x08118010 executes at its link address 0x08018010.
+ * at 0x08118400 executes at its link address 0x08018400.
  *
  * FLASH region: skip the bootloader region (96 KB = 0x18000) and the
- * 16-byte header, leaving 0xE7FF0 bytes for the payload.
- *   0x100000 (bank size) - 0x18000 (BL region) - 0x10 (header) = 0xE7FF0
+ * 0x400-byte header, leaving 0xE7C00 bytes for the payload.
+ *   0x100000 (bank size) - 0x18000 (BL region) - 0x400 (header) = 0xE7C00
  */
 
 ENTRY(Reset)
 
 MEMORY {
-    FLASH (rx)  : ORIGIN = 0x08018010, LENGTH = 0xE7FF0
+    FLASH (rx)  : ORIGIN = 0x08018400, LENGTH = 0xE7C00
     RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 640K
 }
 

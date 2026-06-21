@@ -9,13 +9,18 @@ Usage:
 
 Output layout (matches ota_image.h / app_jump.c):
 
-    Offset  Size  Field
-    ------  ----  -----
-     0       4    magic      = 0xC0DEBEEF  (little-endian u32)
-     4       4    image_size = len(payload) in bytes
-     8       4    crc32      = CRC-32/ISO-HDLC over payload bytes
-    12       4    version    = caller-supplied (default 0x00010000)
-    16+      N    payload    = raw .bin contents
+    Offset   Size     Field
+    ------   ----     -----
+    0x000     4       magic      = 0xC0DEBEEF  (little-endian u32)
+    0x004     4       image_size = len(payload) in bytes
+    0x008     4       crc32      = CRC-32/ISO-HDLC over payload bytes
+    0x00C     4       version    = caller-supplied (default 0x00010000)
+    0x010  0x3F0      RESERVED padding (0xFF bytes)
+    0x400     N       payload    = raw .bin contents (app vector table at byte 0)
+
+The header region is 0x400 (1024) bytes so the app vector table lands at
+app_base + 0x400, which is 1024-byte aligned — satisfying Cortex-M33 VTOR
+alignment for a full STM32H563 vector table (~147 entries, next pow2 = 1024).
 
 CRC algorithm: CRC-32/ISO-HDLC
   Poly:     0x04C11DB7 (bit-reflected: 0xEDB88320)
@@ -34,18 +39,21 @@ import sys
 import zlib
 
 OTA_IMAGE_MAGIC = 0xC0DEBEEF
-OTA_IMAGE_HDR_SIZE = 16
-OTA_IMAGE_MAX_PAYLOAD = 0xE8000 - OTA_IMAGE_HDR_SIZE  # 0xE7FF0
+OTA_IMAGE_HDR_SIZE = 0x400          # total header region: 1024 bytes
+OTA_IMAGE_STRUCT_SIZE = 16          # ota_image_header_t: magic/image_size/crc32/version
+OTA_IMAGE_MAX_PAYLOAD = 0xE8000 - OTA_IMAGE_HDR_SIZE  # 0xE7C00
 
 def build_image(payload: bytes, version: int) -> bytes:
     """
-    Build a complete OTA image: [16-byte header][payload].
+    Build a complete OTA image: [0x400-byte header region][payload].
 
-    The header is always little-endian:
-      uint32_t magic       = OTA_IMAGE_MAGIC
-      uint32_t image_size  = len(payload)
-      uint32_t crc32       = CRC-32/ISO-HDLC over payload
-      uint32_t version     = supplied version word
+    Header region layout:
+      [0x000..0x010)  ota_image_header_t (16 bytes, little-endian):
+        uint32_t magic       = OTA_IMAGE_MAGIC
+        uint32_t image_size  = len(payload)
+        uint32_t crc32       = CRC-32/ISO-HDLC over payload
+        uint32_t version     = supplied version word
+      [0x010..0x400)  RESERVED padding (0xFF, 1008 bytes)
     """
     if len(payload) == 0:
         raise ValueError("payload must not be empty")
@@ -58,13 +66,17 @@ def build_image(payload: bytes, version: int) -> bytes:
     # matches CRC-32/ISO-HDLC (init=0xFFFFFFFF, xorout=0xFFFFFFFF, reflected).
     crc = zlib.crc32(payload) & 0xFFFFFFFF
 
-    header = struct.pack(
+    struct_bytes = struct.pack(
         "<4I",
         OTA_IMAGE_MAGIC,
         len(payload),
         crc,
         version,
     )
+    assert len(struct_bytes) == OTA_IMAGE_STRUCT_SIZE
+
+    padding = bytes([0xFF]) * (OTA_IMAGE_HDR_SIZE - OTA_IMAGE_STRUCT_SIZE)
+    header = struct_bytes + padding
     assert len(header) == OTA_IMAGE_HDR_SIZE
 
     return header + payload

@@ -36,9 +36,10 @@
  * (bank_base = 0x08000000 if active==0, 0x08100000 if active==1)
  *
  * OTA image format (ota_image.h):
- *   [app_base+0 .. +16)   ota_image_header_t (magic, image_size, crc32, version)
- *   [app_base+16 .. )     app payload; Cortex-M vector table at app_base+16
- *   CRC-32/ISO-HDLC covers only the payload bytes (not the header).
+ *   [app_base+0x000 .. +0x010)  ota_image_header_t (magic, image_size, crc32, version)
+ *   [app_base+0x010 .. +0x400)  RESERVED padding (0xFF)
+ *   [app_base+0x400 .. )        app payload; Cortex-M vector table at app_base+0x400
+ *   CRC-32/ISO-HDLC covers only the payload bytes (not the header/padding).
  *   All fields are little-endian.
  *
  * 16-byte staging buffer for TransferData:
@@ -408,13 +409,14 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          *
          * Validates the OTA image header written to the inactive bank's app region.
          * The downloaded image has the form:
-         *   [dl_addr+0  .. +16)  ota_image_header_t (magic, image_size, crc32, version)
-         *   [dl_addr+16 .. )     app payload
+         *   [dl_addr+0x000 .. +0x010)  ota_image_header_t (magic, image_size, crc32, version)
+         *   [dl_addr+0x010 .. +0x400)  RESERVED padding (0xFF)
+         *   [dl_addr+0x400 .. )        app payload
          *
          * Verification:
          *   1. header.magic == OTA_IMAGE_MAGIC
          *   2. header.image_size > 0 && <= OTA_IMAGE_MAX_PAYLOAD
-         *   3. CRC-32/ISO-HDLC over [dl_addr+16, dl_addr+16+image_size) == header.crc32
+         *   3. CRC-32/ISO-HDLC over [dl_addr+0x400, dl_addr+0x400+image_size) == header.crc32
          *
          * Returns 1 byte: 0x01 = PASS, 0x00 = FAIL.
          */

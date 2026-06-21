@@ -8,7 +8,7 @@
  *
  * Freestanding — uses only <stdint.h>; no libc, no shims.
  *
- * Select the variant at compile time with -DAPP_VARIANT=A or -DAPP_VARIANT=B.
+ * Select the variant at compile time with -DAPP_VARIANT=1 or -DAPP_VARIANT=2.
  *   App A: prints "APP-A v1\n"  (version 0x00010000)
  *   App B: prints "APP-B v2\n"  (version 0x00020000)
  *
@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 #ifndef APP_VARIANT
-#error "Define APP_VARIANT=A or APP_VARIANT=B"
+#error "Define APP_VARIANT=1 (App A) or APP_VARIANT=2 (App B)"
 #endif
 
 /* ---- USART3 MMIO (STM32H563, same constants as bootloader fdcan.c) ---- */
