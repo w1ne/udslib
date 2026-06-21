@@ -31,7 +31,7 @@ LDFLAGS := $(CPUFLAGS) --specs=nano.specs --specs=nosys.specs -nostartfiles \
            -T bootloader.ld -Wl,--gc-sections \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map
 
-APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c
+APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c
 SEC_CMAC_SRC := sec_cmac.c
 UDS_SRCS := \
   $(UDSLIB_DIR)/src/core/uds_core.c \
@@ -109,7 +109,15 @@ cmac-test: $(BUILD_DIR)
 	gcc $(CMAC_TEST_CFLAGS) $(CMAC_TEST_SRCS) -o $(BUILD_DIR)/cmac_test
 	$(BUILD_DIR)/cmac_test
 
+# Host unit test: validates OTA image header CRC/magic logic without MCU code.
+IMAGE_TEST_SRCS := app_image_test.c ota_crc.c
+IMAGE_TEST_CFLAGS := -O2 -g -I. -Wall -Wextra -Werror
+
+image-test: $(BUILD_DIR)
+	gcc $(IMAGE_TEST_CFLAGS) $(IMAGE_TEST_SRCS) -o $(BUILD_DIR)/image_test
+	$(BUILD_DIR)/image_test
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all check-udslib clean cmac-test
+.PHONY: all check-udslib clean cmac-test image-test

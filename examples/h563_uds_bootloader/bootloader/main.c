@@ -5,11 +5,13 @@
 
 /**
  * @file main.c
- * @brief STM32H563 UDS OTA Bootloader — server wiring (Task 3b)
+ * @brief STM32H563 UDS OTA Bootloader — server wiring (Task 3b/4)
  *
  * Boot flow:
  *   1. Print "BL-START" on UART.
- *   2. TODO (Task 4): check inactive-bank validity footer; jump to app if valid.
+ *   2. Validate active-bank app image (ota_image_header_t at app_base).
+ *      If valid  → print "BL-JUMP"     then app_jump() (does not return).
+ *      If invalid→ print "BL-RECOVERY" then fall through to UDS server loop.
  *   3. Start FDCAN loopback, init ISO-TP FD, configure UDS server.
  *   4. Run polling loop: pump RX → uds_process → uds_tp_isotp_process.
  *
@@ -22,7 +24,7 @@
  *   - SID 0x37 RequestTransferExit: flushes the staging buffer.
  *   - SID 0x31 RoutineControl:
  *       0xFF00 EraseMemory       — erase the inactive-bank app sectors (alt path).
- *       0xFF01 CheckProgramming  — CRC-32 over written image vs validity footer.
+ *       0xFF01 CheckProgramming  — validates image header + CRC-32 over payload.
  *       0xFF02 ActivateSoftware  — flash_set_swap_and_reset() (does not return).
  *
  * Flash layout (dual-bank, 1 MB per bank, 8 KB sectors):
@@ -30,13 +32,14 @@
  *   Bootloader:  sectors 0-11 (0x00000–0x17FFF, 96 KB)
  *   App region:  sectors 12-127 (0x18000–0xFFFFF, 928 KB)
  *
- * Inactive-bank app base = bank_base + 0x18000
- * (bank_base = 0x08000000 if inactive==0, 0x08100000 if inactive==1)
+ * Active-bank app base = bank_base + 0x18000
+ * (bank_base = 0x08000000 if active==0, 0x08100000 if active==1)
  *
- * Validity footer (last 8 bytes of the image):
- *   [0..3]  MAGIC  0xC0DEBEEF (big-endian)
- *   [4..7]  CRC-32 over bytes [0 .. image_size-8] (big-endian, poly 0x04C11DB7,
- *           init 0xFFFFFFFF, reflected in/out, xor-out 0xFFFFFFFF — standard CRC-32)
+ * OTA image format (ota_image.h):
+ *   [app_base+0 .. +16)   ota_image_header_t (magic, image_size, crc32, version)
+ *   [app_base+16 .. )     app payload; Cortex-M vector table at app_base+16
+ *   CRC-32/ISO-HDLC covers only the payload bytes (not the header).
+ *   All fields are little-endian.
  *
  * 16-byte staging buffer for TransferData:
  *   The H5 flash controller requires 16-byte (quad-word) aligned writes.
@@ -48,8 +51,11 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "app_jump.h"
 #include "fdcan.h"
 #include "flash_h5.h"
+#include "ota_crc.h"
+#include "ota_image.h"
 #include "sec_cmac.h"
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
@@ -162,14 +168,6 @@ static int bl_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, c
 /* Last app sector index within a bank (inclusive) */
 #define APP_SECTOR_LAST  (SECTORS_PER_BANK - 1u)
 
-/*
- * Validity footer (last 8 bytes of the flash image):
- *   bytes [0..3]: magic 0xC0DEBEEF (big-endian)
- *   bytes [4..7]: CRC-32 of the image (big-endian, standard CRC-32 poly)
- */
-#define VALIDITY_MAGIC    0xC0DEBEEFul
-#define VALIDITY_FOOTER_SZ 8u
-
 /* 16-byte staging buffer — H5 requires quad-word aligned program operations */
 #define STAGE_SZ 16u
 
@@ -218,31 +216,6 @@ static int erase_app_sectors(uint8_t bank)
         }
     }
     return 0;
-}
-
-/* ---------------------------------------------------------------------------
- * CRC-32 (standard: poly 0x04C11DB7, reflected in/out, init/xor 0xFFFFFFFF)
- * Software table-less (Sarwate — compact for a bootloader)
- * ------------------------------------------------------------------------- */
-static uint32_t crc32_update(uint32_t crc, const uint8_t *buf, uint32_t len)
-{
-    static const uint32_t poly = 0xEDB88320UL; /* reflected poly */
-    for (uint32_t i = 0u; i < len; i++) {
-        crc ^= (uint32_t) buf[i];
-        for (int b = 0; b < 8; b++) {
-            if (crc & 1u) {
-                crc = (crc >> 1u) ^ poly;
-            } else {
-                crc >>= 1u;
-            }
-        }
-    }
-    return crc;
-}
-
-static uint32_t crc32(const uint8_t *buf, uint32_t len)
-{
-    return crc32_update(0xFFFFFFFFUL, buf, len) ^ 0xFFFFFFFFUL;
 }
 
 /* ---------------------------------------------------------------------------
@@ -387,7 +360,7 @@ static int bl_transfer_exit(uds_ctx_t *ctx)
  *
  * Routine IDs (matching Vector CANdela naming conventions):
  *   0xFF00  EraseMemory              — erase inactive-bank app sectors
- *   0xFF01  CheckProgrammingDependencies — CRC-32 over written image vs footer
+ *   0xFF01  CheckProgrammingDependencies — validate OTA header + CRC-32 over payload
  *   0xFF02  ActivateSoftware         — flash_set_swap_and_reset() (no return)
  */
 static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data,
@@ -433,53 +406,46 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         /*
          * CheckProgrammingDependencies:
          *
-         * Validity footer is the last VALIDITY_FOOTER_SZ bytes of the written
-         * image (at g_flash_state.dl_addr + g_flash_state.bytes_written - 8):
-         *   [0..3] = MAGIC 0xC0DEBEEF (big-endian)
-         *   [4..7] = CRC-32 over bytes [0 .. image_size-8] (big-endian)
+         * Validates the OTA image header written to the inactive bank's app region.
+         * The downloaded image has the form:
+         *   [dl_addr+0  .. +16)  ota_image_header_t (magic, image_size, crc32, version)
+         *   [dl_addr+16 .. )     app payload
          *
-         * CRC is computed over the raw flash bytes starting at dl_addr.
-         * Returns 1 byte result: 0x01 = PASS, 0x00 = FAIL.
+         * Verification:
+         *   1. header.magic == OTA_IMAGE_MAGIC
+         *   2. header.image_size > 0 && <= OTA_IMAGE_MAX_PAYLOAD
+         *   3. CRC-32/ISO-HDLC over [dl_addr+16, dl_addr+16+image_size) == header.crc32
+         *
+         * Returns 1 byte: 0x01 = PASS, 0x00 = FAIL.
          */
-        if (g_flash_state.bytes_written == 0u) {
-            /* No download performed yet — reject. */
+        if (g_flash_state.bytes_written < OTA_IMAGE_HDR_SIZE) {
+            /* Not enough data written to hold a header — reject. */
             return -(int) 0x22; /* conditionsNotCorrect */
         }
 
-        uint32_t image_size = g_flash_state.bytes_written;
-        if (image_size < VALIDITY_FOOTER_SZ) {
-            if (max_len < 1u) {
-                return -(int) 0x14;
+        const ota_image_header_t *hdr =
+            (const ota_image_header_t *) (uintptr_t) g_flash_state.dl_addr;
+
+        uint8_t pass = 0x00u;
+        if (hdr->magic == OTA_IMAGE_MAGIC &&
+            hdr->image_size > 0u &&
+            hdr->image_size <= OTA_IMAGE_MAX_PAYLOAD) {
+            const uint8_t *payload =
+                (const uint8_t *) (uintptr_t) (g_flash_state.dl_addr + OTA_IMAGE_HDR_SIZE);
+            uint32_t computed = ota_crc32(payload, hdr->image_size);
+            if (computed == hdr->crc32) {
+                pass = 0x01u;
             }
-            out_buf[0] = 0x00u; /* FAIL */
-            return 1;
         }
-
-        const uint8_t *flash_ptr = (const uint8_t *) (uintptr_t) g_flash_state.dl_addr;
-        uint32_t body_len = image_size - VALIDITY_FOOTER_SZ;
-        const uint8_t *footer = flash_ptr + body_len;
-
-        /* Read magic (big-endian). */
-        uint32_t magic = ((uint32_t) footer[0] << 24u) | ((uint32_t) footer[1] << 16u) |
-                         ((uint32_t) footer[2] << 8u)  |  (uint32_t) footer[3];
-
-        /* Read stored CRC (big-endian). */
-        uint32_t stored_crc = ((uint32_t) footer[4] << 24u) | ((uint32_t) footer[5] << 16u) |
-                              ((uint32_t) footer[6] << 8u)  |  (uint32_t) footer[7];
-
-        /* Compute CRC over the image body. */
-        uint32_t computed_crc = crc32(flash_ptr, body_len);
-
-        uint8_t pass = (magic == VALIDITY_MAGIC && computed_crc == stored_crc) ? 0x01u : 0x00u;
 
         if (max_len < 1u) {
             return -(int) 0x14;
         }
         out_buf[0] = pass;
         if (pass) {
-            uart_puts("BL: CRC check PASS\n");
+            uart_puts("BL: image check PASS\n");
         } else {
-            uart_puts("BL: CRC check FAIL\n");
+            uart_puts("BL: image check FAIL\n");
         }
         return 1;
     }
@@ -512,10 +478,30 @@ int main(void)
     uart_puts("BL-START\n");
 
     /*
-     * TODO (Task 4): validate inactive-bank app image (check validity footer);
-     * if valid, jump to the application entry point.  Omitted here intentionally
-     * to allow Task 4 to implement the boot decision logic cleanly.
+     * Boot decision: validate the active bank's app image and jump to it
+     * if valid; otherwise stay in recovery (UDS server loop).
+     *
+     * Active bank is where the CPU is currently executing from.  The app
+     * image lives at bank_base + 0x18000 (above the 96 KB bootloader region).
+     * Power-loss safety: if the inactive bank was corrupted mid-download,
+     * its header check will fail on the NEXT boot (after ActivateSoftware
+     * swaps banks) and the bootloader will recover automatically.
+     *
+     * TODO (Task 6): add an explicit boot-confirmation flag in a dedicated
+     * flash sector so a bad app that resets before confirming triggers an
+     * automatic rollback to the previous bank.
      */
+    {
+        uint8_t  active_bank     = flash_active_bank();
+        uint32_t active_app_base = 0x08000000UL +
+                                   (uint32_t) active_bank * 0x100000UL +
+                                   0x18000UL;
+        if (app_is_valid(active_app_base)) {
+            uart_puts("BL-JUMP\n");
+            app_jump(active_app_base); /* does not return */
+        }
+        uart_puts("BL-RECOVERY\n");
+    }
 
     /* Start FDCAN in loopback mode (self-test / simulation). */
     fdcan_start();
