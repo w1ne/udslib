@@ -18,6 +18,7 @@
 #include <time.h>
 
 #include "uds/uds_core.h"
+#include "uds/uds_did_ids.h"
 #include "uds/uds_isotp.h"
 
 #ifdef _WIN32
@@ -150,17 +151,24 @@ static uint8_t g_rx_buf[1024];
 static uint8_t g_tx_buf[1024];
 
 static char g_ecu_vin[] = "UDSLIB_SIM_001";
+static char g_ecu_serial[] = "SN-0000000000001";
 static char g_customer_name[16] = "ECU_OWNER";
 
 /**
  * @brief Example DID table setup.
+ *
+ * Standardized ISO 14229-1 identification DIDs (0xF180 - 0xF19F) are referenced
+ * by name from "uds/uds_did_ids.h". The data behind each DID stays
+ * application-owned; the constants only name which datum is addressed.
  */
 static const uds_did_entry_t g_ecu_dids[] = {
-    {0xF190, 14, 0, 0, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
+    {UDS_DID_VIN, 14, 0, 0, NULL, NULL, g_ecu_vin},                  /* VIN (Direct storage) */
+    {UDS_DID_ECU_SERIAL_NUMBER, 16, 0, 0, NULL, NULL, g_ecu_serial}, /* ECU serial number */
     {0x0123, 16, 0, 0, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
 };
 
-static const uds_did_table_t g_ecu_did_table = {.entries = g_ecu_dids, .count = 2};
+static const uds_did_table_t g_ecu_did_table = {
+    .entries = g_ecu_dids, .count = sizeof(g_ecu_dids) / sizeof(g_ecu_dids[0])};
 
 /**
  * @brief Mock ECU Reset implementation.
