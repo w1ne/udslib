@@ -99,7 +99,17 @@ UDSLib implements standard ISO-TP hardening features to ensure robust communicat
 - **Dynamic Timing**: STmin and Block Size parameters are dynamically extracted from peer Flow Control frames during transmission.
 - **Transfer Timeouts**: A stalled multi-frame transfer is aborted on timeout. `N_Cr` bounds the wait for the next Consecutive Frame during reception, and `N_Bs` bounds the wait for a Flow Control frame after sending a First Frame. Both default to 1000 ms (`ISOTP_N_CR_DEFAULT_MS` / `ISOTP_N_BS_DEFAULT_MS`) and are overridable per instance via `iso.n_cr_ms` / `iso.n_bs_ms`.
 
-## 7. CAN-FD Support
+## 7. Frame Padding
+
+Unused bytes in transmitted frames are padded so every Classic-CAN frame is a
+full 8 bytes (and CAN-FD frames fill to a valid DLC). The pad value is
+configurable per channel with `uds_tp_isotp_set_pad_byte(&iso, value)` and
+applies to all transmitted frames (SF, FF, CF, FC). The default is `0xCC`
+(`ISOTP_PAD_BYTE_DEFAULT`) — the value ISO 15765-2:2016 recommends to minimize
+stuff-bit insertions and bit alterations on the wire. Set another value (e.g.
+`0xAA`, or `0x00`) for bus partners or test tools that require a specific fill.
+
+## 8. CAN-FD Support
 
 The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames up to 64 bytes for higher throughput.
 - **Enable**: Call `uds_tp_isotp_set_fd(&iso, true)` after initialization (Classic CAN is the default).
@@ -107,6 +117,6 @@ The internal ISO-TP layer supports both Classic CAN and CAN-FD, enabling frames 
 - **Multi-Frame**: First Frame (FF) and Consecutive Frames (CF) utilize full 64-byte capacity (up to 62/63 bytes payload per frame).
 - **Compliance**: Adheres to ISO 15765-2 Table 9 for N_PCI bytes.
 
-## 8. Virtual CAN (Host Simulation)
+## 9. Virtual CAN (Host Simulation)
 
 For PC-based verification, we encapsulate CAN frames in UDP packets. This allows full stack execution without physical hardware.

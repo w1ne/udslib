@@ -161,6 +161,7 @@ static void test_integration_large_transfer(void **state)
     /* CF3: [23] [Data: 188..199 (12 bytes)] */
     /* Length: 1 + 12 = 13 bytes. Aligns to 16. */
     uint8_t expected_cf3[16] = {0};
+    memset(expected_cf3, 0xCC, sizeof(expected_cf3));
     expected_cf3[0] = 0x23;
     memcpy(&expected_cf3[1], &tx_data[188], 12);
 

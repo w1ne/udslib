@@ -63,12 +63,13 @@ void uds_tp_isotp_init(uds_isotp_ctx_t *iso, uds_can_send_fn can_send, uint32_t 
     iso->can_send = can_send;
     iso->tx_id = tx_id;
     iso->rx_id = rx_id;
-    iso->rx_id_func = 0u;          /* functional reception disabled until configured */
-    iso->block_size = 8;           /* BS we advertise as receiver */
-    iso->st_min = 0;               /* STmin we advertise as receiver */
-    iso->use_can_fd = 0;           /* Default: Classic CAN */
-    iso->tx_dl = ISOTP_MAX_DL_CAN; /* Default: 8 bytes */
-    iso->mode = ISOTP_HALF_DUPLEX; /* Default: conservative, prior behavior */
+    iso->rx_id_func = 0u;                   /* functional reception disabled until configured */
+    iso->block_size = 8;                    /* BS we advertise as receiver */
+    iso->st_min = 0;                        /* STmin we advertise as receiver */
+    iso->use_can_fd = 0;                    /* Default: Classic CAN */
+    iso->tx_dl = ISOTP_MAX_DL_CAN;          /* Default: 8 bytes */
+    iso->mode = ISOTP_HALF_DUPLEX;          /* Default: conservative, prior behavior */
+    iso->pad_byte = ISOTP_PAD_BYTE_DEFAULT; /* ISO 15765-2 default: 0xCC */
     iso->rx_state = ISOTP_RX_IDLE;
     iso->tx_state = ISOTP_TX_IDLE;
     iso->tx_sdu_buf = tx_sdu_buf;
@@ -85,6 +86,14 @@ void uds_tp_isotp_set_fd(uds_isotp_ctx_t *iso, bool enabled)
     }
     iso->use_can_fd = enabled ? 1 : 0;
     iso->tx_dl = enabled ? ISOTP_MAX_DL_CANFD : ISOTP_MAX_DL_CAN;
+}
+
+void uds_tp_isotp_set_pad_byte(uds_isotp_ctx_t *iso, uint8_t pad_byte)
+{
+    if (!iso) {
+        return;
+    }
+    iso->pad_byte = pad_byte;
 }
 
 void uds_tp_isotp_set_mode(uds_isotp_ctx_t *iso, uds_isotp_duplex_t mode)
@@ -108,8 +117,9 @@ void uds_tp_isotp_set_functional_id(uds_isotp_ctx_t *iso, uint32_t rx_id_func)
  */
 static int uds_send_sf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
 {
-    uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
+    uint8_t frame[ISOTP_MAX_DL_CANFD];
     uint8_t dl = ISOTP_MAX_DL_CAN;
+    memset(frame, iso->pad_byte, sizeof(frame));
 
     if (len <= ISOTP_SF_MAX_DL_CAN) {
         /* Standard SF: [PCI+DL] [Data...] */
@@ -149,9 +159,10 @@ static int uds_send_mf(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len)
     iso->tx_state = ISOTP_TX_WAIT_FC;
     iso->timer_n_bs = 0u; /* armed on the first process() tick in WAIT_FC */
 
-    uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
+    uint8_t frame[ISOTP_MAX_DL_CANFD];
     uint8_t dl = ISOTP_MAX_DL_CAN;
     uint8_t header_len;
+    memset(frame, iso->pad_byte, sizeof(frame));
 
     if (len > ISOTP_MAX_SDU_LEN_STD) {
         /* Escape FF (ISO 15765-2, FF_DL > 4095): [10] [00] [32-bit FF_DL].
@@ -282,7 +293,8 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
             (iso->use_can_fd) ? (ISOTP_MAX_DL_CANFD - 1) : (ISOTP_MAX_DL_CAN - 1);
 
         uint8_t to_copy = (remaining > max_cf_payload) ? max_cf_payload : (uint8_t) remaining;
-        uint8_t frame[ISOTP_MAX_DL_CANFD] = {0};
+        uint8_t frame[ISOTP_MAX_DL_CANFD];
+        memset(frame, iso->pad_byte, sizeof(frame));
         frame[0] = (uint8_t) (ISOTP_PCI_CF | iso->tx_sn);
         memcpy(&frame[1], &iso->tx_sdu_buf[iso->tx_bytes_processed], to_copy);
 
@@ -380,7 +392,8 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
     /* FF_DL exceeding the receive buffer: cancel and notify the sender (9.6.3.2). */
     if (sdu_len > uds->config->rx_buffer_size) {
         iso->rx_state = ISOTP_RX_IDLE;
-        uint8_t fc_ov[8] = {0};
+        uint8_t fc_ov[8];
+        memset(fc_ov, iso->pad_byte, sizeof(fc_ov));
         fc_ov[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_OVA);
         uds_internal_tp_send_frame(iso, fc_ov, 8);
         return;
@@ -398,7 +411,8 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
     memcpy(uds->config->rx_buffer, &data[header_len], data_in_ff);
 
     /* Send Flow Control (CTS) advertising OUR receiver BS/STmin. */
-    uint8_t fc[8] = {0};
+    uint8_t fc[8];
+    memset(fc, iso->pad_byte, sizeof(fc));
     fc[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_CTS);
     fc[1] = iso->block_size;
     fc[2] = iso->st_min;

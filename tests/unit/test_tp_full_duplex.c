@@ -136,7 +136,7 @@ static void test_full_duplex_simultaneous_rx_tx(void **state)
     uint8_t ff[8] = {0x10, 0x0E, 0, 0, 0, 0, 0, 0}; /* FF_DL=14 */
     memcpy(&ff[2], in_payload, 6);
     /* FF must produce our FC.CTS (advertised BS=8, STmin=0). */
-    uint8_t expected_fc[8] = {0x30, 0x08, 0x00, 0, 0, 0, 0, 0};
+    uint8_t expected_fc[8] = {0x30, 0x08, 0x00, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC};
     expect_value(mock_can_send, id, 0x7E0);
     expect_value(mock_can_send, len, 8);
     expect_memory(mock_can_send, data, expected_fc, 8);

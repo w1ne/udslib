@@ -150,7 +150,8 @@ static void test_rx_ff_overflow(void **state)
     ff[1] = 100;
     memset(&ff[2], 0xAB, 62);
 
-    uint8_t expected_fc[8] = {0};
+    uint8_t expected_fc[8];
+    memset(expected_fc, 0xCC, sizeof(expected_fc));
     expected_fc[0] = (uint8_t) (ISOTP_PCI_FC | ISOTP_FC_OVA); /* 0x32 */
 
     expect_value(mock_can_send, id, 0x7E0);
