@@ -467,6 +467,23 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
 }
 
 /* ---------------------------------------------------------------------------
+ * DID table — 0xF1A0: active bank indicator (1 byte, read-only, all sessions)
+ * ------------------------------------------------------------------------- */
+static int bl_read_did(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t max_len)
+{
+    (void) ctx;
+    if (did == 0xF1A0u && max_len >= 1u) {
+        buf[0] = flash_active_bank();
+        return 1;
+    }
+    return -(int) 0x31; /* requestOutOfRange */
+}
+
+static const uds_did_entry_t g_did_table[] = {
+    {0xF1A0u, 1u, 0u, 0u, bl_read_did, NULL, NULL}
+};
+
+/* ---------------------------------------------------------------------------
  * UDS context
  * ------------------------------------------------------------------------- */
 static uds_ctx_t  g_uds;
@@ -527,6 +544,10 @@ int main(void)
     cfg.rx_buffer_size   = (uint16_t) sizeof(g_rx_buf);
     cfg.tx_buffer        = g_tx_buf;
     cfg.tx_buffer_size   = (uint16_t) sizeof(g_tx_buf);
+
+    /* DID table: 0xF1A0 active bank indicator. */
+    cfg.did_table.entries = g_did_table;
+    cfg.did_table.count   = 1u;
 
     /* Gate reprogramming services (0x34/0x36/0x37/0x31/0x27) to the
      * programming session (ISO 14229-1 sensible defaults). */
