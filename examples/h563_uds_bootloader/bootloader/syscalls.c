@@ -36,10 +36,26 @@ void *_sbrk(ptrdiff_t incr)
 
     prev = heap_end;
     new_end = heap_end + incr;
-    limit = (uintptr_t) _estack - HEAP_STACK_GAP;
 
-    /* Refuse to grow into the stack guard gap. */
-    if ((uintptr_t) new_end > limit) {
+    /* Never shrink below the heap start (newlib-nano dlmalloc does not pass a
+     * negative increment in practice, but guard the corruption path anyway). */
+    if (incr < 0 && new_end < end) {
+        errno = ENOMEM;
+        return (void *) -1;
+    }
+
+    /* Refuse to grow within HEAP_STACK_GAP of the stack, bounded by BOTH the
+     * top of RAM (_estack) and the *live* stack pointer — so a deep call/IRQ
+     * chain that has already descended past _estack-GAP is still respected. */
+    uintptr_t sp;
+    __asm__ volatile("mov %0, sp" : "=r"(sp));
+    limit = (uintptr_t) _estack;
+    if (sp < limit) {
+        limit = sp;
+    }
+    limit -= HEAP_STACK_GAP;
+
+    if (incr > 0 && (uintptr_t) new_end > limit) {
         errno = ENOMEM;
         return (void *) -1;
     }

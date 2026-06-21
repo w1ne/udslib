@@ -3,8 +3,10 @@ BUILD_DIR := build
 UDSLIB_DIR ?= /tmp/udslib-labwired-scope
 CC        := arm-none-eabi-gcc
 
-# mbedTLS 3.6 source tree
-MBEDTLS_DIR := /home/andrii/projects/udslib/zephyr-workspace/modules/crypto/mbedtls-3.6
+# mbedTLS 3.6 source tree (override with MBEDTLS_DIR=... ; defaults to the copy
+# vendored under the udslib zephyr workspace, derived from UDSLIB_DIR so the
+# build is portable to any checkout / CI machine).
+MBEDTLS_DIR ?= $(UDSLIB_DIR)/zephyr-workspace/modules/crypto/mbedtls-3.6
 
 # Cortex-M33, real newlib-nano libc: NO -ffreestanding / -fno-builtin, NO shim
 # include path. Standard headers + functions come from newlib.
