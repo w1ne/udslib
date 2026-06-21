@@ -37,6 +37,9 @@ struct uds_ctx;
 #define ISOTP_FF_MAX_DATA_CANFD 62u /**< Max FF payload (FD) */
 #define ISOTP_MAX_SDU_LEN_STD 4095u /**< Max SDU size with 12-bit length */
 
+/* --- Padding --- */
+#define ISOTP_PAD_BYTE_DEFAULT 0x00u /**< Default fill for unused frame bytes */
+
 /* --- Timeout Defaults (ISO 15765-2, milliseconds) --- */
 #define ISOTP_N_CR_DEFAULT_MS 1000u /**< Max wait for a consecutive frame (RX) */
 #define ISOTP_N_BS_DEFAULT_MS 1000u /**< Max wait for flow control after FF (TX) */
@@ -113,6 +116,7 @@ typedef struct
     uint8_t use_can_fd;      /**< Flag: Enable CAN-FD support (0=Standard, 1=FD) */
     uint8_t tx_dl;           /**< Transmit Data Length (Max frame size: 8 or 64) */
     uds_isotp_duplex_t mode; /**< Half- (default) or full-duplex operation */
+    uint8_t pad_byte;        /**< Fill value for unused frame bytes (default 0x00) */
 
     /* --- RX machine (reassembly of an inbound segmented message) --- */
     uds_isotp_rx_state_t rx_state; /**< Current reception state */
@@ -193,6 +197,19 @@ void uds_tp_isotp_set_mode(uds_isotp_ctx_t *iso, uds_isotp_duplex_t mode);
  * @param rx_id_func  Functional RX CAN ID, or 0 to disable.
  */
 void uds_tp_isotp_set_functional_id(uds_isotp_ctx_t *iso, uint32_t rx_id_func);
+
+/**
+ * @brief Set the byte used to pad unused bytes in transmitted frames.
+ *
+ * ISO 15765-2 leaves the padding value implementation-defined; common
+ * conventions are 0x00 (the default), 0xAA, and 0xCC. Some bus partners or
+ * test tools require a specific value. This applies to every frame the stack
+ * transmits (SF, FF, CF, and FC).
+ *
+ * @param iso       ISO-TP context.
+ * @param pad_byte  Fill value for unused bytes (e.g. 0xCC).
+ */
+void uds_tp_isotp_set_pad_byte(uds_isotp_ctx_t *iso, uint8_t pad_byte);
 
 /**
  * @brief Send an SDU via ISO-TP.
