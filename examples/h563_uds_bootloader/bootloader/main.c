@@ -130,6 +130,11 @@ static int bl_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, c
     (void) level;
     uint8_t expected[SEC_KEY_LEN];
 
+    /*
+     * Key length is fixed and non-secret (part of the UDS protocol spec), so
+     * returning early here without constant-time delay is acceptable — only the
+     * key *bytes* are compared constant-time below.
+     */
     if (key_len != SEC_KEY_LEN) {
         return -(int) 0x35; /* invalidKey: wrong length */
     }
@@ -257,14 +262,22 @@ static uint32_t crc32(const uint8_t *buf, uint32_t len)
  */
 static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
 {
-    (void) ctx;
+    /* Security gate: 0x27 must have been completed before reprogramming. */
+    if (ctx->security_level < 1u) {
+        return -(int) 0x33; /* securityAccessDenied */
+    }
 
     uint8_t inactive = flash_active_bank() ? 0u : 1u;
     uint32_t base    = bank_base(inactive) + BL_REGION_SIZE;
     uint32_t end_off = bank_base(inactive) + BANK_SIZE;
 
-    /* Validate: must fit entirely within the inactive app region. */
-    if (addr < base || (addr + size) > end_off || size == 0u) {
+    /*
+     * Overflow-safe bounds check: verify size against the fixed region span
+     * BEFORE the addition so a crafted size cannot wrap uint32_t and bypass
+     * the guard.  end_off - base is the app-region span, computed without
+     * overflow.
+     */
+    if (size == 0u || size > (end_off - base) || addr < base || (addr + size) > end_off) {
         uart_puts("BL: RD reject out-of-range\n");
         return -(int) 0x70; /* uploadDownloadNotAccepted */
     }
@@ -298,8 +311,12 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
  */
 static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *data, uint16_t len)
 {
-    (void) ctx;
     (void) sequence;
+
+    /* Security gate: 0x27 must have been completed before reprogramming. */
+    if (ctx->security_level < 1u) {
+        return -(int) 0x33; /* securityAccessDenied */
+    }
 
     if (!g_flash_state.dl_active) {
         return -(int) 0x70;
@@ -346,7 +363,10 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
  */
 static int bl_transfer_exit(uds_ctx_t *ctx)
 {
-    (void) ctx;
+    /* Security gate: 0x27 must have been completed before reprogramming. */
+    if (ctx->security_level < 1u) {
+        return -(int) 0x33; /* securityAccessDenied */
+    }
 
     if (!g_flash_state.dl_active) {
         return -(int) 0x70;
@@ -373,11 +393,15 @@ static int bl_transfer_exit(uds_ctx_t *ctx)
 static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data,
                                uint16_t len, uint8_t *out_buf, uint16_t max_len)
 {
-    (void) ctx;
     (void) type;
     (void) data;
     (void) len;
     (void) max_len;
+
+    /* Security gate: 0x27 must have been completed before reprogramming. */
+    if (ctx->security_level < 1u) {
+        return -(int) 0x33; /* securityAccessDenied */
+    }
 
     if (id == 0xFF00u) {
         /* EraseMemory: erase inactive-bank app sectors.
@@ -390,8 +414,18 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         if (rc != 0) {
             return -(int) 0x72; /* generalProgrammingFailure */
         }
-        /* Reset transfer state so a new download can follow. */
-        memset(&g_flash_state, 0, sizeof(g_flash_state));
+        /*
+         * Reset only transfer-state fields; preserve inactive_bank/app_base/
+         * app_end so they are not transiently zeroed between the erase and the
+         * next RequestDownload.
+         */
+        g_flash_state.dl_active     = false;
+        g_flash_state.dl_addr       = 0u;
+        g_flash_state.dl_size       = 0u;
+        g_flash_state.write_cursor  = 0u;
+        g_flash_state.bytes_written = 0u;
+        g_flash_state.stage_used    = 0u;
+        memset(g_flash_state.stage, 0, sizeof(g_flash_state.stage));
         return 0;
     }
 
