@@ -53,11 +53,13 @@ __attribute__((noreturn)) void app_jump(uint32_t app_base)
     uint32_t sp = *((const uint32_t *) (uintptr_t) vt);
     uint32_t pc = *((const uint32_t *) (uintptr_t) (vt + 4u));
 
-    /* Relocate the vector table before switching stacks. */
-    SCB_VTOR = vt;
-
-    /* Disable all interrupts and memory barriers before changing MSP. */
+    /* Disable interrupts FIRST so no exception can fetch from a half-relocated
+     * vector table (ARM Cortex-M33 TRM order: cpsid -> write VTOR -> DSB/ISB). */
     __asm volatile("cpsid i" ::: "memory");
+
+    /* Relocate the vector table, then fence so the new table is committed and
+     * the pipeline is flushed before we switch stacks and branch. */
+    SCB_VTOR = vt;
     __asm volatile("dsb" ::: "memory");
     __asm volatile("isb" ::: "memory");
 

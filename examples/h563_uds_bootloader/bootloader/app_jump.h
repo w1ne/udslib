@@ -24,7 +24,9 @@
  *  1. header.magic == OTA_IMAGE_MAGIC
  *  2. header.image_size > 0 && <= OTA_IMAGE_MAX_PAYLOAD
  *  3. CRC-32/ISO-HDLC over [app_base+16, app_base+16+image_size) == header.crc32
- *  4. Initial SP at app_base+16 lies within RAM [0x20000000, 0x200A0000)
+ *  4. Initial SP at app_base+16 lies within RAM [0x20000000, 0x200A0000]
+ *     (top-of-RAM 0x200A0000 is accepted: the conventional initial SP points
+ *     one past the last byte)
  *
  * @param app_base  Flash address of the image header (= bank_base + 0x18000).
  * @return 1 if all checks pass, 0 otherwise.

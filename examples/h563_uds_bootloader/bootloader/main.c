@@ -426,17 +426,19 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         const ota_image_header_t *hdr =
             (const ota_image_header_t *) (uintptr_t) g_flash_state.dl_addr;
 
-        uint8_t pass = 0x00u;
-        if (hdr->magic == OTA_IMAGE_MAGIC &&
-            hdr->image_size > 0u &&
-            hdr->image_size <= OTA_IMAGE_MAX_PAYLOAD) {
-            const uint8_t *payload =
-                (const uint8_t *) (uintptr_t) (g_flash_state.dl_addr + OTA_IMAGE_HDR_SIZE);
-            uint32_t computed = ota_crc32(payload, hdr->image_size);
-            if (computed == hdr->crc32) {
-                pass = 0x01u;
-            }
+        /* The full payload must have been transferred before we CRC it,
+         * otherwise validation would run over still-erased (0xFF) flash.
+         * Check image_size first (overflow-safe) then the written count. */
+        if (hdr->image_size > OTA_IMAGE_MAX_PAYLOAD ||
+            g_flash_state.bytes_written <
+                (uint32_t) OTA_IMAGE_HDR_SIZE + hdr->image_size) {
+            return -(int) 0x22; /* conditionsNotCorrect: incomplete image */
         }
+
+        /* Validate with the SAME routine the bootloader runs at boot, so a PASS
+         * here guarantees the next-boot app_is_valid() also passes (magic +
+         * size + CRC-32 + initial-SP-in-RAM) — no download/boot divergence. */
+        uint8_t pass = app_is_valid(g_flash_state.dl_addr) ? 0x01u : 0x00u;
 
         if (max_len < 1u) {
             return -(int) 0x14;
