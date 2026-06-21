@@ -152,15 +152,90 @@ static uint8_t g_tx_buf[1024];
 static char g_ecu_vin[] = "UDSLIB_SIM_001";
 static char g_customer_name[16] = "ECU_OWNER";
 
+/* --- Standardized identification DIDs (ISO 14229-1, 0xF180..0xF19E) --- */
+static char g_did_boot_sw_id[] = "BOOTSW-V1.0.0";               /* 0xF180 */
+static char g_did_app_sw_id[] = "APPSW-V2.3.1";                 /* 0xF181 */
+static char g_did_app_data_id[] = "APPDATA-V1.4";               /* 0xF182 */
+static char g_did_boot_sw_fp[] = "BSF-0001";                    /* 0xF183 */
+static char g_did_app_sw_fp[] = "ASF-0002";                     /* 0xF184 */
+static char g_did_app_data_fp[] = "ADF-0003";                   /* 0xF185 */
+static char g_did_mfr_spare_part[] = "SPN-1234567";             /* 0xF187 */
+static char g_did_mfr_ecu_sw_num[] = "ECUSW-001";               /* 0xF188 */
+static char g_did_mfr_ecu_sw_ver[] = "ECUSW-V2.3.1";            /* 0xF189 */
+static char g_did_system_supplier[] = "UDSLIB-SUP";             /* 0xF18A */
+static uint8_t g_did_mfg_date[] = {0x20, 0x26, 0x06, 0x21};     /* 0xF18B BCD */
+static char g_did_ecu_serial[] = "ECU-SN-0001-2026";            /* 0xF18C */
+static uint8_t g_did_func_units[] = {0x01};                     /* 0xF18D */
+static char g_did_kit_part_num[] = "KIT-ASSY-001";              /* 0xF18E */
+static char g_did_supplier_hw_num[] = "HW-NUM-0001";            /* 0xF192 */
+static char g_did_supplier_hw_ver[] = "HW-V1.0";                /* 0xF193 */
+static char g_did_supplier_sw_num[] = "SW-NUM-0001";            /* 0xF194 */
+static char g_did_supplier_sw_ver[] = "SW-V2.3.1";              /* 0xF195 */
+static char g_did_exhaust_approval[] = "EXH-APP-0001";          /* 0xF196 */
+static char g_did_system_name[] = "UDSLIB-SIM-ECU";             /* 0xF197 */
+static char g_did_repair_shop[] = "RSC-TESTER-0001";            /* 0xF198 */
+static uint8_t g_did_prog_date[] = {0x20, 0x26, 0x06, 0x21};    /* 0xF199 BCD */
+static uint8_t g_did_install_date[] = {0x20, 0x26, 0x06, 0x21}; /* 0xF19D BCD */
+static char g_did_odx_file[] = "UDSLIB_SIM.odx";                /* 0xF19E */
+
 /**
- * @brief Example DID table setup.
+ * @brief Dynamic read for 0xF186 (ActiveDiagnosticSession): reports the
+ *        currently active session, so the value tracks 0x10 transitions.
+ */
+static int did_read_active_session(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t max_len)
+{
+    (void) did;
+    if (max_len < 1u) return -0x22; /* ConditionsNotCorrect */
+    buf[0] = ctx->active_session;
+    return 1;
+}
+
+/* size = sizeof(arr) - 1 drops the string NUL so the 0x22 response carries
+ * exactly the printable bytes; binary DIDs use plain sizeof. */
+#define STR_DID(id, arr)                                             \
+    {                                                                \
+        (id), (uint16_t) (sizeof(arr) - 1u), 0, 0, NULL, NULL, (arr) \
+    }
+#define BIN_DID(id, arr)                                      \
+    {                                                         \
+        (id), (uint16_t) sizeof(arr), 0, 0, NULL, NULL, (arr) \
+    }
+
+/**
+ * @brief Example DID table setup (Service 0x22 ReadDataByIdentifier).
  */
 static const uds_did_entry_t g_ecu_dids[] = {
-    {0xF190, 14, 0, 0, NULL, NULL, g_ecu_vin},       /* VIN (Direct storage) */
+    STR_DID(0xF180, g_did_boot_sw_id),  /* Boot software identification */
+    STR_DID(0xF181, g_did_app_sw_id),   /* Application software identification */
+    STR_DID(0xF182, g_did_app_data_id), /* Application data identification */
+    STR_DID(0xF183, g_did_boot_sw_fp),  /* Boot software fingerprint */
+    STR_DID(0xF184, g_did_app_sw_fp),   /* Application software fingerprint */
+    STR_DID(0xF185, g_did_app_data_fp), /* Application data fingerprint */
+    {0xF186, 1, 0, 0, did_read_active_session, NULL, NULL}, /* Active diagnostic session */
+    STR_DID(0xF187, g_did_mfr_spare_part),                  /* Manufacturer spare part number */
+    STR_DID(0xF188, g_did_mfr_ecu_sw_num),                  /* Manufacturer ECU software number */
+    STR_DID(0xF189, g_did_mfr_ecu_sw_ver),                  /* Manufacturer ECU software version */
+    STR_DID(0xF18A, g_did_system_supplier),                 /* Identifier of system supplier */
+    BIN_DID(0xF18B, g_did_mfg_date),                        /* ECU manufacturing date (BCD) */
+    STR_DID(0xF18C, g_did_ecu_serial),                      /* ECU serial number */
+    BIN_DID(0xF18D, g_did_func_units),                      /* Supported functional units */
+    STR_DID(0xF18E, g_did_kit_part_num),       /* Manufacturer kit assembly part number */
+    {0xF190, 14, 0, 0, NULL, NULL, g_ecu_vin}, /* VIN (Direct storage) */
+    STR_DID(0xF192, g_did_supplier_hw_num),    /* System supplier ECU hardware number */
+    STR_DID(0xF193, g_did_supplier_hw_ver),    /* System supplier ECU hardware version number */
+    STR_DID(0xF194, g_did_supplier_sw_num),    /* System supplier ECU software number */
+    STR_DID(0xF195, g_did_supplier_sw_ver),    /* System supplier ECU software version number */
+    STR_DID(0xF196, g_did_exhaust_approval),   /* Exhaust regulation/type approval number */
+    STR_DID(0xF197, g_did_system_name),        /* System name / engine type */
+    STR_DID(0xF198, g_did_repair_shop),        /* Repair shop code / tester serial number */
+    BIN_DID(0xF199, g_did_prog_date),          /* Programming date (BCD) */
+    BIN_DID(0xF19D, g_did_install_date),       /* ECU installation date (BCD) */
+    STR_DID(0xF19E, g_did_odx_file),           /* ODX file */
     {0x0123, 16, 0, 0, NULL, NULL, g_customer_name}, /* Customer Name (Read/Write) */
 };
 
-static const uds_did_table_t g_ecu_did_table = {.entries = g_ecu_dids, .count = 2};
+static const uds_did_table_t g_ecu_did_table = {
+    .entries = g_ecu_dids, .count = sizeof(g_ecu_dids) / sizeof(g_ecu_dids[0])};
 
 /**
  * @brief Mock ECU Reset implementation.
