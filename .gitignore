@@ -66,6 +66,11 @@ tests/unit/test_*
 !tests/unit/test_*.h
 examples/client_demo/uds_client_demo
 
+# H563 bootloader demo-app build outputs (produced by app/Makefile, not source)
+examples/h563_uds_bootloader/app/app_*.elf
+examples/h563_uds_bootloader/app/app_*.bin
+examples/h563_uds_bootloader/app/image_verify.c
+
 
 # Local issue-fetch scratch (never commit; may contain copyrighted specs)
 .issue-context/
