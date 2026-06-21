@@ -18,8 +18,10 @@ UDSLIB_DIR=<path-to-udslib-checkout> make -C bootloader
 
 Produces `bootloader/build/h563_uds_bootloader.elf`.
 
-Requires clang (tested with 18) and rust-lld (derived from `rustc --print sysroot`).
-Override the linker if needed: `make RUST_LLD=/path/to/rust-lld`.
+Requires `arm-none-eabi-gcc` (tested with 13.2) with newlib-nano (`nano.specs` /
+`nosys.specs`). The firmware links mbedTLS against the real C library, so the
+standard `<string.h>`/`<stdlib.h>` headers and `memcpy`/`malloc`/`calloc` come
+from newlib; `bootloader/syscalls.c` supplies the `_sbrk` heap glue.
 
 ## Tasks
 

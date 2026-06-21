@@ -17,10 +17,12 @@
 #define MBEDTLS_CMAC_C
 #define MBEDTLS_AES_ROM_TABLES  /* saves ~10KB RAM, uses ROM for S-boxes */
 
-/* Static allocator - no heap needed */
-#define MBEDTLS_PLATFORM_C
-#define MBEDTLS_PLATFORM_MEMORY
-#define MBEDTLS_MEMORY_BUFFER_ALLOC_C
+/*
+ * Memory: use the C library's calloc/free directly (newlib-nano on target,
+ * glibc on the host test). mbedTLS calls calloc/free unless told otherwise, so
+ * no MBEDTLS_PLATFORM_* / MBEDTLS_MEMORY_BUFFER_ALLOC_C is needed. _sbrk in
+ * syscalls.c backs the heap on target.
+ */
 
 /* No entropy/net/fs/time/threading/self-test/PSA */
 #define MBEDTLS_NO_PLATFORM_ENTROPY

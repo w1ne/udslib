@@ -47,7 +47,6 @@ static int run_vector(const char *name, const uint8_t *msg, size_t mlen,
 
 int main(void)
 {
-    sec_crypto_init();
     int rc = 0;
     rc |= run_vector("RFC4493-v1-Mlen=0",  NULL,         0,  rfc4493_mac0);
     rc |= run_vector("RFC4493-v2-Mlen=16", rfc4493_msg1, 16, rfc4493_mac1);

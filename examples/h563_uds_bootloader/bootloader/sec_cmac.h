@@ -6,11 +6,6 @@
 #include <stdint.h>
 
 /**
- * Initialize the mbedTLS memory allocator. Call once at boot before aes_cmac().
- */
-void sec_crypto_init(void);
-
-/**
  * AES-128-CMAC one-shot.
  * @param key     16-byte AES key
  * @param msg     message to authenticate (may be NULL if msg_len == 0)
