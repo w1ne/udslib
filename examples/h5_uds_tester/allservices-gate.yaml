@@ -1,9 +1,11 @@
 schema_version: "1.0"
 inputs:
-  env: "/home/andrii/projects/udslib-h5-gate/examples/h5_uds_tester/twonode-env.yaml"
+  env: "./twonode-env.yaml"
 limits:
   max_steps: 4000000
 assertions:
-  # Full 27/27 ISO-14229 services on a virtual STM32H5 ECU driven by a real
-  # udslib tester over a virtual FDCAN bus, headless. ALL_SERVICES_MASK.
+  # The deterministic oracle: the TESTER node's 27-bit results bitmap. Each bit
+  # is set only when that service's request crossed the virtual CAN bus AND the
+  # ECU's real response came back and matched — a genuine cross-node, all-services
+  # check. 0x07FFFFFF == all 27 ISO-14229 services passed.
   - memory_value: { node: tester, address: 0x20010000, expected_value: 0x07FFFFFF, size: 32 }
