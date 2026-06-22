@@ -27,6 +27,13 @@ static void mock_reset_cb(uds_ctx_t *ctx, uint8_t type)
     g_last_reset_type = type;
 }
 
+static int mock_dtc_clear_cb(uds_ctx_t *ctx, uint32_t group)
+{
+    (void) ctx;
+    (void) group;
+    return UDS_OK;
+}
+
 /* --- Ordering probes for issue #76 ---
  * ISO 14229-1: the ECUReset positive response SHALL be sent before the reset
  * is performed (after a real reset the server cannot answer). These local
@@ -153,6 +160,44 @@ static void test_ecu_reset_suppress_pos_resp(void **state)
     assert_int_equal(g_last_reset_type, 0x01);
 }
 
+/*
+ * Regression for issue #80: an ECU reset with the suppressPosRsp bit
+ * (0x11 0x81) must not leak its suppress flag into the next request. The
+ * handler returns without sending a response, so the suppress flag — if not
+ * scoped to the request — stays set and silently swallows the response of the
+ * following service. The follow-up is a non-subfunction service (0x14
+ * ClearDiagnosticInformation), which never re-writes the suppress flag during
+ * dispatch, so it is the case that actually breaks.
+ */
+static void test_ecu_reset_suppress_does_not_leak(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_reset = mock_reset_cb;
+    cfg.fn_dtc_clear = mock_dtc_clear_cb;
+    g_reset_called = 0;
+
+    /* 1. Suppressed hard reset (0x11 0x81): no response is emitted. */
+    uint8_t reset_req[] = {0x11, 0x81};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    uds_input_sdu(&ctx, reset_req, sizeof(reset_req));
+    assert_int_equal(g_reset_called, 1);
+
+    /* 2. The next service MUST still respond. 0x14 0xFFFFFF -> 0x54. */
+    uint8_t clear_req[] = {0x14, 0xFF, 0xFF, 0xFF};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 1);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, clear_req, sizeof(clear_req));
+
+    assert_int_equal(g_tx_buf[0], 0x54);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -160,6 +205,7 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_hard_success),
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
+        cmocka_unit_test(test_ecu_reset_suppress_does_not_leak),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
