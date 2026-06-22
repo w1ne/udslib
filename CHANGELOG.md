@@ -2,6 +2,49 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-23
+
+Architecture release: response emission, suppression, and reset ordering move
+into the dispatch framework, and the runtime context is regrouped. All ISO
+14229 conformance from 1.20.0 is preserved; this release changes the **handler
+API**, not the wire behaviour.
+
+### Breaking
+- **Service handlers use a result-descriptor contract.** A handler registered
+  via `config.user_services` is now
+  `void handler(uds_ctx_t*, const uint8_t*, uint16_t, uds_result_t *out)`: it
+  writes the positive payload into `tx_buffer` and describes the outcome via
+  `uds_ok(out, len)` / `uds_nrc(out, nrc)` / `uds_pending(out)` /
+  `uds_none(out)` instead of calling `uds_send_response` / `uds_send_nrc` /
+  returning `UDS_PENDING`. The framework (`execute_handler`) is the single
+  authority for emission, suppressPosRsp, and the deferred ECUReset.
+  `uds_send_response` / `uds_send_nrc` remain public for application code that
+  emits outside a handler. Migration: `return uds_send_response(ctx, n);` →
+  `uds_ok(out, n);`; `return uds_send_nrc(ctx, sid, nrc);` → `uds_nrc(out, nrc);`;
+  `return UDS_PENDING;` → `uds_pending(out);`.
+- **Runtime `uds_ctx_t` fields regrouped into sub-structs** (not API): fields
+  now live under `session` / `security` / `server` / `client` / `scratch`
+  (e.g. `ctx->active_session` → `ctx->session.active`, `ctx->security_level` →
+  `ctx->security.level`). Affects only code that read `uds_ctx_t` fields
+  directly. The per-dispatch `scratch` is reset at the start of every top-level
+  request, so no per-request flag can leak into the next.
+
+### Changed
+- A handler that returns without describing a result now fails closed
+  (generalReject 0x10) instead of emitting whatever is in `tx_buffer`.
+- The deferred ECUReset is owned by the framework: it runs strictly after the
+  response is emitted, never during a captured 0x84/0x86 inner dispatch, is
+  cancelled if the response fails to encode or send (the tester gets an NRC /
+  nothing, so the ECU does not reboot), and never fires from a captured
+  ResponseOnEvent dispatch.
+
+### Known limitations
+- SecuredDataTransmission (0x84) still shares `config->tx_buffer` with its
+  copied-out inner dispatch under the single-threaded, non-reentrant contract.
+- The handler-result contract is the stable surface; the `uds_ctx_t` field
+  layout is not part of the API contract and may evolve.
+- The test suite is host-simulation based (mocked transport + virtual clock).
+
 ## [1.20.0] - 2026-06-22
 
 ### Added
