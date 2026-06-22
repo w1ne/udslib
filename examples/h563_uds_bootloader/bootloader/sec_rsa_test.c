@@ -3,20 +3,20 @@
  * SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
  */
 /*
- * Host test for ECDSA-P256 image authenticity (secure boot).
+ * Host test for RSA-2048 image authenticity (secure boot).
  *
  * Proves, independent of the simulator:
  *   1. The committed signed image (app/app_b_image.bin) verifies against the
- *      baked public key (image_pubkey.h) via the same ecdsa_verify_p256() the
+ *      baked public key (image_pubkey.h) via the same rsa_verify_sha256() the
  *      bootloader runs.
  *   2. A one-byte tamper of the payload makes verification FAIL.
  *   3. A signature-tampered image (app/app_bsigbad_image.bin) FAILS while its
  *      CRC still matches — proving the signature gate, not the CRC, rejects it.
  *
- * Built and run on the host (gcc) by the bootloader Makefile `ecdsa-test`
- * target, which compiles sec_ecdsa.c + the mbedTLS ECDSA/SHA-256 modules.
+ * Built and run on the host (gcc) by the bootloader Makefile `rsa-test`
+ * target, which compiles sec_rsa.c + the mbedTLS RSA/SHA-256 modules.
  */
-#include "sec_ecdsa.h"
+#include "sec_rsa.h"
 #include "ota_image.h"
 #include "ota_crc.h"
 
@@ -94,20 +94,20 @@ int main(void)
     }
     printf("PASS: genuine image CRC ok (0x%08X)\n", hdr.crc32);
 
-    /* Signature must verify. */
-    if (!ecdsa_verify_p256(payload, hdr.image_size, sig)) {
+    /* Signature must verify (rsa_verify_sha256 returns 0 on success). */
+    if (rsa_verify_sha256(payload, hdr.image_size, sig) != 0) {
         free(img);
         return fail("genuine signature did NOT verify");
     }
-    printf("PASS: genuine ECDSA-P256 signature verifies\n");
+    printf("PASS: genuine RSA-2048 signature verifies\n");
 
     /* Tamper one payload byte → signature must now fail. */
     uint8_t *tampered = malloc(len);
     memcpy(tampered, img, len);
     uint8_t *t_payload = tampered + OTA_IMAGE_HDR_SIZE;
     t_payload[0] ^= 0x01u;
-    if (ecdsa_verify_p256(t_payload, hdr.image_size,
-                          tampered + OTA_IMAGE_HDR_SIZE + hdr.image_size)) {
+    if (rsa_verify_sha256(t_payload, hdr.image_size,
+                          tampered + OTA_IMAGE_HDR_SIZE + hdr.image_size) == 0) {
         free(img);
         free(tampered);
         return fail("payload tamper was ACCEPTED (should be rejected)");
@@ -133,13 +133,13 @@ int main(void)
     }
     printf("PASS: sig-bad image CRC is still good (0x%08X)\n", bhdr.crc32);
 
-    if (ecdsa_verify_p256(b_payload, bhdr.image_size, b_sig)) {
+    if (rsa_verify_sha256(b_payload, bhdr.image_size, b_sig) == 0) {
         free(bad);
         return fail("tampered signature was ACCEPTED (should be rejected)");
     }
     printf("PASS: tampered signature rejected (signature gate works)\n");
     free(bad);
 
-    printf("ALL ECDSA SECURE-BOOT TESTS PASSED\n");
+    printf("ALL RSA SECURE-BOOT TESTS PASSED\n");
     return rc;
 }

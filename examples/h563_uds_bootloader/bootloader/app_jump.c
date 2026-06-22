@@ -6,7 +6,7 @@
 #include "app_jump.h"
 #include "ota_image.h"
 #include "ota_crc.h"
-#include "sec_ecdsa.h"
+#include "sec_rsa.h"
 #include <stdint.h>
 
 /* STM32H563 SRAM: 0x20000000 .. 0x200A0000 (640 KB total) */
@@ -37,13 +37,13 @@ int app_is_valid(uint32_t app_base)
         return 0;
     }
 
-    /* 4. ECDSA-P256 authenticity: the 64-byte raw r||s signature sits
+    /* 4. RSA-2048 authenticity: the 256-byte PKCS#1 v1.5 signature sits
      * immediately after the payload. Verify it over SHA-256(payload) against
      * the baked public key — only images signed with the matching private key
      * are accepted. A forged-but-CRC-good image fails here. */
     const uint8_t *sig =
         (const uint8_t *) (uintptr_t) (app_base + OTA_IMAGE_HDR_SIZE + hdr->image_size);
-    if (!ecdsa_verify_p256(payload, hdr->image_size, sig)) {
+    if (rsa_verify_sha256(payload, hdr->image_size, sig) != 0) {
         return 0;
     }
 

@@ -14,7 +14,7 @@
  *   [app_base+0x400 .. +0x400+image_size)           app payload; the app's Cortex-M vector
  *                                                    table starts at app_base + 0x400 = app_base
  *                                                    + OTA_IMAGE_HDR_SIZE.
- *   [app_base+0x400+image_size .. +image_size+0x40) ECDSA-P256 signature, raw r||s (64 bytes)
+ *   [app_base+0x400+image_size .. +image_size+0x100) RSA-2048 PKCS#1 v1.5 signature (256 bytes)
  *
  * The signature offset is computed from image_size — no new header field is
  * needed. mkimage.py appends it; the bootloader reads it back from the same
@@ -30,9 +30,9 @@
  *
  * All multi-byte fields are little-endian (native Cortex-M byte order).
  * The CRC covers only the payload bytes [app_base+0x400, app_base+0x400+image_size)
- * — it does NOT cover the header or padding.  The ECDSA-P256 signature covers
- * SHA-256 of those exact same payload bytes (defense in depth: CRC = fast
- * integrity check, signature = authenticity).  See sec_ecdsa.h.
+ * — it does NOT cover the header or padding.  The RSA-2048 PKCS#1 v1.5
+ * signature covers SHA-256 of those exact same payload bytes (defense in depth:
+ * CRC = fast integrity check, signature = authenticity).  See sec_rsa.h.
  *
  * Algorithm: CRC-32/ISO-HDLC
  *   Poly:      0x04C11DB7 (reflected: 0xEDB88320)
@@ -63,11 +63,11 @@ typedef struct {
 #define OTA_IMAGE_HDR_SIZE  0x400u
 
 /**
- * ECDSA-P256 signature size in bytes: raw r||s (32 + 32, big-endian).
+ * RSA-2048 PKCS#1 v1.5 signature size in bytes (256 raw big-endian bytes).
  * Appended immediately after the payload. The signature lives at
  *   app_base + OTA_IMAGE_HDR_SIZE + image_size .. + OTA_IMAGE_SIG_SIZE
  */
-#define OTA_IMAGE_SIG_SIZE  64u
+#define OTA_IMAGE_SIG_SIZE  256u
 
 /**
  * Maximum permitted payload size for the H563 dual-bank layout:
