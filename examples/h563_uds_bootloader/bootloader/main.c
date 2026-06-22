@@ -68,9 +68,48 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- * Timing (simple free-running counter — no SysTick wired; incremented in loop)
+ * Timing — Cortex-M33 SysTick 1 ms time base
+ *
+ * g_now_ms is incremented once per millisecond by SysTick_Handler (the modeled
+ * exception #15), NOT by the main loop.  This makes cfg.security_delay_ms and
+ * cfg.p2_star_ms real wall-clock milliseconds: the brute-force lockout in 0x27
+ * Security Access is an actual time delay rather than a loop-iteration count.
+ *
+ * The firmware does not configure RCC, so the core runs at the H563 reset
+ * clock.  On STM32H5 the reset clock source is HSI = 32 MHz, undivided in the
+ * reset configuration, so SystemCoreClock at reset is 32 MHz.  Exact
+ * wall-clock fidelity is not required here; a monotonic ms tick driven by a
+ * hardware timer is the goal.
  * ------------------------------------------------------------------------- */
+
+/* H563 reset core clock: HSI = 32 MHz (undivided in the reset RCC config). */
+#define CORE_CLOCK_HZ 32000000u
+
+/* Cortex-M33 SysTick / SCS registers (System Control Space @ 0xE000E010). */
+#define SYST_CSR  (*(volatile uint32_t *) 0xE000E010u) /* control and status */
+#define SYST_RVR  (*(volatile uint32_t *) 0xE000E014u) /* reload value       */
+#define SYST_CVR  (*(volatile uint32_t *) 0xE000E018u) /* current value      */
+
+/* SYST_CSR bit fields. */
+#define SYST_CSR_ENABLE    (1u << 0) /* counter enabled                       */
+#define SYST_CSR_TICKINT   (1u << 1) /* assert SysTick exception on count-to-0 */
+#define SYST_CSR_CLKSOURCE (1u << 2) /* clock source = processor clock        */
+
 static volatile uint32_t g_now_ms;
+
+/* SysTick exception (#15): advance the millisecond time base. */
+void SysTick_Handler(void)
+{
+    ++g_now_ms;
+}
+
+/* Configure SysTick for a 1 ms tick from the processor clock. */
+static void systick_init(void)
+{
+    SYST_RVR = (CORE_CLOCK_HZ / 1000u) - 1u; /* reload for a 1 ms period */
+    SYST_CVR = 0u;                           /* clear current count + COUNTFLAG */
+    SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
+}
 
 static uint32_t get_time_ms(void)
 {
@@ -600,6 +639,7 @@ static uint8_t    g_tx_buf[512];
 int main(void)
 {
     uart_init();
+    systick_init(); /* start the 1 ms SysTick time base for UDS timing */
     uart_puts("BL-START\n");
 
     /*
@@ -740,8 +780,5 @@ int main(void)
 #ifdef SIM_OTA_TESTER
         sim_tester_poll();
 #endif
-
-        /* Increment the free-running millisecond counter. */
-        ++g_now_ms;
     }
 }
