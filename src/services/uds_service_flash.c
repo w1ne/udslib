@@ -123,8 +123,9 @@ void uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint
         }
     }
     else {
-        uint8_t expected =
-            (ctx->server.flash_sequence == 0xFFu) ? 0x00u : (uint8_t) (ctx->server.flash_sequence + 1u);
+        uint8_t expected = (ctx->server.flash_sequence == 0xFFu)
+                               ? 0x00u
+                               : (uint8_t) (ctx->server.flash_sequence + 1u);
         if (sequence != expected) {
             /* Optional interoperability: accept last-block replay without re-processing data. */
             if (ctx->config->transfer_accept_last_block_replay &&

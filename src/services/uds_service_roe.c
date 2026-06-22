@@ -126,7 +126,8 @@ void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, 
     if (sub == 0x05u) { /* startResponseOnEvent */
         bool need_time = false;
         for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-            if (ctx->server.roe[i].in_use && (ctx->server.roe[i].window_byte != ROE_WINDOW_INFINITE)) {
+            if (ctx->server.roe[i].in_use &&
+                (ctx->server.roe[i].window_byte != ROE_WINDOW_INFINITE)) {
                 need_time = true;
             }
         }
@@ -134,9 +135,10 @@ void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, 
         for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
             if (ctx->server.roe[i].in_use) {
                 ctx->server.roe[i].active = true;
-                ctx->server.roe[i].window_deadline = (ctx->server.roe[i].window_byte == ROE_WINDOW_INFINITE)
-                                                  ? 0u
-                                                  : (now + (uint32_t) UDS_ROE_WINDOW_MS);
+                ctx->server.roe[i].window_deadline =
+                    (ctx->server.roe[i].window_byte == ROE_WINDOW_INFINITE)
+                        ? 0u
+                        : (now + (uint32_t) UDS_ROE_WINDOW_MS);
             }
         }
     }

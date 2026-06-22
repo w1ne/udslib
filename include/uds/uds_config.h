@@ -730,14 +730,14 @@ typedef struct uds_security_state
 /** Server-role persistent state: async response engine + per-service state. */
 typedef struct uds_server_state
 {
-    uint32_t p2_timer_start; /**< Start time for P2 performance tracking */
-    bool p2_msg_pending;     /**< True if a service returned UDS_PENDING */
-    bool p2_star_active;     /**< True once the first 0x78 NRC has been sent */
-    uint8_t pending_sid;     /**< SID awaiting an async (0x78) response */
-    uint16_t rcrrp_count;    /**< Counter for NRC 0x78 repetitions (C-07) */
-    uint8_t flash_sequence;  /**< Block Sequence Counter for SID 0x36 */
-    bool link_ctrl_verified; /**< 0x87: a verify sub-function has been accepted */
-    uint32_t link_ctrl_param; /**< 0x87: link parameter latched at verify */
+    uint32_t p2_timer_start;     /**< Start time for P2 performance tracking */
+    bool p2_msg_pending;         /**< True if a service returned UDS_PENDING */
+    bool p2_star_active;         /**< True once the first 0x78 NRC has been sent */
+    uint8_t pending_sid;         /**< SID awaiting an async (0x78) response */
+    uint16_t rcrrp_count;        /**< Counter for NRC 0x78 repetitions (C-07) */
+    uint8_t flash_sequence;      /**< Block Sequence Counter for SID 0x36 */
+    bool link_ctrl_verified;     /**< 0x87: a verify sub-function has been accepted */
+    uint32_t link_ctrl_param;    /**< 0x87: link parameter latched at verify */
     uint8_t periodic_ids[8];     /**< Active periodic IDs (SID 0x2A) */
     uint8_t periodic_rates[8];   /**< Periodic sub-function rates (1-3) */
     uint32_t periodic_timers[8]; /**< Next periodic transmission deadline */

@@ -532,7 +532,7 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     ctx->config = config;
     ctx->session.active = UDS_SESSION_ID_DEFAULT; /* Default Session */
     ctx->security.level = 0u;                     /* Locked */
-    ctx->session.comm_state = 0x00u;                      /* Enable Rx/Tx */
+    ctx->session.comm_state = 0x00u;              /* Enable Rx/Tx */
     ctx->scratch.suppress_pos_resp = false;
 
     ctx->server.rcrrp_count = 0u;
@@ -543,7 +543,8 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
 
     if (config->strict_compliance) {
         if (ctx->session.p2_ms < UDS_P2_MIN_SAFE_MS) ctx->session.p2_ms = UDS_P2_MIN_SAFE_MS;
-        if (ctx->session.p2_star_ms < UDS_P2_STAR_MIN_SAFE_MS) ctx->session.p2_star_ms = UDS_P2_STAR_MIN_SAFE_MS;
+        if (ctx->session.p2_star_ms < UDS_P2_STAR_MIN_SAFE_MS)
+            ctx->session.p2_star_ms = UDS_P2_STAR_MIN_SAFE_MS;
         uds_internal_log(ctx, UDS_LOG_INFO,
                          "Strict Compliance: Enforcing minimum P2/P2* durations");
     }
@@ -594,7 +595,8 @@ void uds_process(uds_ctx_t *ctx)
 
         if (elapsed >= limit) {
             /* C-07: RCRRP Limit Check */
-            if (ctx->config->rcrrp_limit > 0u && ctx->server.rcrrp_count >= ctx->config->rcrrp_limit) {
+            if (ctx->config->rcrrp_limit > 0u &&
+                ctx->server.rcrrp_count >= ctx->config->rcrrp_limit) {
                 uds_send_nrc(ctx, ctx->server.pending_sid, UDS_NRC_CONDITIONS_NOT_CORRECT);
                 ctx->server.rcrrp_count = 0u;
                 if (ctx->config->fn_mutex_unlock) {
@@ -619,8 +621,8 @@ void uds_process(uds_ctx_t *ctx)
                    timers; a plain >= breaks across the 32-bit ms rollover. */
                 if ((int32_t) (now - ctx->server.periodic_timers[i]) >= 0) {
                     uint8_t out_buf[UDS_MAX_PERIODIC_MSG_LEN];
-                    int written = ctx->config->fn_periodic_read(ctx, ctx->server.periodic_ids[i], out_buf,
-                                                                UDS_MAX_PERIODIC_MSG_LEN);
+                    int written = ctx->config->fn_periodic_read(ctx, ctx->server.periodic_ids[i],
+                                                                out_buf, UDS_MAX_PERIODIC_MSG_LEN);
                     if (written > 0) {
                         /* Send periodic message as a raw CAN/ISO-TP response if needed,
                            or via a specialized periodic tx hook. For now, use fn_tp_send. */
@@ -836,7 +838,8 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
        uds_process can emit on a deferred/pending path (responsePending and the
        post-RCRRP conditionsNotCorrect), since those run with a persisted
        req_addr_mode and must NOT be suppressed. */
-    if (ctx->scratch.req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL && !ctx->scratch.secure_capturing &&
+    if (ctx->scratch.req_addr_mode == (uint8_t) UDS_ADDR_FUNCTIONAL &&
+        !ctx->scratch.secure_capturing &&
         (nrc == UDS_NRC_SERVICE_NOT_SUPPORTED || nrc == UDS_NRC_SUBFUNCTION_NOT_SUPPORTED ||
          nrc == UDS_NRC_SUBFUNC_NOT_SUPP_IN_SESS || nrc == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS ||
          nrc == UDS_NRC_REQUEST_OUT_OF_RANGE)) {

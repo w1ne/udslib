@@ -93,7 +93,8 @@ void uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint
         case 0x01u:   /* readExtendedTimingParameterSet */
         case 0x03u: { /* readCurrentlyActiveTimingParameters */
             uint16_t p2 = ctx->session.p2_ms;
-            uint16_t p2_star = (uint16_t) (ctx->session.p2_star_ms / 10u); /* P2* resolution is 10ms */
+            uint16_t p2_star =
+                (uint16_t) (ctx->session.p2_star_ms / 10u); /* P2* resolution is 10ms */
             ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ACCESS_TIMING + UDS_RESPONSE_OFFSET);
             ctx->config->tx_buffer[1] = sub;
             ctx->config->tx_buffer[2] = (uint8_t) ((p2 >> 8u) & 0xFFu);
@@ -106,7 +107,8 @@ void uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint
 
         case 0x02u: /* setTimingParametersToDefaultValues */
             ctx->session.p2_ms = (ctx->config->p2_ms > 0u) ? ctx->config->p2_ms : 50u;
-            ctx->session.p2_star_ms = (ctx->config->p2_star_ms > 0u) ? ctx->config->p2_star_ms : 5000u;
+            ctx->session.p2_star_ms =
+                (ctx->config->p2_star_ms > 0u) ? ctx->config->p2_star_ms : 5000u;
             ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ACCESS_TIMING + UDS_RESPONSE_OFFSET);
             ctx->config->tx_buffer[1] = sub;
             uds_ok(out, 2u);
@@ -118,7 +120,8 @@ void uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint
                 return;
             }
             ctx->session.p2_ms = (uint16_t) (((uint16_t) data[2] << 8u) | (uint16_t) data[3]);
-            ctx->session.p2_star_ms = (uint32_t) (((uint16_t) data[4] << 8u) | (uint16_t) data[5]) * 10u;
+            ctx->session.p2_star_ms =
+                (uint32_t) (((uint16_t) data[4] << 8u) | (uint16_t) data[5]) * 10u;
             ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ACCESS_TIMING + UDS_RESPONSE_OFFSET);
             ctx->config->tx_buffer[1] = sub;
             uds_ok(out, 2u);
