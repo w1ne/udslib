@@ -5,7 +5,11 @@ else
 TARGET    := h563_uds_bootloader
 endif
 BUILD_DIR := build
-UDSLIB_DIR ?= /tmp/udslib-labwired-scope
+# Default to the udslib repo root: this example lives at
+# <repo>/examples/h563_uds_bootloader/bootloader, so the root is three levels
+# up. A fresh checkout builds with no UDSLIB_DIR override; check-udslib below
+# verifies the resolved path really is a udslib checkout.
+UDSLIB_DIR ?= $(abspath $(CURDIR)/../../..)
 CC        := arm-none-eabi-gcc
 
 # mbedTLS 3.6 source tree (override with MBEDTLS_DIR=... ; defaults to the copy
@@ -36,7 +40,7 @@ LDFLAGS := $(CPUFLAGS) --specs=nano.specs --specs=nosys.specs -nostartfiles \
            -T bootloader.ld -Wl,--gc-sections \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map
 
-APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c boot_state.c
+APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c image_validate.c boot_state.c
 ifeq ($(SIM_TESTER),1)
 APP_SRCS     += ../sim_tester/sim_tester.c
 APP_CFLAGS   += -DSIM_OTA_TESTER -I../sim_tester -I..
@@ -175,9 +179,36 @@ rsa-test: $(BUILD_DIR)
 	gcc $(RSA_TEST_CFLAGS) $(RSA_TEST_SRCS) -o $(BUILD_DIR)/rsa_test
 	$(BUILD_DIR)/rsa_test
 
-# Host unit test: validates OTA image header CRC/magic logic without MCU code.
-IMAGE_TEST_SRCS := app_image_test.c ota_crc.c
-IMAGE_TEST_CFLAGS := -O2 -g -I. -Wall -Wextra -Werror
+# Host unit test: validates the REAL bootloader validation core image_validate()
+# (the same function app_is_valid() wraps on the target) against real signed
+# image buffers. Links sec_rsa.c + the mbedTLS RSA/SHA-256 modules so the
+# signature path is genuinely exercised on the host (as rsa-test does).
+IMAGE_TEST_SRCS := app_image_test.c image_validate.c ota_crc.c sec_rsa.c \
+  $(MBEDTLS_DIR)/library/rsa.c \
+  $(MBEDTLS_DIR)/library/rsa_alt_helpers.c \
+  $(MBEDTLS_DIR)/library/bignum.c \
+  $(MBEDTLS_DIR)/library/bignum_core.c \
+  $(MBEDTLS_DIR)/library/sha256.c \
+  $(MBEDTLS_DIR)/library/md.c \
+  $(MBEDTLS_DIR)/library/oid.c \
+  $(MBEDTLS_DIR)/library/asn1parse.c \
+  $(MBEDTLS_DIR)/library/asn1write.c \
+  $(MBEDTLS_DIR)/library/platform_util.c \
+  $(MBEDTLS_DIR)/library/constant_time.c
+
+# Our TUs (app_image_test.c, image_validate.c, ota_crc.c, sec_rsa.c) are held to
+# -Werror; the mbedTLS modules are not (they emit benign warnings). gcc applies
+# the last -W flags, so list mbedTLS relaxations after -Werror — but that would
+# also relax our code. Instead compile in one go with the strict bar and the
+# mbedTLS-only relaxations that do not mask real bugs in our code.
+IMAGE_TEST_CFLAGS := -O2 -g \
+  -I. \
+  -I$(MBEDTLS_DIR)/include \
+  -I$(MBEDTLS_DIR)/library \
+  -DMBEDTLS_CONFIG_FILE='"bootloader_mbedtls_config.h"' \
+  -DIMG_DIR='"../app"' \
+  -Wall -Wextra -Werror \
+  -Wno-unused-function -Wno-unused-parameter -Wno-missing-field-initializers
 
 image-test: $(BUILD_DIR)
 	gcc $(IMAGE_TEST_CFLAGS) $(IMAGE_TEST_SRCS) -o $(BUILD_DIR)/image_test

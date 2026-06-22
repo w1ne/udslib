@@ -20,13 +20,20 @@
 /**
  * Check whether a self-locating OTA image at @p app_base is valid.
  *
+ * Thin wrapper that calls the shared validation core image_validate() (see
+ * image_validate.h) over the bank's memory-mapped app region. The firmware and
+ * the host unit test exercise the SAME core so they cannot diverge.
+ *
  * Checks performed (in order):
  *  1. header.magic == OTA_IMAGE_MAGIC
  *  2. header.image_size > 0 && <= OTA_IMAGE_MAX_PAYLOAD
- *  3. CRC-32/ISO-HDLC over [app_base+16, app_base+16+image_size) == header.crc32
- *  4. Initial SP at app_base+16 lies within RAM [0x20000000, 0x200A0000]
- *     (top-of-RAM 0x200A0000 is accepted: the conventional initial SP points
- *     one past the last byte)
+ *  3. header + payload + RSA signature all fit within the app region
+ *  4. CRC-32/ISO-HDLC over the payload == header.crc32
+ *  5. RSA-2048 PKCS#1 v1.5 signature over SHA-256(payload) verifies
+ *  6. Initial SP at app_base+OTA_IMAGE_HDR_SIZE lies within RAM
+ *     [0x20000000, 0x200A0000] (top-of-RAM 0x200A0000 is accepted: the
+ *     conventional full-descending-stack initial SP points one past the last
+ *     RAM byte)
  *
  * @param app_base  Flash address of the image header (= bank_base + 0x18000).
  * @return 1 if all checks pass, 0 otherwise.

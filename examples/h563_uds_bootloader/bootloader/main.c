@@ -767,6 +767,12 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
 
 /* ---------------------------------------------------------------------------
  * DID table — 0xF1A0: active bank indicator (1 byte, read-only, all sessions)
+ *
+ * Deliberately readable in any session with no security access. The value is a
+ * single bank number (0 or 1) the host flash tool needs to compute the INACTIVE
+ * app base before it can request a download. It leaks no secret and exposes no
+ * write path — it is a diagnostic/orchestration aid, not an attack surface — so
+ * gating it behind security would only add friction for legitimate flashing.
  * ------------------------------------------------------------------------- */
 static int bl_read_did(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t max_len)
 {
