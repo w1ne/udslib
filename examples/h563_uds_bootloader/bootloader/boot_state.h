@@ -44,20 +44,26 @@
  *   bank BEFORE flash_set_swap_and_reset(), so a power loss during
  *   the write keeps the current bank active.
  *
- * Same-bank erase note (simulator):
+ * Same-bank erase note (read-while-write):
  *   The bootloader erases and programs a sector of the bank it is
  *   executing from.  On real H5 silicon this is safe ONLY when the
  *   flash operation is driven from RAM (RM0481 §7.3.4 "Read-while-
- *   write" constraint).  In the LabWired H563 simulator the constraint
- *   does not apply; the simulation always completes correctly.
- *   Production firmware must copy the flash driver to ITCM/SRAM before
- *   calling boot_state_write().
+ *   write" constraint).  This is handled here: boot_state_write(),
+ *   boot_state_clear() and the flash driver they call (flash_erase_sector
+ *   / flash_program and their NSSR.BSY poll) are marked RAMFUNC and copied
+ *   to SRAM by startup.c before main() (see flash_h5.h).
  */
 
 #ifndef BOOT_STATE_H
 #define BOOT_STATE_H
 
 #include <stdint.h>
+
+/* For the RAMFUNC attribute: boot_state_write()/boot_state_clear() execute
+ * from SRAM on the ARM target (read-while-write hazard, see flash_h5.h).
+ * Callers need the long_call attribute on the prototype to reach the
+ * RAM-resident routine, so the prototypes below are annotated RAMFUNC. */
+#include "flash_h5.h"
 
 /* ---------------------------------------------------------------------------
  * Constants
@@ -133,7 +139,7 @@ void boot_state_read(uint32_t bank_base, boot_state_t *out);
  * @param bank_base  Physical base address of the bank.
  * @param st         Record to write.
  */
-void boot_state_write(uint32_t bank_base, const boot_state_t *st);
+RAMFUNC void boot_state_write(uint32_t bank_base, const boot_state_t *st);
 
 /**
  * boot_state_mark_pending() — Set the boot-state to "pending confirmation".
@@ -153,7 +159,7 @@ void boot_state_mark_pending(uint32_t bank_base);
  *
  * @param bank_base  Physical base address of the bank.
  */
-void boot_state_clear(uint32_t bank_base);
+RAMFUNC void boot_state_clear(uint32_t bank_base);
 
 /**
  * boot_state_bump_attempts() — Increment the attempts counter.

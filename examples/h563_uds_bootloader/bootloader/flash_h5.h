@@ -17,6 +17,27 @@
 #include <stdint.h>
 
 /* ---------------------------------------------------------------------------
+ * RAMFUNC — place a function in the .ramfunc section so it executes from SRAM.
+ *
+ * On STM32H5 silicon an erase/program of a flash bank cannot run while the CPU
+ * fetches instructions from that same bank (read-while-write hazard, RM0481
+ * §7.3.4).  Functions that issue an erase/program and then poll NSSR.BSY are
+ * marked RAMFUNC; startup.c copies .ramfunc from its flash load address (LMA)
+ * to RAM (VMA) before main(), and long_call lets a flash-resident caller reach
+ * the RAM-resident routine regardless of the relative branch range.
+ *
+ * The attribute is enabled only for the ARM firmware build.  The host unit
+ * test (boot_state_test) compiles boot_state.c with the system gcc, whose
+ * default linker script has no .ramfunc section; long_call is also Arm-only.
+ * Leaving the macro empty off-target keeps those host links clean.
+ * ------------------------------------------------------------------------- */
+#if defined(__arm__)
+#define RAMFUNC  __attribute__((section(".ramfunc"), noinline, long_call))
+#else
+#define RAMFUNC
+#endif
+
+/* ---------------------------------------------------------------------------
  * MMIO helper
  * ------------------------------------------------------------------------- */
 #define REG32(a)  (*(volatile uint32_t *)(uintptr_t)(a))
@@ -150,7 +171,7 @@ void flash_unlock(void);
  *
  * Returns 0 on success.
  */
-int flash_program(uint32_t addr, const uint8_t *data, uint32_t len);
+RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len);
 
 /**
  * flash_erase_sector() — Erase one flash sector.
@@ -161,7 +182,7 @@ int flash_program(uint32_t addr, const uint8_t *data, uint32_t len);
  * Caller must have called flash_unlock() first.
  * Returns 0 on success.
  */
-int flash_erase_sector(uint8_t bank, uint32_t sector);
+RAMFUNC int flash_erase_sector(uint8_t bank, uint32_t sector);
 
 /**
  * flash_set_swap_and_reset() — Program the SWAP_BANK option bit and reset.

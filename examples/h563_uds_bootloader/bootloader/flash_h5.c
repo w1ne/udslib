@@ -14,7 +14,7 @@
  * no longer hang the CPU.  Returns FLASH_OK when BSY clears within the budget,
  * FLASH_ERR_TIMEOUT otherwise.
  * ------------------------------------------------------------------------- */
-static int flash_wait_bsy(void)
+RAMFUNC static int flash_wait_bsy(void)
 {
     uint32_t guard = FLASH_BSY_TIMEOUT;
     while ((FLASH_NSSR & NSSR_BSY) != 0u) {
@@ -32,7 +32,7 @@ static int flash_wait_bsy(void)
  * NSCCR (write-1-clears) and report FLASH_ERR_HW.  On a clean operation clear
  * the sticky EOP flag (also via NSCCR) and report FLASH_OK.
  * ------------------------------------------------------------------------- */
-static int flash_check_and_clear(void)
+RAMFUNC static int flash_check_and_clear(void)
 {
     uint32_t sr = FLASH_NSSR;
     if ((sr & NSSR_ERR_MASK) != 0u) {
@@ -69,7 +69,7 @@ void flash_unlock(void)
  *
  * RM0481 §7.3.4 / stm32h563.svd NSCR @ 0x28, NSSR @ 0x20.
  * ------------------------------------------------------------------------- */
-int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
+RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
 {
     volatile uint32_t *dst = (volatile uint32_t *)(uintptr_t)addr;
     const uint32_t    *src = (const uint32_t *)(uintptr_t)data;
@@ -116,7 +116,7 @@ int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
  *
  * RM0481 §7.3.5 / stm32h563.svd NSCR @ 0x28, NSSR @ 0x20.
  * ------------------------------------------------------------------------- */
-int flash_erase_sector(uint8_t bank, uint32_t sector)
+RAMFUNC int flash_erase_sector(uint8_t bank, uint32_t sector)
 {
     uint32_t cr = NSCR_SER
                 | ((uint32_t)(sector << NSCR_SNB_SHIFT) & NSCR_SNB_MASK)

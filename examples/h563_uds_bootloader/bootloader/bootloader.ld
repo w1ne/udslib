@@ -27,6 +27,21 @@ SECTIONS {
     . = ALIGN(4);
     _edata = .;
   } > RAM AT > BL
+  /*
+   * RAM-resident code: flash erase/program routines that must NOT execute
+   * from the flash bank they are operating on (H5 read-while-write hazard,
+   * RM0481 §7.3.4).  Linked for execution in RAM (VMA) but stored in flash
+   * (LMA, after .data's load image); startup.c copies it before main(),
+   * exactly like .data.
+   */
+  _siramfunc = LOADADDR(.ramfunc);
+  .ramfunc : {
+    . = ALIGN(4);
+    _sramfunc = .;
+    *(.ramfunc*)
+    . = ALIGN(4);
+    _eramfunc = .;
+  } > RAM AT > BL
   .bss : {
     . = ALIGN(4);
     _sbss = .;
@@ -41,5 +56,5 @@ SECTIONS {
 }
 /* Hard-fail the link if BL code/rodata/data-init would grow into the reserved
  * boot-state sector at 0x08016000, rather than silently corrupting it. */
-ASSERT(LOADADDR(.data) + SIZEOF(.data) <= _boot_state_addr,
+ASSERT(LOADADDR(.ramfunc) + SIZEOF(.ramfunc) <= _boot_state_addr,
        "Bootloader flash image overflows into the boot-state sector (0x16000)")

@@ -15,8 +15,12 @@
  * Register constants are the same as in the bootloader flash_h5.c/h.
  * The app is freestanding (no libc), so we access MMIO directly.
  *
- * See boot_confirm.h for limitations (RAM-execute requirement on real HW,
- * non-atomicity across power loss).
+ * boot_confirm() is marked RAMFUNC so it executes from SRAM (the active bank
+ * cannot be read while it is being erased — RM0481 §7.3.4 read-while-write).
+ * startup.c copies the .ramfunc section to RAM before main() calls this.
+ *
+ * See boot_confirm.h for the remaining limitation (non-atomicity across
+ * power loss).
  */
 
 #include "boot_confirm.h"
@@ -55,7 +59,7 @@
 /* ---------------------------------------------------------------------------
  * boot_confirm
  * ------------------------------------------------------------------------- */
-void boot_confirm(void)
+RAMFUNC void boot_confirm(void)
 {
     /* Unlock the flash controller. The app is a standalone payload that does
      * NOT link the bootloader's flash_h5 driver, so it re-issues the NSKEYR
