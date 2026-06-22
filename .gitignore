@@ -64,7 +64,16 @@ zephyr-sdk-*/
 tests/unit/test_*
 !tests/unit/test_*.c
 !tests/unit/test_*.h
-examples/client_demo/uds_client_demo
+# Compiled example binaries (built by the nightly-examples workflow)
+examples/*/uds_auth_challenge
+examples/*/uds_auth_challenge_mbedtls
+examples/*/uds_custom_service
+examples/*/uds_client_demo
+examples/*/uds_dtc_clear
+examples/*/uds_dtc_full_coverage
+examples/*/uds_dtc_store
+examples/*/uds_host_sim
+examples/*/uds_security_access_mbedtls
 
 
 # Local issue-fetch scratch (never commit; may contain copyrighted specs)
