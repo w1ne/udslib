@@ -263,6 +263,15 @@ static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     uint8_t sid = data[0];
     const uds_service_entry_t *service = find_service(ctx, sid);
 
+    /* suppressPosRsp is scoped to the request being dispatched: clear it up
+     * front so a previous request can never leak it into this one. It is only
+     * cleared inside uds_send_response(), so a handler that suppresses its
+     * response and returns without sending (e.g. ECU Reset 0x11 with the
+     * suppress bit) would otherwise leave the flag set and silently swallow the
+     * next service's response (issue #80). Sub-function services re-arm it below
+     * from the request's own suppress bit. */
+    ctx->suppress_pos_resp = false;
+
     if (!service) {
         uds_send_nrc(ctx, sid, UDS_NRC_SERVICE_NOT_SUPPORTED); /* Service Not Supported */
         return;
