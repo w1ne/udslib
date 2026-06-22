@@ -248,9 +248,13 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
                             uint16_t len)
 {
     uds_result_t r;
-    r.kind = UDS_RESULT_POSITIVE;
+    /* Fail closed: if a handler returns without describing a result, the request
+     * is rejected (generalReject) rather than emitting whatever happens to be in
+     * tx_buffer. Every conforming handler overwrites r.kind via uds_ok/uds_nrc/
+     * uds_pending/uds_none, so this default is never the wire result for them. */
+    r.kind = UDS_RESULT_NRC;
     r.len = 0u;
-    r.nrc = 0u;
+    r.nrc = UDS_NRC_GENERAL_REJECT;
     service->handler(ctx, data, len, &r);
 
     switch (r.kind) {
@@ -267,7 +271,6 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
         case UDS_RESULT_NONE:
             break; /* emit nothing — e.g. 0x84 when inner response was suppressed */
         case UDS_RESULT_POSITIVE:
-        default:
             if (ctx->suppress_pos_resp) {
                 ctx->suppress_pos_resp = false;
                 ctx->rcrrp_count = 0u;
@@ -280,6 +283,11 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
             else {
                 (void) uds_emit_response(ctx, r.len);
             }
+            break;
+        default:
+            /* Out-of-range kind (cannot occur via the helpers). Fail closed:
+             * MISRA-16.4 default that rejects rather than emitting silently. */
+            uds_send_nrc(ctx, data[0], UDS_NRC_GENERAL_REJECT);
             break;
     }
 
@@ -415,7 +423,14 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
      * capturing its response instead of sending it.
      * Inner dispatch must always be treated as physical (design spec §2): save and
      * force UDS_ADDR_PHYSICAL so the addressing gate does not read a stale
-     * functional req_addr_mode from the preceding top-level request. */
+     * functional req_addr_mode from the preceding top-level request.
+     *
+     * KNOWN LIMITATION (Phase 2): the inner handler writes its response into the
+     * shared config->tx_buffer; uds_emit_response copies it out to the stack
+     * `captured` buffer below before the outer 0x84 reuses tx_buffer. This relies
+     * on the single-threaded, non-reentrant dispatch contract — there is no
+     * isolation if a handler were re-entered. Separating per-dispatch scratch from
+     * the shared buffer is deferred to the Phase 2 context-regrouping work. */
     uint8_t captured[UDS_SECURE_SCRATCH];
     ctx->in_secured_session = true;
     ctx->secure_capturing = true;

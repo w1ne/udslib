@@ -57,6 +57,21 @@
 - **`uds_auth_type_t` renumbered to ISO 14229-1:2020** (BREAKING): the Authentication (0x29) sub-function enum was off by one (`deAuthenticate` was 0x01). It now matches the standard — `UDS_AUTH_DEAUTHENTICATE = 0x00`, `VERIFY_CERT_UNI = 0x01`, `VERIFY_CERT_BI = 0x02`, `PROOF_OF_OWNERSHIP = 0x03`, `TRANSMIT_CERT = 0x04`, `REQUEST_CHALLENGE = 0x05` (was `REQUEST_TOKEN = 0x06`), plus new `VERIFY_PROOF_UNI = 0x06`, `VERIFY_PROOF_BI = 0x07`, `CONFIGURATION = 0x08`. Update any code/wire that used the old values.
 - **ISO-TP frame padding default is now `0xCC`** (was `0x00`): transmitted SF/FF/CF/FC frames pad unused bytes with `0xCC` per ISO 15765-2:2016 instead of `0x00`. This changes only the on-wire fill of otherwise-identical frames; protocol behavior is unchanged. Call `uds_tp_isotp_set_pad_byte(&iso, 0x00)` to restore the previous fill. (#67)
 
+### Known limitations
+- **SecuredDataTransmission (0x84) shares `config->tx_buffer` with the inner
+  request it dispatches.** The inner response is copied out to a stack scratch
+  buffer before the outer response reuses `tx_buffer`, which is correct under the
+  library's single-threaded, non-reentrant dispatch contract. Isolating
+  per-dispatch scratch from the shared buffer (and the broader context regrouping)
+  is deferred to a later phase; until then, do not re-enter `uds_input_sdu*` from
+  within a handler.
+- **The handler-result contract may evolve** in a subsequent major version as the
+  context is regrouped; `uds_ok`/`uds_nrc`/`uds_pending`/`uds_none` are the stable
+  surface, but the `uds_ctx_t` field layout is not part of the API contract.
+- **The test suite is host-simulation based.** It drives a mocked transport and a
+  virtual clock (no real CAN/ISO-TP timing or target silicon), so timing-dependent
+  behaviour is verified by logical model, not on the wire.
+
 ## [1.19.0] - 2026-06-19
 
 ### Added

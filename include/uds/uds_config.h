@@ -193,23 +193,31 @@ typedef struct
     uint8_t nrc;  /**< NRC code (NRC)                         */
 } uds_result_t;
 
+/* Each helper fully initialises *out so a handler's result never depends on the
+ * caller having pre-zeroed the unused sibling fields. */
 static inline void uds_ok(uds_result_t *out, uint16_t len)
 {
     out->kind = UDS_RESULT_POSITIVE;
     out->len = len;
+    out->nrc = 0u;
 }
 static inline void uds_nrc(uds_result_t *out, uint8_t nrc)
 {
     out->kind = UDS_RESULT_NRC;
+    out->len = 0u;
     out->nrc = nrc;
 }
 static inline void uds_pending(uds_result_t *out)
 {
     out->kind = UDS_RESULT_PENDING;
+    out->len = 0u;
+    out->nrc = 0u;
 }
 static inline void uds_none(uds_result_t *out)
 {
     out->kind = UDS_RESULT_NONE;
+    out->len = 0u;
+    out->nrc = 0u;
 }
 
 /**

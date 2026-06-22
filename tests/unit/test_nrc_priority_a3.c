@@ -36,6 +36,21 @@ static void dummy_ok(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_resu
     uds_ok(out, 0u);
 }
 
+/* A non-conforming handler that returns WITHOUT describing a result. The
+ * framework must fail closed and reject (generalReject 0x10), not emit a stray
+ * positive from whatever is in tx_buffer. */
+static void dummy_no_result(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    (void) out;
+}
+
+static uds_service_entry_t k_svc_noresult[] = {
+    {0xC2u, 1u, UDS_SESSION_ALL, 0u, dummy_no_result, NULL, 0u},
+};
+
 /*
  * Sub-mask: only subfunction 0x01 is valid.
  * Byte 0, bit 1 set -> sub 0x01 allowed.
@@ -84,6 +99,20 @@ static void send_and_expect_nrc(uds_service_entry_t *svcs, uint16_t svc_count, u
     assert_int_equal(g_tx_buf[0], 0x7Fu);
     assert_int_equal(g_tx_buf[1], expected_sid);
     assert_int_equal(g_tx_buf[2], expected_nrc);
+}
+
+/* ------------------------------------------------------------------ */
+/* Fail-closed: a handler returning without setting *out is rejected   */
+/* with generalReject (0x10), never a stray positive from tx_buffer.   */
+/* ------------------------------------------------------------------ */
+static void test_handler_no_result_fails_closed(void **state)
+{
+    (void) state;
+    /* k_svc_noresult (0xC2) is open (session=ALL, no security, min_len=1); the
+     * handler runs but leaves *out untouched. execute_handler pre-inits the
+     * descriptor to NRC generalReject, so the framework emits 7F C2 10. */
+    uint8_t req[] = {0xC2u};
+    send_and_expect_nrc(k_svc_noresult, 1u, 0x01u, 0u, req, sizeof(req), 0x10u, 0xC2u);
 }
 
 /* ------------------------------------------------------------------ */
@@ -610,6 +639,7 @@ int main(void)
 {
     const struct CMUnitTest tests[] = {
         /* NRC priority combos */
+        cmocka_unit_test(test_handler_no_result_fails_closed),
         cmocka_unit_test(test_nrc_session_beats_length),
         cmocka_unit_test(test_nrc_length_beats_sub_when_len_lt2),
         cmocka_unit_test(test_nrc_sub_beats_length_when_len_ge2),
