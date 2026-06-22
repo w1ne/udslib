@@ -10,17 +10,20 @@ table either adds a new SID or shadows a core one.
 ## The whole integration
 
 ```c
-/* 1. Write a handler with the standard service signature. */
-static int handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+/* 1. Write a handler with the standard service signature. The handler
+ *    describes its response via *out; the framework owns emission. */
+static void handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                               uds_result_t *out)
 {
     if (len < 2u) {
-        return uds_send_nrc(ctx, 0xBAu, 0x13u);
+        uds_nrc(out, 0x13u); /* incorrectMessageLength */
+        return;
     }
     uint8_t *tx = ctx->config->tx_buffer;
     tx[0] = (uint8_t)(0xBAu + 0x40u);   /* positive response SID */
     tx[1] = data[1];                    /* echo sub-function     */
     tx[2] = 'V'; tx[3] = 'N'; tx[4] = '1';
-    return uds_send_response(ctx, 5u);
+    uds_ok(out, 5u);
 }
 
 /* 2. Register it. Columns mirror uds_service_entry_t:

@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0
+## [2.0.0] - 2026-06-22
 
 ### Breaking
 - Service handlers registered via `config.user_services` now use the
