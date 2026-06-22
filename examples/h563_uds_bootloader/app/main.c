@@ -27,15 +27,15 @@
 #endif
 
 /* ---- USART3 MMIO (STM32H563, same constants as bootloader fdcan.c) ---- */
-#define REG32(addr)     (*(volatile uint32_t *)(uintptr_t)(addr))
+#define REG32(addr) (*(volatile uint32_t *) (uintptr_t) (addr))
 
-#define USART3_BASE     0x40004800u
-#define USART3_CR1      REG32(USART3_BASE + 0x00u)
-#define USART3_ISR      REG32(USART3_BASE + 0x1Cu)
-#define USART3_TDR      REG32(USART3_BASE + 0x28u)
-#define USART_CR1_UE    (1u << 0)
-#define USART_CR1_TE    (1u << 3)
-#define USART_ISR_TXE   (1u << 7)
+#define USART3_BASE 0x40004800u
+#define USART3_CR1 REG32(USART3_BASE + 0x00u)
+#define USART3_ISR REG32(USART3_BASE + 0x1Cu)
+#define USART3_TDR REG32(USART3_BASE + 0x28u)
+#define USART_CR1_UE (1u << 0)
+#define USART_CR1_TE (1u << 3)
+#define USART_ISR_TXE (1u << 7)
 
 static void uart_init(void)
 {
@@ -46,7 +46,7 @@ static void uart_putc(char c)
 {
     while ((USART3_ISR & USART_ISR_TXE) == 0u) {
     }
-    USART3_TDR = (uint32_t)(uint8_t) c;
+    USART3_TDR = (uint32_t) (uint8_t) c;
 }
 
 static void uart_puts(const char *s)
@@ -67,16 +67,16 @@ static void uart_puts(const char *s)
  *   3 = App B-bad  — unhealthy app; does NOT confirm → triggers rollback.
  */
 #if APP_VARIANT == 1
-#  define BANNER    "APP-A v1\n"
-#  define DO_CONFIRM 1
+#define BANNER "APP-A v1\n"
+#define DO_CONFIRM 1
 #elif APP_VARIANT == 2
-#  define BANNER    "APP-B v2\n"
-#  define DO_CONFIRM 1
+#define BANNER "APP-B v2\n"
+#define DO_CONFIRM 1
 #elif APP_VARIANT == 3
-#  define BANNER    "APP-B-BAD v2\n"
-#  define DO_CONFIRM 0
+#define BANNER "APP-B-BAD v2\n"
+#define DO_CONFIRM 0
 #else
-#  error "APP_VARIANT must be 1 (App A), 2 (App B-good), or 3 (App B-bad)"
+#error "APP_VARIANT must be 1 (App A), 2 (App B-good), or 3 (App B-bad)"
 #endif
 
 /* ---- Entry point ------------------------------------------------------- */

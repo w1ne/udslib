@@ -31,38 +31,9 @@ static bool mock_is_safe(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, 
     return true; /* Allow everything else */
 }
 
-/* Mock Service Handler */
-static int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
-{
-    (void) ctx;
-    (void) data;
-    (void) len;
-    return UDS_OK;
-}
-
-static const uds_service_entry_t g_user_services[] = {
-    {0x11, 1, UDS_SESSION_ALL, 0, mock_service_handler, NULL,
-     0u}, /* Dummy logic for 0x11 to avoid calling real one */
-    {0xA0, 1, UDS_SESSION_ALL, 0, mock_service_handler, NULL, 0u},
-};
-
 /* Local time provider override */
 static uint32_t my_get_time(void)
 {
-    return 0;
-}
-
-static int setup(void **state)
-{
-    setup_ctx(&g_ctx, &g_cfg);
-    g_cfg.get_time_ms = my_get_time;
-    g_cfg.fn_is_safe = mock_is_safe;
-
-    /* Override core services with dummies to isolate safety check */
-    g_cfg.user_services = g_user_services;
-    g_cfg.user_service_count = 2;
-
-    g_safe_state = true;
     return 0;
 }
 
@@ -89,34 +60,13 @@ static void test_safety_check_fails(void **state)
     uds_input_sdu(&g_ctx, req, sizeof(req));
 }
 
-/* 2. Test Safe Condition (Success) */
-static void test_safety_check_passes(void **state)
-{
-    (void) state;
-    g_safe_state = true;
-    uint8_t req[] = {0x11, 0x01};
-
-    /* Expect Positive Response 51 00 (0x11|0x40 = 0x51) */
-    /* mock_service_handler sends 2 bytes (SID+40, 00) ?
-       No, uds_send_response uses ctx->config->tx_buffer.
-       We should set tx_buffer[0], tx_buffer[1].
-       Wait, mock_service_handler uses uds_send_response.
-       It should write to tx_buffer first.
-    */
-    /* Correct mock handler logic: */
-    /* Handled by replacement below? No, I need to fix mock_service_handler logic in previous step
-     * or here */
-    /* Actually, uds_send_response sends whatever is in tx_buffer. header 0x51 is usually set by
-     * handler. */
-}
-
 /* Improved Handler for full logic */
-static int mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out)
 {
-    (void) data;
     (void) len;
-    ctx->config->tx_buffer[0] = data[0] | 0x40;
-    return uds_send_response(ctx, 1);
+    ctx->config->tx_buffer[0] = (uint8_t) (data[0] | 0x40u);
+    uds_ok(out, 1u);
 }
 
 /* Re-bind in setup */
@@ -127,6 +77,7 @@ static const uds_service_entry_t g_user_services_full[] = {
 
 static int setup_full(void **state)
 {
+    (void) state;
     setup_ctx(&g_ctx, &g_cfg);
     g_cfg.get_time_ms = my_get_time;
     g_cfg.fn_is_safe = mock_is_safe;
@@ -138,6 +89,7 @@ static int setup_full(void **state)
 
 static void test_pass(void **state)
 {
+    (void) state;
     g_safe_state = true;
     uint8_t req[] = {0x11, 0x01};
     uint8_t expected[] = {0x51}; /* Positive Response */

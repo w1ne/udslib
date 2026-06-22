@@ -38,13 +38,14 @@
 
 #include <stdint.h>
 
-#define OTA_IMAGE_MAGIC  0xC0DEBEEFu
+#define OTA_IMAGE_MAGIC 0xC0DEBEEFu
 
-typedef struct {
-    uint32_t magic;       /**< Must equal OTA_IMAGE_MAGIC. */
-    uint32_t image_size;  /**< Payload size in bytes (excludes the 0x400-byte header). */
-    uint32_t crc32;       /**< CRC-32/ISO-HDLC over [app_base+0x400, app_base+0x400+image_size). */
-    uint32_t version;     /**< App version (informational, e.g. 0x00010000 = v1.0.0). */
+typedef struct
+{
+    uint32_t magic;      /**< Must equal OTA_IMAGE_MAGIC. */
+    uint32_t image_size; /**< Payload size in bytes (excludes the 0x400-byte header). */
+    uint32_t crc32;      /**< CRC-32/ISO-HDLC over [app_base+0x400, app_base+0x400+image_size). */
+    uint32_t version;    /**< App version (informational, e.g. 0x00010000 = v1.0.0). */
 } ota_image_header_t;
 
 /**
@@ -52,13 +53,13 @@ typedef struct {
  * Only the first 16 bytes are the ota_image_header_t struct; bytes [16..0x400) are
  * RESERVED padding (0xFF).  The app's vector table starts at app_base + OTA_IMAGE_HDR_SIZE.
  */
-#define OTA_IMAGE_HDR_SIZE  0x400u
+#define OTA_IMAGE_HDR_SIZE 0x400u
 
 /**
  * Maximum permitted payload size for the H563 dual-bank layout:
  *   app region = BANK_SIZE(1MB) - BL_REGION_SIZE(96KB) = 0xE8000 bytes
  *   minus the 0x400-byte header leaves 0xE7C00 bytes for the payload.
  */
-#define OTA_IMAGE_MAX_PAYLOAD  (0xE8000u - OTA_IMAGE_HDR_SIZE)
+#define OTA_IMAGE_MAX_PAYLOAD (0xE8000u - OTA_IMAGE_HDR_SIZE)
 
 #endif /* OTA_IMAGE_H */

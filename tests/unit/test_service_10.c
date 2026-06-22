@@ -25,7 +25,7 @@ static void test_extended_session_success(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x03);
+    assert_int_equal(ctx.session.active, 0x03);
     assert_int_equal(g_tx_buf[0], 0x50);
     assert_int_equal(g_tx_buf[1], 0x03);
 }
@@ -34,7 +34,7 @@ static void test_default_session_success(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    ctx.active_session = 0x03;
+    ctx.session.active = 0x03;
 
     uint8_t request[] = {0x10, 0x01};
 
@@ -46,7 +46,7 @@ static void test_default_session_success(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x01);
+    assert_int_equal(ctx.session.active, 0x01);
     assert_int_equal(g_tx_buf[0], 0x50);
     assert_int_equal(g_tx_buf[1], 0x01);
 }
@@ -67,7 +67,7 @@ static void test_safety_session_success(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x04);
+    assert_int_equal(ctx.session.active, 0x04);
     assert_int_equal(g_tx_buf[0], 0x50);
     assert_int_equal(g_tx_buf[1], 0x04);
 }
@@ -107,7 +107,7 @@ static void test_no_hook_allows_default_to_programming(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x02);
+    assert_int_equal(ctx.session.active, 0x02);
     assert_int_equal(g_tx_buf[0], 0x50);
     assert_int_equal(g_tx_buf[1], 0x02);
 }
@@ -135,7 +135,7 @@ static void test_hook_rejects_disallowed_transition(void **state)
     assert_int_equal(g_tx_buf[0], 0x7F);
     assert_int_equal(g_tx_buf[1], 0x10);
     assert_int_equal(g_tx_buf[2], 0x22);        /* conditionsNotCorrect */
-    assert_int_equal(ctx.active_session, 0x01); /* unchanged */
+    assert_int_equal(ctx.session.active, 0x01); /* unchanged */
     /* Hook saw the correct from/to pair. */
     assert_int_equal(g_transition_from, 0x01);
     assert_int_equal(g_transition_to, 0x02);
@@ -147,7 +147,7 @@ static void test_hook_allows_permitted_transition(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_session_transition_allowed = transition_deny_default_to_programming;
-    ctx.active_session = 0x03; /* extended */
+    ctx.session.active = 0x03; /* extended */
 
     uint8_t request[] = {0x10, 0x02};
 
@@ -159,7 +159,7 @@ static void test_hook_allows_permitted_transition(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x02);
+    assert_int_equal(ctx.session.active, 0x02);
     assert_int_equal(g_tx_buf[1], 0x02);
 }
 

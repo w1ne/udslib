@@ -20,7 +20,7 @@ static void test_programming_session_success(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x02);
+    assert_int_equal(ctx.session.active, 0x02);
     assert_int_equal(g_tx_buf[0], 0x50);
     assert_int_equal(g_tx_buf[1], 0x02);
 }
@@ -29,7 +29,7 @@ static void test_session_reset_security(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    ctx.security_level = 1;
+    ctx.security.level = 1;
 
     uint8_t request[] = {0x10, 0x01};
 
@@ -41,8 +41,8 @@ static void test_session_reset_security(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.active_session, 0x01);
-    assert_int_equal(ctx.security_level, 0);
+    assert_int_equal(ctx.session.active, 0x01);
+    assert_int_equal(ctx.security.level, 0);
 }
 
 int main(void)

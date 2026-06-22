@@ -21,6 +21,7 @@ static uint8_t g_nvm_storage[2] = {0x00, 0x00};
 /* Mock NVM Save */
 static int mock_nvm_save(struct uds_ctx *ctx, const uint8_t *state, uint16_t len)
 {
+    (void) ctx;
     if (len == 2) {
         g_nvm_storage[0] = state[0];
         g_nvm_storage[1] = state[1];
@@ -32,6 +33,7 @@ static int mock_nvm_save(struct uds_ctx *ctx, const uint8_t *state, uint16_t len
 /* Mock NVM Load */
 static int mock_nvm_load(struct uds_ctx *ctx, uint8_t *state, uint16_t len)
 {
+    (void) ctx;
     if (len == 2) {
         state[0] = g_nvm_storage[0];
         state[1] = g_nvm_storage[1];
@@ -104,8 +106,8 @@ static void test_nvm_load_on_init(void **state)
 
     uds_init(&g_ctx, &g_cfg);
 
-    assert_int_equal(g_ctx.active_session, 0x03);
-    assert_int_equal(g_ctx.security_level, 0x01);
+    assert_int_equal(g_ctx.session.active, 0x03);
+    assert_int_equal(g_ctx.security.level, 0x01);
 }
 
 /* 2. Test Save on Session Change */

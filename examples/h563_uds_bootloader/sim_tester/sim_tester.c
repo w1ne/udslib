@@ -27,19 +27,19 @@
 /* ---------------------------------------------------------------------------
  * Constants
  * ------------------------------------------------------------------------- */
-#define TESTER_TX_ID  0x7E0u   /* tester → server */
-#define SERVER_TX_ID  0x7E8u   /* server → tester */
+#define TESTER_TX_ID 0x7E0u /* tester → server */
+#define SERVER_TX_ID 0x7E8u /* server → tester */
 
-#define BANK_SIZE       0x100000UL
-#define BL_REGION_SIZE  0x18000UL
-#define SECTOR_SIZE     0x2000UL
-#define BL_COPY_SECTORS 12u      /* sectors 0-11 = bootloader region */
+#define BANK_SIZE 0x100000UL
+#define BL_REGION_SIZE 0x18000UL
+#define SECTOR_SIZE 0x2000UL
+#define BL_COPY_SECTORS 12u /* sectors 0-11 = bootloader region */
 
 /* Target address for App-B: inactive bank app base.
  * With flash_active_bank()=0 (OPTSR_CUR never updated), inactive=1,
  * inactive_app_base = 0x08000000 + 1*0x100000 + 0x18000 = 0x08118000. */
-#define INACTIVE_APP_BASE  0x08118000UL
-#define INACTIVE_BL_BASE   0x08100000UL   /* Bank2 start for bootloader copy */
+#define INACTIVE_APP_BASE 0x08118000UL
+#define INACTIVE_BL_BASE 0x08100000UL /* Bank2 start for bootloader copy */
 
 /* ---------------------------------------------------------------------------
  * ISO-TP / CAN-FD helpers
@@ -56,39 +56,41 @@ static void tester_send_sf(const uint8_t *pdu, uint8_t pdu_len)
         /* Classic ISO-TP SF: [N|len][data...] */
         frame[0] = pdu_len;
         memcpy(&frame[1], pdu, pdu_len);
-        fdcan_send_frame(TESTER_TX_ID, frame, (uint8_t)(1u + pdu_len), pdu_len > 8u);
-    } else {
+        fdcan_send_frame(TESTER_TX_ID, frame, (uint8_t) (1u + pdu_len), pdu_len > 8u);
+    }
+    else {
         /* CAN-FD ISO-TP SF: [0x00][len8][data...] */
         frame[0] = 0x00u;
         frame[1] = pdu_len;
         memcpy(&frame[2], pdu, pdu_len);
-        fdcan_send_frame(TESTER_TX_ID, frame, (uint8_t)(2u + pdu_len), true);
+        fdcan_send_frame(TESTER_TX_ID, frame, (uint8_t) (2u + pdu_len), true);
     }
 }
 
 /* ---------------------------------------------------------------------------
  * State machine
  * ------------------------------------------------------------------------- */
-typedef enum {
-    ST_COPY_BL = 0,    /* copy bootloader sectors 0-11 to Bank2 */
-    ST_SESSION,        /* send 10 02 */
+typedef enum
+{
+    ST_COPY_BL = 0, /* copy bootloader sectors 0-11 to Bank2 */
+    ST_SESSION,     /* send 10 02 */
     ST_SESSION_WAIT,
-    ST_SEED_REQ,       /* send 27 01 */
+    ST_SEED_REQ, /* send 27 01 */
     ST_SEED_WAIT,
-    ST_KEY_SEND,       /* compute CMAC and send 27 02 <key> */
+    ST_KEY_SEND, /* compute CMAC and send 27 02 <key> */
     ST_KEY_WAIT,
-    ST_ERASE,          /* send 31 01 FF 00 */
+    ST_ERASE, /* send 31 01 FF 00 */
     ST_ERASE_WAIT,
-    ST_RD,             /* send 34 ... */
+    ST_RD, /* send 34 ... */
     ST_RD_WAIT,
-    ST_TD,             /* send 36 block chunks */
+    ST_TD, /* send 36 block chunks */
     ST_TD_WAIT,
-    ST_TE,             /* send 37 */
+    ST_TE, /* send 37 */
     ST_TE_WAIT,
-    ST_CHECK,          /* send 31 01 FF 01 — also print OTA-WRITE-OK */
+    ST_CHECK, /* send 31 01 FF 01 — also print OTA-WRITE-OK */
     ST_CHECK_WAIT,
-    ST_ACTIVATE,       /* print OTA-ACTIVATE and send 31 01 FF 02 */
-    ST_DONE,           /* OTA complete; server resets */
+    ST_ACTIVATE, /* print OTA-ACTIVATE and send 31 01 FF 02 */
+    ST_DONE,     /* OTA complete; server resets */
 } tester_state_t;
 
 /*
@@ -99,22 +101,21 @@ typedef enum {
  * To recompute: make cmac-test in the bootloader directory and inspect output,
  * or run: aes_cmac(DEMO_SECRET, DEMO_SEED, 16, out) on a host build.
  */
-static const uint8_t DEMO_CMAC_KEY[16] = {
-    0x5F, 0xAC, 0xED, 0x58, 0x61, 0xBA, 0xC1, 0x37,
-    0x66, 0x8A, 0xD5, 0x25, 0x4D, 0xED, 0xB2, 0x44
-};
+static const uint8_t DEMO_CMAC_KEY[16] = {0x5F, 0xAC, 0xED, 0x58, 0x61, 0xBA, 0xC1, 0x37,
+                                          0x66, 0x8A, 0xD5, 0x25, 0x4D, 0xED, 0xB2, 0x44};
 
 /* Tester context */
-static struct {
+static struct
+{
     tester_state_t state;
-    uint8_t        seed_rx[16];  /* seed received from server (verified matches DEMO_SEED) */
-    uint32_t       td_offset;    /* bytes of APP_B_IMAGE already sent */
-    uint8_t        td_seq;       /* next TD sequence number (1-based) */
+    uint8_t seed_rx[16]; /* seed received from server (verified matches DEMO_SEED) */
+    uint32_t td_offset;  /* bytes of APP_B_IMAGE already sent */
+    uint8_t td_seq;      /* next TD sequence number (1-based) */
     /* ISO-TP RX reassembler for server responses */
-    uint8_t        rx_sdu[128];
-    uint8_t        rx_len;
-    bool           rx_ready;     /* true when a complete SDU is available */
-    uint32_t       wait_counter; /* simple delay between sends */
+    uint8_t rx_sdu[128];
+    uint8_t rx_len;
+    bool rx_ready;         /* true when a complete SDU is available */
+    uint32_t wait_counter; /* simple delay between sends */
 } g_t;
 
 /* ---------------------------------------------------------------------------
@@ -136,17 +137,17 @@ void sim_tester_rx(const uint8_t *data, uint8_t len)
         if (data[0] == 0x00u && len >= 2u) {
             /* CAN-FD extended SF: [0x00][len][data...] */
             sdu_len = data[1];
-            offset  = 2u;
-        } else {
-            sdu_len = data[0] & 0x0Fu;
-            offset  = 1u;
+            offset = 2u;
         }
-        if (sdu_len == 0u || sdu_len > (uint8_t)(len - offset) ||
-            sdu_len > sizeof(g_t.rx_sdu)) {
+        else {
+            sdu_len = data[0] & 0x0Fu;
+            offset = 1u;
+        }
+        if (sdu_len == 0u || sdu_len > (uint8_t) (len - offset) || sdu_len > sizeof(g_t.rx_sdu)) {
             return;
         }
         memcpy(g_t.rx_sdu, &data[offset], sdu_len);
-        g_t.rx_len   = sdu_len;
+        g_t.rx_len = sdu_len;
         g_t.rx_ready = true;
     }
     /* Multi-frame handling omitted: server SDUs always fit in one CAN-FD SF. */
@@ -157,8 +158,8 @@ void sim_tester_rx(const uint8_t *data, uint8_t len)
  * ------------------------------------------------------------------------- */
 void sim_tester_init(const uint8_t *secret_ignored, const uint8_t *seed_ignored)
 {
-    (void)secret_ignored; /* pre-computed key baked in as DEMO_CMAC_KEY */
-    (void)seed_ignored;   /* server uses a fixed internal seed; we receive it */
+    (void) secret_ignored; /* pre-computed key baked in as DEMO_CMAC_KEY */
+    (void) seed_ignored;   /* server uses a fixed internal seed; we receive it */
     g_t.state = ST_COPY_BL;
 }
 
@@ -178,249 +179,272 @@ void sim_tester_poll(void)
     uint8_t buf[64];
 
     switch (g_t.state) {
-
-    case ST_COPY_BL: {
-        /*
-         * Copy bootloader sectors 0-11 (96 KB) from Bank1 to Bank2 so that
-         * after the physical swap the CPU can boot from 0x08000000 (which will
-         * contain Bank2's copy of the bootloader).
-         *
-         * Bank2 was erased during chip initialisation, so the sectors are
-         * already in the blank (0xFF) state and we can program directly.
-         */
-        uart_puts("SIM: copy BL to Bank2\n");
-        flash_unlock();
-        const uint8_t *src = (const uint8_t *)(uintptr_t)0x08000000UL;
-        uint32_t copy_size = (uint32_t)BL_COPY_SECTORS * (uint32_t)SECTOR_SIZE; /* 96 KB */
-        int rc = flash_program(INACTIVE_BL_BASE, src, copy_size);
-        if (rc != 0) {
-            /* Flash copy failed — halt; smoke will time out */
-            uart_puts("SIM: copy FAIL\n");
-            for (;;) {}
-        }
-        uart_puts("SIM: copy OK\n");
-        g_t.state = ST_SESSION;
-        break;
-    }
-
-    case ST_SESSION: {
-        uart_puts("SIM: send session\n");
-        buf[0] = 0x10u; buf[1] = 0x02u; /* DiagnosticSessionControl, programmingSession */
-        tester_send_sf(buf, 2u);
-        g_t.rx_ready = false;
-        g_t.state    = ST_SESSION_WAIT;
-        break;
-    }
-
-    case ST_SESSION_WAIT:
-        if (g_t.rx_ready) {
-            if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x50u && g_t.rx_sdu[1] == 0x02u) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_SEED_REQ;
-            } else {
-                /* NRC or unexpected — retry */
-                g_t.rx_ready = false;
-                g_t.state    = ST_SESSION;
+        case ST_COPY_BL: {
+            /*
+             * Copy bootloader sectors 0-11 (96 KB) from Bank1 to Bank2 so that
+             * after the physical swap the CPU can boot from 0x08000000 (which will
+             * contain Bank2's copy of the bootloader).
+             *
+             * Bank2 was erased during chip initialisation, so the sectors are
+             * already in the blank (0xFF) state and we can program directly.
+             */
+            uart_puts("SIM: copy BL to Bank2\n");
+            flash_unlock();
+            const uint8_t *src = (const uint8_t *) (uintptr_t) 0x08000000UL;
+            uint32_t copy_size = (uint32_t) BL_COPY_SECTORS * (uint32_t) SECTOR_SIZE; /* 96 KB */
+            int rc = flash_program(INACTIVE_BL_BASE, src, copy_size);
+            if (rc != 0) {
+                /* Flash copy failed — halt; smoke will time out */
+                uart_puts("SIM: copy FAIL\n");
+                for (;;) {
+                }
             }
-        }
-        break;
-
-    case ST_SEED_REQ: {
-        buf[0] = 0x27u; buf[1] = 0x01u; /* SecurityAccess, requestSeed */
-        tester_send_sf(buf, 2u);
-        g_t.rx_ready = false;
-        g_t.state    = ST_SEED_WAIT;
-        break;
-    }
-
-    case ST_SEED_WAIT:
-        if (g_t.rx_ready) {
-            if (g_t.rx_len >= 3u && g_t.rx_sdu[0] == 0x67u && g_t.rx_sdu[1] == 0x01u) {
-                /* Positive response: copy seed bytes */
-                uint8_t seed_len = (uint8_t)(g_t.rx_len - 2u);
-                if (seed_len > 16u) { seed_len = 16u; }
-                memcpy(g_t.seed_rx, &g_t.rx_sdu[2], seed_len);
-                g_t.rx_ready = false;
-                g_t.state    = ST_KEY_SEND;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_SEED_REQ;
-            }
-        }
-        break;
-
-    case ST_KEY_SEND: {
-        buf[0] = 0x27u; buf[1] = 0x02u; /* SecurityAccess, sendKey */
-        memcpy(&buf[2], DEMO_CMAC_KEY, 16u);
-        tester_send_sf(buf, 18u);
-        g_t.rx_ready = false;
-        g_t.state    = ST_KEY_WAIT;
-        break;
-    }
-
-    case ST_KEY_WAIT:
-        if (g_t.rx_ready) {
-            if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x67u && g_t.rx_sdu[1] == 0x02u) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_ERASE;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_SEED_REQ; /* re-authenticate */
-            }
-        }
-        break;
-
-    case ST_ERASE: {
-        /* RoutineControl StartRoutine 0xFF00 (EraseMemory) */
-        buf[0] = 0x31u; buf[1] = 0x01u; buf[2] = 0xFFu; buf[3] = 0x00u;
-        tester_send_sf(buf, 4u);
-        g_t.rx_ready = false;
-        g_t.state    = ST_ERASE_WAIT;
-        break;
-    }
-
-    case ST_ERASE_WAIT:
-        if (g_t.rx_ready) {
-            /* 71 01 FF 00 [optional_status_byte] */
-            if (g_t.rx_len >= 4u && g_t.rx_sdu[0] == 0x71u &&
-                g_t.rx_sdu[1] == 0x01u && g_t.rx_sdu[2] == 0xFFu &&
-                g_t.rx_sdu[3] == 0x00u) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_RD;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_ERASE;
-            }
-        }
-        break;
-
-    case ST_RD: {
-        /* RequestDownload: addr=INACTIVE_APP_BASE, size=APP_B_IMAGE_LEN */
-        /* ALFID = 0x44: 4-byte address, 4-byte length */
-        buf[0]  = 0x34u;                     /* SID */
-        buf[1]  = 0x00u;                     /* dataFormatIdentifier */
-        buf[2]  = 0x44u;                     /* ALFID: 4-byte addr, 4-byte length */
-        buf[3]  = (uint8_t)(INACTIVE_APP_BASE >> 24u);
-        buf[4]  = (uint8_t)(INACTIVE_APP_BASE >> 16u);
-        buf[5]  = (uint8_t)(INACTIVE_APP_BASE >>  8u);
-        buf[6]  = (uint8_t)(INACTIVE_APP_BASE >>  0u);
-        buf[7]  = (uint8_t)(APP_B_IMAGE_LEN  >> 24u);
-        buf[8]  = (uint8_t)(APP_B_IMAGE_LEN  >> 16u);
-        buf[9]  = (uint8_t)(APP_B_IMAGE_LEN  >>  8u);
-        buf[10] = (uint8_t)(APP_B_IMAGE_LEN  >>  0u);
-        tester_send_sf(buf, 11u);
-        g_t.rx_ready   = false;
-        g_t.td_offset  = 0u;
-        g_t.td_seq     = 1u;
-        g_t.state      = ST_RD_WAIT;
-        break;
-    }
-
-    case ST_RD_WAIT:
-        if (g_t.rx_ready) {
-            if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x74u) {
-                /* Positive RD response — max block length in [1..] ignored */
-                g_t.rx_ready = false;
-                g_t.state    = ST_TD;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                g_t.rx_ready = false;
-                g_t.state    = ST_RD;
-            }
-        }
-        break;
-
-    case ST_TD: {
-        /* TransferData: send 32 bytes of APP_B_IMAGE per block */
-        if (g_t.td_offset >= APP_B_IMAGE_LEN) {
-            /* All bytes sent — move to TransferExit */
-            g_t.state = ST_TE;
+            uart_puts("SIM: copy OK\n");
+            g_t.state = ST_SESSION;
             break;
         }
-        uint32_t remaining = APP_B_IMAGE_LEN - g_t.td_offset;
-        uint8_t  chunk     = (uint8_t)((remaining > 32u) ? 32u : (uint8_t)remaining);
-        buf[0]  = 0x36u;         /* TransferData SID */
-        buf[1]  = g_t.td_seq;   /* Block sequence counter */
-        memcpy(&buf[2], &APP_B_IMAGE[g_t.td_offset], chunk);
-        tester_send_sf(buf, (uint8_t)(2u + chunk));
-        g_t.td_offset += chunk;
-        g_t.td_seq     = (uint8_t)(g_t.td_seq == 0xFFu ? 0x00u : g_t.td_seq + 1u);
-        g_t.rx_ready   = false;
-        g_t.state      = ST_TD_WAIT;
-        break;
-    }
 
-    case ST_TD_WAIT:
-        if (g_t.rx_ready) {
-            if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x76u) {
-                /* Positive TD response */
-                g_t.rx_ready = false;
-                g_t.state    = ST_TD;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                /* NRC — abort (halt for now; smoke will time out) */
-                for (;;) {}
-            }
+        case ST_SESSION: {
+            uart_puts("SIM: send session\n");
+            buf[0] = 0x10u;
+            buf[1] = 0x02u; /* DiagnosticSessionControl, programmingSession */
+            tester_send_sf(buf, 2u);
+            g_t.rx_ready = false;
+            g_t.state = ST_SESSION_WAIT;
+            break;
         }
-        break;
 
-    case ST_TE: {
-        buf[0] = 0x37u; /* RequestTransferExit */
-        tester_send_sf(buf, 1u);
-        g_t.rx_ready = false;
-        g_t.state    = ST_TE_WAIT;
-        break;
-    }
-
-    case ST_TE_WAIT:
-        if (g_t.rx_ready) {
-            if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x77u) {
-                uart_puts("OTA-WRITE-OK\n");
-                g_t.rx_ready = false;
-                g_t.state    = ST_CHECK;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                for (;;) {}
+        case ST_SESSION_WAIT:
+            if (g_t.rx_ready) {
+                if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x50u && g_t.rx_sdu[1] == 0x02u) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_SEED_REQ;
+                }
+                else {
+                    /* NRC or unexpected — retry */
+                    g_t.rx_ready = false;
+                    g_t.state = ST_SESSION;
+                }
             }
+            break;
+
+        case ST_SEED_REQ: {
+            buf[0] = 0x27u;
+            buf[1] = 0x01u; /* SecurityAccess, requestSeed */
+            tester_send_sf(buf, 2u);
+            g_t.rx_ready = false;
+            g_t.state = ST_SEED_WAIT;
+            break;
         }
-        break;
 
-    case ST_CHECK: {
-        /* RoutineControl StartRoutine 0xFF01 (CheckProgramming) */
-        buf[0] = 0x31u; buf[1] = 0x01u; buf[2] = 0xFFu; buf[3] = 0x01u;
-        tester_send_sf(buf, 4u);
-        g_t.rx_ready = false;
-        g_t.state    = ST_CHECK_WAIT;
-        break;
-    }
-
-    case ST_CHECK_WAIT:
-        if (g_t.rx_ready) {
-            /* 71 01 FF 01 [0x01=PASS] */
-            if (g_t.rx_len >= 5u && g_t.rx_sdu[0] == 0x71u &&
-                g_t.rx_sdu[1] == 0x01u && g_t.rx_sdu[2] == 0xFFu &&
-                g_t.rx_sdu[3] == 0x01u && g_t.rx_sdu[4] == 0x01u) {
-                uart_puts("OTA-VERIFY-OK\n");
-                g_t.rx_ready = false;
-                g_t.state    = ST_ACTIVATE;
-            } else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
-                for (;;) {} /* verification failed — halt */
+        case ST_SEED_WAIT:
+            if (g_t.rx_ready) {
+                if (g_t.rx_len >= 3u && g_t.rx_sdu[0] == 0x67u && g_t.rx_sdu[1] == 0x01u) {
+                    /* Positive response: copy seed bytes */
+                    uint8_t seed_len = (uint8_t) (g_t.rx_len - 2u);
+                    if (seed_len > 16u) {
+                        seed_len = 16u;
+                    }
+                    memcpy(g_t.seed_rx, &g_t.rx_sdu[2], seed_len);
+                    g_t.rx_ready = false;
+                    g_t.state = ST_KEY_SEND;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_SEED_REQ;
+                }
             }
+            break;
+
+        case ST_KEY_SEND: {
+            buf[0] = 0x27u;
+            buf[1] = 0x02u; /* SecurityAccess, sendKey */
+            memcpy(&buf[2], DEMO_CMAC_KEY, 16u);
+            tester_send_sf(buf, 18u);
+            g_t.rx_ready = false;
+            g_t.state = ST_KEY_WAIT;
+            break;
         }
-        break;
 
-    case ST_ACTIVATE: {
-        uart_puts("OTA-ACTIVATE\n");
-        /* RoutineControl StartRoutine 0xFF02 (ActivateSoftware)
-         * This will trigger swap+reset; the server does not return a response. */
-        buf[0] = 0x31u; buf[1] = 0x01u; buf[2] = 0xFFu; buf[3] = 0x02u;
-        tester_send_sf(buf, 4u);
-        g_t.state = ST_DONE;
-        break;
-    }
+        case ST_KEY_WAIT:
+            if (g_t.rx_ready) {
+                if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x67u && g_t.rx_sdu[1] == 0x02u) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_ERASE;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_SEED_REQ; /* re-authenticate */
+                }
+            }
+            break;
 
-    case ST_DONE:
-        /* Server has reset. Tester is idle — just spin. */
-        break;
+        case ST_ERASE: {
+            /* RoutineControl StartRoutine 0xFF00 (EraseMemory) */
+            buf[0] = 0x31u;
+            buf[1] = 0x01u;
+            buf[2] = 0xFFu;
+            buf[3] = 0x00u;
+            tester_send_sf(buf, 4u);
+            g_t.rx_ready = false;
+            g_t.state = ST_ERASE_WAIT;
+            break;
+        }
 
-    default:
-        break;
+        case ST_ERASE_WAIT:
+            if (g_t.rx_ready) {
+                /* 71 01 FF 00 [optional_status_byte] */
+                if (g_t.rx_len >= 4u && g_t.rx_sdu[0] == 0x71u && g_t.rx_sdu[1] == 0x01u &&
+                    g_t.rx_sdu[2] == 0xFFu && g_t.rx_sdu[3] == 0x00u) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_RD;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_ERASE;
+                }
+            }
+            break;
+
+        case ST_RD: {
+            /* RequestDownload: addr=INACTIVE_APP_BASE, size=APP_B_IMAGE_LEN */
+            /* ALFID = 0x44: 4-byte address, 4-byte length */
+            buf[0] = 0x34u; /* SID */
+            buf[1] = 0x00u; /* dataFormatIdentifier */
+            buf[2] = 0x44u; /* ALFID: 4-byte addr, 4-byte length */
+            buf[3] = (uint8_t) (INACTIVE_APP_BASE >> 24u);
+            buf[4] = (uint8_t) (INACTIVE_APP_BASE >> 16u);
+            buf[5] = (uint8_t) (INACTIVE_APP_BASE >> 8u);
+            buf[6] = (uint8_t) (INACTIVE_APP_BASE >> 0u);
+            buf[7] = (uint8_t) (APP_B_IMAGE_LEN >> 24u);
+            buf[8] = (uint8_t) (APP_B_IMAGE_LEN >> 16u);
+            buf[9] = (uint8_t) (APP_B_IMAGE_LEN >> 8u);
+            buf[10] = (uint8_t) (APP_B_IMAGE_LEN >> 0u);
+            tester_send_sf(buf, 11u);
+            g_t.rx_ready = false;
+            g_t.td_offset = 0u;
+            g_t.td_seq = 1u;
+            g_t.state = ST_RD_WAIT;
+            break;
+        }
+
+        case ST_RD_WAIT:
+            if (g_t.rx_ready) {
+                if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x74u) {
+                    /* Positive RD response — max block length in [1..] ignored */
+                    g_t.rx_ready = false;
+                    g_t.state = ST_TD;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_RD;
+                }
+            }
+            break;
+
+        case ST_TD: {
+            /* TransferData: send 32 bytes of APP_B_IMAGE per block */
+            if (g_t.td_offset >= APP_B_IMAGE_LEN) {
+                /* All bytes sent — move to TransferExit */
+                g_t.state = ST_TE;
+                break;
+            }
+            uint32_t remaining = APP_B_IMAGE_LEN - g_t.td_offset;
+            uint8_t chunk = (uint8_t) ((remaining > 32u) ? 32u : (uint8_t) remaining);
+            buf[0] = 0x36u;      /* TransferData SID */
+            buf[1] = g_t.td_seq; /* Block sequence counter */
+            memcpy(&buf[2], &APP_B_IMAGE[g_t.td_offset], chunk);
+            tester_send_sf(buf, (uint8_t) (2u + chunk));
+            g_t.td_offset += chunk;
+            g_t.td_seq = (uint8_t) (g_t.td_seq == 0xFFu ? 0x00u : g_t.td_seq + 1u);
+            g_t.rx_ready = false;
+            g_t.state = ST_TD_WAIT;
+            break;
+        }
+
+        case ST_TD_WAIT:
+            if (g_t.rx_ready) {
+                if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x76u) {
+                    /* Positive TD response */
+                    g_t.rx_ready = false;
+                    g_t.state = ST_TD;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    /* NRC — abort (halt for now; smoke will time out) */
+                    for (;;) {
+                    }
+                }
+            }
+            break;
+
+        case ST_TE: {
+            buf[0] = 0x37u; /* RequestTransferExit */
+            tester_send_sf(buf, 1u);
+            g_t.rx_ready = false;
+            g_t.state = ST_TE_WAIT;
+            break;
+        }
+
+        case ST_TE_WAIT:
+            if (g_t.rx_ready) {
+                if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x77u) {
+                    uart_puts("OTA-WRITE-OK\n");
+                    g_t.rx_ready = false;
+                    g_t.state = ST_CHECK;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    for (;;) {
+                    }
+                }
+            }
+            break;
+
+        case ST_CHECK: {
+            /* RoutineControl StartRoutine 0xFF01 (CheckProgramming) */
+            buf[0] = 0x31u;
+            buf[1] = 0x01u;
+            buf[2] = 0xFFu;
+            buf[3] = 0x01u;
+            tester_send_sf(buf, 4u);
+            g_t.rx_ready = false;
+            g_t.state = ST_CHECK_WAIT;
+            break;
+        }
+
+        case ST_CHECK_WAIT:
+            if (g_t.rx_ready) {
+                /* 71 01 FF 01 [0x01=PASS] */
+                if (g_t.rx_len >= 5u && g_t.rx_sdu[0] == 0x71u && g_t.rx_sdu[1] == 0x01u &&
+                    g_t.rx_sdu[2] == 0xFFu && g_t.rx_sdu[3] == 0x01u && g_t.rx_sdu[4] == 0x01u) {
+                    uart_puts("OTA-VERIFY-OK\n");
+                    g_t.rx_ready = false;
+                    g_t.state = ST_ACTIVATE;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    for (;;) {
+                    } /* verification failed — halt */
+                }
+            }
+            break;
+
+        case ST_ACTIVATE: {
+            uart_puts("OTA-ACTIVATE\n");
+            /* RoutineControl StartRoutine 0xFF02 (ActivateSoftware)
+             * This will trigger swap+reset; the server does not return a response. */
+            buf[0] = 0x31u;
+            buf[1] = 0x01u;
+            buf[2] = 0xFFu;
+            buf[3] = 0x02u;
+            tester_send_sf(buf, 4u);
+            g_t.state = ST_DONE;
+            break;
+        }
+
+        case ST_DONE:
+            /* Server has reset. Tester is idle — just spin. */
+            break;
+
+        default:
+            break;
     }
 }

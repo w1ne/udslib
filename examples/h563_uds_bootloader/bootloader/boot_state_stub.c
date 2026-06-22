@@ -15,7 +15,9 @@
 #include <string.h>
 
 /* Host stub: no-op unlock. */
-void flash_unlock(void) {}
+void flash_unlock(void)
+{
+}
 
 /* Host stub: no-op erase. */
 int flash_erase_sector(uint8_t bank, uint32_t sector)
@@ -44,7 +46,8 @@ uint8_t flash_active_bank(void)
 void flash_set_swap_and_reset(void)
 {
     /* Should not be called in host test context. */
-    for (;;) {}
+    for (;;) {
+    }
 }
 
 /* Host stub: no-op explicit-bank swap+reset (should never be called from tests). */
@@ -52,5 +55,6 @@ void flash_swap_to_bank_and_reset(uint8_t target_bank)
 {
     (void) target_bank;
     /* Should not be called in host test context. */
-    for (;;) {}
+    for (;;) {
+    }
 }

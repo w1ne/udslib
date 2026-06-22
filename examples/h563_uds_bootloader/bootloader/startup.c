@@ -37,8 +37,8 @@ void Reset(void)
     }
 }
 
-__attribute__((section(".isr_vector"), used)) void (*const g_vectors[16])(void) = {
-    (void (*)(void)) &_estack,
+__attribute__((section(".isr_vector"), used)) void (* const g_vectors[16])(void) = {
+    (void (*)(void)) & _estack,
     Reset,
     Default_Handler,
     Default_Handler,
@@ -52,6 +52,6 @@ __attribute__((section(".isr_vector"), used)) void (*const g_vectors[16])(void) 
     Default_Handler,
     Default_Handler,
     0,
-    Default_Handler,    /* #14 PendSV  */
-    SysTick_Handler,    /* #15 SysTick */
+    Default_Handler, /* #14 PendSV  */
+    SysTick_Handler, /* #15 SysTick */
 };

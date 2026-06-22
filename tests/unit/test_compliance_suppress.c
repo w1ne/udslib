@@ -28,7 +28,7 @@ static void test_suppress_tester_present(void **state)
     /* expect NO call to mock_tp_send */
 
     uds_input_sdu(&ctx, request, sizeof(request));
-    assert_true(ctx.suppress_pos_resp == false); /* Should be cleared after processing */
+    assert_true(ctx.scratch.suppress_pos_resp == false); /* Should be cleared after processing */
 }
 
 static void test_suppress_comm_control(void **state)

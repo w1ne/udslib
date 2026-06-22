@@ -18,7 +18,7 @@
 #define MBEDTLS_AES_C
 #define MBEDTLS_CIPHER_C
 #define MBEDTLS_CMAC_C
-#define MBEDTLS_AES_ROM_TABLES  /* saves ~10KB RAM, uses ROM for S-boxes */
+#define MBEDTLS_AES_ROM_TABLES /* saves ~10KB RAM, uses ROM for S-boxes */
 
 /*
  * Memory: use the C library's calloc/free directly (newlib-nano on target,

@@ -19,9 +19,9 @@ static void test_p2_timeout_nrc78(void **state)
     cfg.p2_ms = 50;
 
     /* Manually trigger pending state for timeout testing */
-    ctx.p2_msg_pending = true;
-    ctx.server_pending_sid = 0x31;
-    ctx.last_msg_time = 1000;
+    ctx.server.p2_msg_pending = true;
+    ctx.server.pending_sid = 0x31;
+    ctx.session.last_msg_time = 1000;
 
     /* Move time forward by 51ms */
     will_return(mock_get_time, 1051);
@@ -31,7 +31,7 @@ static void test_p2_timeout_nrc78(void **state)
 
     uds_process(&ctx);
 
-    assert_true(ctx.p2_star_active);
+    assert_true(ctx.server.p2_star_active);
     assert_int_equal(g_tx_buf[2], 0x78);
 }
 
@@ -41,15 +41,15 @@ static void test_s3_timeout_reset(void **state)
     uds_ctx_t ctx;
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
-    ctx.active_session = 0x03;
-    ctx.last_msg_time = 1000;
+    ctx.session.active = 0x03;
+    ctx.session.last_msg_time = 1000;
 
     /* Move time forward by 5001ms (S3 default is 5000ms) */
     will_return(mock_get_time, 6001);
 
     uds_process(&ctx);
 
-    assert_int_equal(ctx.active_session, 0x01); /* Back to default */
+    assert_int_equal(ctx.session.active, 0x01); /* Back to default */
 }
 
 int main(void)

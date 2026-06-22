@@ -5,12 +5,13 @@
 
 #include "test_helpers.h"
 
-static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                 uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_PENDING;
+    uds_pending(out);
 }
 
 static void test_core_rcrrp_limit(void **state)
@@ -56,8 +57,8 @@ static void test_core_rcrrp_limit(void **state)
 
     uds_input_sdu(&ctx, req, 1);
 
-    assert_true(ctx.p2_msg_pending);
-    assert_int_equal(ctx.rcrrp_count, 0);
+    assert_true(ctx.server.p2_msg_pending);
+    assert_int_equal(ctx.server.rcrrp_count, 0);
     assert_int_equal(g_tx_buf[2], 0x78);
 
     /* 2. T+110ms: Exceed P2* (100ms). Should send 1st REPEATED NRC 0x78 */
@@ -67,7 +68,7 @@ static void test_core_rcrrp_limit(void **state)
     will_return(mock_tp_send, 0);
     uds_process(&ctx);
     assert_int_equal(g_tx_buf[2], 0x78);
-    assert_int_equal(ctx.rcrrp_count, 1);
+    assert_int_equal(ctx.server.rcrrp_count, 1);
 
     /* 3. T+220ms: Exceed P2* (100ms). Should send 2nd REPEATED NRC 0x78 */
     will_return(mock_get_time, 1220);
@@ -76,7 +77,7 @@ static void test_core_rcrrp_limit(void **state)
     will_return(mock_tp_send, 0);
     uds_process(&ctx);
     assert_int_equal(g_tx_buf[2], 0x78);
-    assert_int_equal(ctx.rcrrp_count, 2);
+    assert_int_equal(ctx.server.rcrrp_count, 2);
 
     /* 4. T+330ms: Exceed P2* again. Limit is 2. Should send NRC 0x22 and clear pending. */
     will_return(mock_get_time, 1330);
@@ -85,7 +86,7 @@ static void test_core_rcrrp_limit(void **state)
     will_return(mock_tp_send, 0);
     uds_process(&ctx);
     assert_int_equal(g_tx_buf[2], 0x22); /* ConditionsNotCorrect */
-    assert_false(ctx.p2_msg_pending);
+    assert_false(ctx.server.p2_msg_pending);
 }
 
 int main(void)

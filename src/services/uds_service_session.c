@@ -10,7 +10,8 @@
 
 #include "uds_internal.h"
 
-int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out)
 {
     (void) len;
     uint8_t sub = (uint8_t) (data[1] & UDS_MASK_SUBFUNCTION);
@@ -18,7 +19,8 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
     /* C-01: Validate Session ID */
     if (sub != UDS_SESSION_ID_DEFAULT && sub != UDS_SESSION_ID_PROGRAMMING &&
         sub != UDS_SESSION_ID_EXTENDED && sub != UDS_SESSION_ID_SAFETY) {
-        return uds_send_nrc(ctx, UDS_SID_SESSION_CONTROL, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        uds_nrc(out, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        return;
     }
 
     /* Optional OEM transition policy. ISO 14229-1 itself permits any
@@ -26,23 +28,24 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
      * graph (e.g. extended-before-programming) supplies this hook. A rejected
      * transition leaves the active session unchanged. */
     if (ctx->config->fn_session_transition_allowed != NULL &&
-        !ctx->config->fn_session_transition_allowed(ctx, ctx->active_session, sub)) {
-        return uds_send_nrc(ctx, UDS_SID_SESSION_CONTROL, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        !ctx->config->fn_session_transition_allowed(ctx, ctx->session.active, sub)) {
+        uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
     }
 
     /* C-06: Security Reset on Session Transition */
     /* Security shall be re-locked when transitioning from one session to another (or same) */
     /* Note: "Same" session transition usually also resets. ISO says (re-)initialize. */
-    if (ctx->active_session != sub || sub == UDS_SESSION_ID_DEFAULT) {
-        ctx->security_level = 0u;
-        ctx->authenticated = false;
+    if (ctx->session.active != sub || sub == UDS_SESSION_ID_DEFAULT) {
+        ctx->security.level = 0u;
+        ctx->security.authenticated = false;
         /* Drop any outstanding seed: the sequence restarts with the session. */
-        ctx->security_seed_level = 0u;
-        ctx->security_seed_len = 0u;
+        ctx->security.seed_level = 0u;
+        ctx->security.seed_len = 0u;
     }
 
     /* Update Active Session */
-    ctx->active_session = sub;
+    ctx->session.active = sub;
 
     /* Prepare Response */
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_SESSION_CONTROL + UDS_RESPONSE_OFFSET);
@@ -60,25 +63,25 @@ int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uin
     ctx->config->tx_buffer[4] = (uint8_t) ((p2_star_val >> 8) & 0xFFu);
     ctx->config->tx_buffer[5] = (uint8_t) (p2_star_val & 0xFFu);
 
-    uds_send_response(ctx, 6u);
-
     /* NVM Persistence: Save State on Change */
     if (ctx->config->fn_nvm_save != NULL) {
-        uint8_t state[2] = {ctx->active_session, ctx->security_level};
+        uint8_t state[2] = {ctx->session.active, ctx->security.level};
         ctx->config->fn_nvm_save(ctx, state, 2u);
     }
 
-    return UDS_OK;
+    uds_ok(out, 6u);
 }
 
-int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                        uds_result_t *out)
 {
     (void) len;
     uint8_t sub = (uint8_t) (data[1] & UDS_MASK_SUBFUNCTION);
     if (sub == 0x00u) {
         ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TESTER_PRESENT + UDS_RESPONSE_OFFSET);
         ctx->config->tx_buffer[1] = 0x00u;
-        return uds_send_response(ctx, 2u);
+        uds_ok(out, 2u);
+        return;
     }
-    return uds_send_nrc(ctx, UDS_SID_TESTER_PRESENT, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+    uds_nrc(out, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
 }

@@ -9,11 +9,11 @@
 #include <stdint.h>
 
 /* STM32H563 SRAM: 0x20000000 .. 0x200A0000 (640 KB total) */
-#define RAM_BASE  0x20000000UL
-#define RAM_END   0x200A0000UL
+#define RAM_BASE 0x20000000UL
+#define RAM_END 0x200A0000UL
 
 /* SCB->VTOR register (Cortex-M33 System Control Block) */
-#define SCB_VTOR  (*(volatile uint32_t *) 0xE000ED08UL)
+#define SCB_VTOR (*(volatile uint32_t *) 0xE000ED08UL)
 
 int app_is_valid(uint32_t app_base)
 {
@@ -69,9 +69,9 @@ __attribute__((noreturn)) void app_jump(uint32_t app_base)
         "bx  %1\n"
         :
         : "r"(sp), "r"(pc)
-        :
-    );
+        :);
 
     /* Unreachable — satisfies the noreturn attribute with no UB. */
-    for (;;) {}
+    for (;;) {
+    }
 }

@@ -47,7 +47,7 @@
  * for the ARM firmware build — empty otherwise so any host build stays clean.
  */
 #if defined(__arm__)
-#define RAMFUNC  __attribute__((section(".ramfunc"), noinline, long_call))
+#define RAMFUNC __attribute__((section(".ramfunc"), noinline, long_call))
 #else
 #define RAMFUNC
 #endif

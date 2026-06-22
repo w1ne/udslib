@@ -24,7 +24,7 @@
 /* ----- portable validation logic (mirrors app_is_valid without MCU deps) -- */
 
 #define RAM_BASE 0x20000000UL
-#define RAM_END  0x200A0000UL
+#define RAM_END 0x200A0000UL
 
 /**
  * Validate an OTA image stored in a host buffer.
@@ -73,19 +73,18 @@ static int image_buf_is_valid(const uint8_t *buf, uint32_t buf_len)
 
 /* ----- helpers ----------------------------------------------------------- */
 
-#define CHECK(cond, msg) \
-    do { \
-        if (!(cond)) { \
+#define CHECK(cond, msg)                        \
+    do {                                        \
+        if (!(cond)) {                          \
             fprintf(stderr, "FAIL: %s\n", msg); \
-            return 1; \
-        } \
-        printf("PASS: %s\n", msg); \
+            return 1;                           \
+        }                                       \
+        printf("PASS: %s\n", msg);              \
     } while (0)
 
 /* Build a valid [header][payload] blob into buf[].
  * payload_len must be <= sizeof(buf) - OTA_IMAGE_HDR_SIZE. */
-static void build_image(uint8_t *buf, uint32_t payload_len,
-                        uint32_t initial_sp, uint32_t version)
+static void build_image(uint8_t *buf, uint32_t payload_len, uint32_t initial_sp, uint32_t version)
 {
     memset(buf, 0, OTA_IMAGE_HDR_SIZE + payload_len);
 
@@ -99,10 +98,10 @@ static void build_image(uint8_t *buf, uint32_t payload_len,
     uint32_t crc = ota_crc32(payload, payload_len);
 
     ota_image_header_t hdr;
-    hdr.magic      = OTA_IMAGE_MAGIC;
+    hdr.magic = OTA_IMAGE_MAGIC;
     hdr.image_size = payload_len;
-    hdr.crc32      = crc;
-    hdr.version    = version;
+    hdr.crc32 = crc;
+    hdr.version = version;
     memcpy(buf, &hdr, sizeof(hdr));
 }
 
@@ -112,19 +111,18 @@ static int test_valid_image(void)
 {
     /* 256-byte payload with a plausible initial SP */
     const uint32_t PAYLOAD_LEN = 256u;
-    const uint32_t INITIAL_SP  = 0x20010000u; /* within STM32H563 SRAM */
+    const uint32_t INITIAL_SP = 0x20010000u; /* within STM32H563 SRAM */
     uint8_t buf[OTA_IMAGE_HDR_SIZE + 256];
 
     build_image(buf, PAYLOAD_LEN, INITIAL_SP, 0x00010000u);
-    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 1,
-          "valid image is accepted");
+    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 1, "valid image is accepted");
     return 0;
 }
 
 static int test_corrupt_payload_byte(void)
 {
     const uint32_t PAYLOAD_LEN = 256u;
-    const uint32_t INITIAL_SP  = 0x20010000u;
+    const uint32_t INITIAL_SP = 0x20010000u;
     uint8_t buf[OTA_IMAGE_HDR_SIZE + 256];
 
     build_image(buf, PAYLOAD_LEN, INITIAL_SP, 0x00010000u);
@@ -132,15 +130,14 @@ static int test_corrupt_payload_byte(void)
     /* Flip one byte in the middle of the payload */
     buf[OTA_IMAGE_HDR_SIZE + 128] ^= 0xFFu;
 
-    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0,
-          "corrupted payload byte is rejected");
+    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0, "corrupted payload byte is rejected");
     return 0;
 }
 
 static int test_corrupt_magic(void)
 {
     const uint32_t PAYLOAD_LEN = 64u;
-    const uint32_t INITIAL_SP  = 0x20020000u;
+    const uint32_t INITIAL_SP = 0x20020000u;
     uint8_t buf[OTA_IMAGE_HDR_SIZE + 64];
 
     build_image(buf, PAYLOAD_LEN, INITIAL_SP, 0x00010001u);
@@ -149,15 +146,14 @@ static int test_corrupt_magic(void)
     uint32_t bad_magic = 0xDEADBEEFu;
     memcpy(buf, &bad_magic, sizeof(bad_magic));
 
-    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0,
-          "corrupted magic is rejected");
+    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0, "corrupted magic is rejected");
     return 0;
 }
 
 static int test_zero_image_size(void)
 {
     const uint32_t PAYLOAD_LEN = 64u;
-    const uint32_t INITIAL_SP  = 0x20030000u;
+    const uint32_t INITIAL_SP = 0x20030000u;
     uint8_t buf[OTA_IMAGE_HDR_SIZE + 64];
 
     build_image(buf, PAYLOAD_LEN, INITIAL_SP, 0x00010002u);
@@ -166,8 +162,7 @@ static int test_zero_image_size(void)
     ota_image_header_t *hdr = (ota_image_header_t *) buf;
     hdr->image_size = 0u;
 
-    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0,
-          "zero image_size is rejected");
+    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0, "zero image_size is rejected");
     return 0;
 }
 
@@ -180,15 +175,14 @@ static int test_sp_out_of_ram(void)
 
     build_image(buf, PAYLOAD_LEN, BAD_SP, 0x00010003u);
 
-    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0,
-          "initial SP outside RAM is rejected");
+    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0, "initial SP outside RAM is rejected");
     return 0;
 }
 
 static int test_corrupt_crc_field(void)
 {
     const uint32_t PAYLOAD_LEN = 128u;
-    const uint32_t INITIAL_SP  = 0x20040000u;
+    const uint32_t INITIAL_SP = 0x20040000u;
     uint8_t buf[OTA_IMAGE_HDR_SIZE + 128];
 
     build_image(buf, PAYLOAD_LEN, INITIAL_SP, 0x00010004u);
@@ -196,8 +190,7 @@ static int test_corrupt_crc_field(void)
     /* Corrupt the stored CRC (bytes 8-11 of the header) */
     buf[8] ^= 0x01u;
 
-    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0,
-          "corrupted crc32 field is rejected");
+    CHECK(image_buf_is_valid(buf, sizeof(buf)) == 0, "corrupted crc32 field is rejected");
     return 0;
 }
 
@@ -215,7 +208,8 @@ int main(void)
 
     if (rc == 0) {
         printf("\nAll image-test cases PASS\n");
-    } else {
+    }
+    else {
         fprintf(stderr, "\nSome image-test cases FAILED\n");
     }
     return rc;

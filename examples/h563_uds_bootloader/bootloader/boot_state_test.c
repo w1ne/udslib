@@ -27,13 +27,13 @@
 /* ---------------------------------------------------------------------------
  * Minimal CHECK macro
  * ------------------------------------------------------------------------- */
-#define CHECK(cond, msg) \
-    do { \
-        if (!(cond)) { \
+#define CHECK(cond, msg)                          \
+    do {                                          \
+        if (!(cond)) {                            \
             fprintf(stderr, "FAIL: %s\n", (msg)); \
-            return 1; \
-        } \
-        printf("PASS: %s\n", (msg)); \
+            return 1;                             \
+        }                                         \
+        printf("PASS: %s\n", (msg));              \
     } while (0)
 
 /* ---------------------------------------------------------------------------
@@ -42,8 +42,8 @@
 static boot_state_t make_pending(uint32_t attempts)
 {
     boot_state_t st;
-    st.magic    = BOOT_STATE_MAGIC;
-    st.pending  = 1u;
+    st.magic = BOOT_STATE_MAGIC;
+    st.pending = 1u;
     st.attempts = attempts;
     st.reserved = 0xFFFFFFFFu;
     return st;
@@ -52,8 +52,8 @@ static boot_state_t make_pending(uint32_t attempts)
 static boot_state_t make_confirmed(void)
 {
     boot_state_t st;
-    st.magic    = BOOT_STATE_MAGIC;
-    st.pending  = 0u;
+    st.magic = BOOT_STATE_MAGIC;
+    st.pending = 0u;
     st.attempts = 0u;
     st.reserved = 0xFFFFFFFFu;
     return st;
@@ -88,8 +88,7 @@ static void make_slots(uint8_t *buf, uint32_t programmed)
 static int test_confirmed_jumps(void)
 {
     boot_state_t st = make_confirmed();
-    CHECK(boot_state_decide(&st, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_JUMP,
-          "confirmed bank → JUMP");
+    CHECK(boot_state_decide(&st, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_JUMP, "confirmed bank → JUMP");
     return 0;
 }
 
@@ -186,7 +185,7 @@ static int test_full_rollback_sequence(void)
 
     /* Step 7: Back on bank A, cleared/confirmed. */
     {
-        boot_state_t st = make_erased();  /* boot_state_clear() leaves all-0xFF */
+        boot_state_t st = make_erased(); /* boot_state_clear() leaves all-0xFF */
         CHECK(boot_state_decide(&st, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_JUMP,
               "seq: bank A after rollback (erased) → JUMP");
     }
@@ -252,8 +251,7 @@ static int test_count_attempts_basic(void)
           "count: 1 programmed slot → 1 attempt");
 
     make_slots(buf, BOOT_STATE_ATTEMPT_SLOTS);
-    CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) ==
-              BOOT_STATE_ATTEMPT_SLOTS,
+    CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) == BOOT_STATE_ATTEMPT_SLOTS,
           "count: all slots programmed → MAX attempts");
 
     return 0;
@@ -276,7 +274,8 @@ static int test_count_attempts_torn_slot_not_counted(void)
     make_slots(buf, 1u);
     if (BOOT_STATE_ATTEMPT_SLOTS >= 3u) {
         uint32_t mark = ATTEMPT_SLOT_MARK;
-        memcpy(buf + (2u * BOOT_STATE_SLOT_SIZE), &mark, sizeof(mark)); /* slot 2 set, slot 1 erased */
+        memcpy(buf + (2u * BOOT_STATE_SLOT_SIZE), &mark,
+               sizeof(mark)); /* slot 2 set, slot 1 erased */
     }
     CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) == 1u,
           "count: torn/erased slot stops the count (prior count preserved)");
@@ -302,20 +301,18 @@ static int test_torn_pending_never_confirmed(void)
         make_slots(buf, programmed);
 
         boot_state_t st;
-        st.magic    = BOOT_STATE_MAGIC;
-        st.pending  = 1u;
+        st.magic = BOOT_STATE_MAGIC;
+        st.pending = 1u;
         st.reserved = 0xFFFFFFFFu;
         st.attempts = boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS);
 
         boot_decision_t d = boot_state_decide(&st, MAX_BOOT_ATTEMPTS);
-        CHECK(d != BOOT_DECISION_JUMP,
-              "torn pending bank is never decided as confirmed (JUMP)");
+        CHECK(d != BOOT_DECISION_JUMP, "torn pending bank is never decided as confirmed (JUMP)");
         if (st.attempts < MAX_BOOT_ATTEMPTS) {
-            CHECK(d == BOOT_DECISION_BUMP_AND_JUMP,
-                  "pending + budget remaining → BUMP_AND_JUMP");
-        } else {
-            CHECK(d == BOOT_DECISION_ROLLBACK,
-                  "pending + budget exhausted → ROLLBACK");
+            CHECK(d == BOOT_DECISION_BUMP_AND_JUMP, "pending + budget remaining → BUMP_AND_JUMP");
+        }
+        else {
+            CHECK(d == BOOT_DECISION_ROLLBACK, "pending + budget exhausted → ROLLBACK");
         }
     }
     return 0;
@@ -368,7 +365,8 @@ int main(void)
 
     if (rc == 0) {
         printf("\nAll bootstate-test cases PASS\n");
-    } else {
+    }
+    else {
         fprintf(stderr, "\nSome bootstate-test cases FAILED\n");
     }
     return rc;

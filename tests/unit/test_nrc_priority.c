@@ -23,12 +23,12 @@ static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* Dummy Handler */
-static int dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_OK;
+    uds_none(out);
 }
 
 static uint32_t mock_get_time(void)
@@ -61,7 +61,7 @@ static void test_nrc_priority_sub_vs_security(void **state)
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
-    ctx.security_level = 0; /* Security is locked */
+    ctx.security.level = 0; /* Security is locked */
 
     /* Case A: Request with VALID subfunction (0x01), but LOCKED security */
     /* Expect NRC 0x33 (Security Access Denied) */

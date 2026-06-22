@@ -121,7 +121,7 @@ static void test_comm_control_expanded(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, request, sizeof(request));
-    assert_int_equal(ctx.comm_state, 0x04);
+    assert_int_equal(ctx.session.comm_state, 0x04);
 }
 
 /* 5. Test TesterPresent during Busy */
@@ -131,8 +131,8 @@ static void test_busy_tester_present(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
 
     /* Simulate pending request */
-    ctx.p2_msg_pending = true;
-    ctx.server_pending_sid = 0x22;
+    ctx.server.p2_msg_pending = true;
+    ctx.server.pending_sid = 0x22;
 
     /* Suppressed TesterPresent should be IGNORED (no NRC 0x21) */
     uint8_t tp_req[] = {0x3E, 0x80};
@@ -140,7 +140,7 @@ static void test_busy_tester_present(void **state)
     /* Expect NO send_tp */
     uds_input_sdu(&ctx, tp_req, sizeof(tp_req));
 
-    assert_true(ctx.p2_msg_pending); /* Still pending original */
+    assert_true(ctx.server.p2_msg_pending); /* Still pending original */
 }
 
 int main(void)

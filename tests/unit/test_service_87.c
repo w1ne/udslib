@@ -41,7 +41,7 @@ static void test_link_control_verify_then_transition(void **state)
 
     assert_int_equal(g_tx_buf[0], 0xC7);
     assert_int_equal(g_tx_buf[1], 0x01);
-    assert_true(ctx.link_ctrl_verified);
+    assert_true(ctx.server.link_ctrl_verified);
     assert_int_equal(g_lc_subfn, 0x01);
     assert_int_equal(g_lc_param, 0x11);
 
@@ -58,7 +58,7 @@ static void test_link_control_verify_then_transition(void **state)
     assert_int_equal(g_tx_buf[1], 0x03);
     assert_int_equal(g_lc_subfn, 0x03);
     assert_int_equal(g_lc_param, 0x11); /* latched from the verify step */
-    assert_false(ctx.link_ctrl_verified);
+    assert_false(ctx.server.link_ctrl_verified);
 }
 
 static void test_link_control_transition_without_verify_rejected(void **state)

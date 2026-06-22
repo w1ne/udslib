@@ -11,7 +11,8 @@
 #include <string.h>
 #include "uds_internal.h"
 
-int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out)
 {
     uint16_t tx_len = 1u; /* SID 0x62 set later */
     uint16_t i = 1u;
@@ -26,7 +27,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
             /* C-18: Security & Session Validation per DID */
             /* Session Check */
             if ((entry->session_mask != 0u) &&
-                !(uds_internal_session_bit(ctx->active_session) & entry->session_mask)) {
+                !(uds_internal_session_bit(ctx->session.active) & entry->session_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_REQUEST_OUT_OF_RANGE; /* 0x31 per ISO 14229-1 */
                 break;
@@ -34,7 +35,7 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
 
             /* Security Check */
             if ((entry->security_mask != 0u) &&
-                !((1u << ctx->security_level) & entry->security_mask)) {
+                !((1u << ctx->security.level) & entry->security_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_SECURITY_ACCESS_DENIED;
                 break;
@@ -43,7 +44,8 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
             /* C-12: Buffer Overflow Vulnerability Check */
             if ((uint32_t) tx_len + (uint32_t) entry->size + 2u > /* +2 for DID ID */
                 (uint32_t) ctx->config->tx_buffer_size) {
-                return uds_send_nrc(ctx, UDS_SID_READ_DATA_BY_ID, UDS_NRC_RESPONSE_TOO_LONG);
+                uds_nrc(out, UDS_NRC_RESPONSE_TOO_LONG);
+                return;
             }
 
             ctx->config->tx_buffer[tx_len] = (uint8_t) ((did >> 8u) & 0xFFu);
@@ -57,7 +59,8 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
                     tx_len += (uint16_t) entry->size;
                 }
                 else {
-                    return uds_send_nrc(ctx, UDS_SID_READ_DATA_BY_ID, (uint8_t) - (int32_t) res);
+                    uds_nrc(out, (uint8_t) - (int32_t) res);
+                    return;
                 }
             }
             else if (entry->storage != NULL) {
@@ -80,21 +83,22 @@ int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 
     if (any_error) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DATA_BY_ID, nrc_code);
+        uds_nrc(out, nrc_code);
+        return;
     }
-    else {
-        ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_DATA_BY_ID + UDS_RESPONSE_OFFSET);
-        return uds_send_response(ctx, tx_len);
-    }
+    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_DATA_BY_ID + UDS_RESPONSE_OFFSET);
+    uds_ok(out, tx_len);
 }
 
-int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out)
 {
     (void) len; /* min_len 3 enforced by the dispatcher */
 
     /* No reader -> the DID's scaling information is not supported. */
     if (ctx->config->fn_read_scaling == NULL) {
-        return uds_send_nrc(ctx, UDS_SID_READ_SCALING, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
     }
 
     uint16_t did = (uint16_t) (((uint16_t) data[1] << 8u) | (uint16_t) data[2]);
@@ -104,16 +108,18 @@ int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16
 
     int written = ctx->config->fn_read_scaling(ctx, did, &tx[3], max_payload);
     if (written < 0) {
-        return uds_send_nrc(ctx, UDS_SID_READ_SCALING, (uint8_t) - (int32_t) written);
+        uds_nrc(out, (uint8_t) - (int32_t) written);
+        return;
     }
 
     tx[0] = (uint8_t) (UDS_SID_READ_SCALING + UDS_RESPONSE_OFFSET);
     tx[1] = data[1];
     tx[2] = data[2];
-    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 3u));
+    uds_ok(out, (uint16_t) ((uint16_t) written + 3u));
 }
 
-int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                     uds_result_t *out)
 {
     /* Sub-function range is enforced by the dispatcher (mask_sub_2C). */
     uint8_t subfn = (uint8_t) (data[1] & 0x7Fu);
@@ -122,11 +128,13 @@ int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_
      * dynamicallyDefinedDataIdentifier (2 bytes). clear (0x03) may omit it. */
     bool has_did = (len >= 4u);
     if (((subfn == 0x01u) || (subfn == 0x02u)) && !has_did) {
-        return uds_send_nrc(ctx, UDS_SID_DYNAMIC_DID, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     if (ctx->config->fn_dynamic_did == NULL) {
-        return uds_send_nrc(ctx, UDS_SID_DYNAMIC_DID, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
     }
 
     uint16_t defined_did = 0u;
@@ -136,7 +144,8 @@ int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_
 
     int res = ctx->config->fn_dynamic_did(ctx, subfn, defined_did, &data[2], (uint16_t) (len - 2u));
     if (res < 0) {
-        return uds_send_nrc(ctx, UDS_SID_DYNAMIC_DID, (uint8_t) - (int32_t) res);
+        uds_nrc(out, (uint8_t) - (int32_t) res);
+        return;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -145,38 +154,45 @@ int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_
     if (has_did) {
         tx[2] = data[2];
         tx[3] = data[3];
-        return uds_send_response(ctx, 4u);
+        uds_ok(out, 4u);
+        return;
     }
-    return uds_send_response(ctx, 2u);
+    uds_ok(out, 2u);
 }
 
-int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                          uds_result_t *out)
 {
     if (len < 3u) {
-        return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
     uint16_t did = (uint16_t) (((uint16_t) data[1] << 8u) | (uint16_t) data[2]);
     const uds_did_entry_t *entry = uds_internal_find_did(ctx, did);
 
     if (entry == NULL) {
-        return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
     }
 
     /* C-18: Security & Session Validation per DID */
     /* Session Check */
     if ((entry->session_mask != 0u) &&
-        !(uds_internal_session_bit(ctx->active_session) & entry->session_mask)) {
-        return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        !(uds_internal_session_bit(ctx->session.active) & entry->session_mask)) {
+        uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
     }
 
     /* Security Check */
-    if ((entry->security_mask != 0u) && !((1u << ctx->security_level) & entry->security_mask)) {
-        return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_SECURITY_ACCESS_DENIED);
+    if ((entry->security_mask != 0u) && !((1u << ctx->security.level) & entry->security_mask)) {
+        uds_nrc(out, UDS_NRC_SECURITY_ACCESS_DENIED);
+        return;
     }
 
     /* C-11: Length Check Failure (NRC 0x13) */
     if (len != (uint16_t) (3u + (uint16_t) entry->size)) {
-        return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     bool write_ok = false;
@@ -195,17 +211,20 @@ int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
         ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_WRITE_DATA_BY_ID + UDS_RESPONSE_OFFSET);
         ctx->config->tx_buffer[1] = data[1];
         ctx->config->tx_buffer[2] = data[2];
-        return uds_send_response(ctx, 3u);
+        uds_ok(out, 3u);
+        return;
     }
 
-    return uds_send_nrc(ctx, UDS_SID_WRITE_DATA_BY_ID, UDS_NRC_CONDITIONS_NOT_CORRECT);
+    uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
 }
 
-int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out)
 {
     /* ISO 14229-1: 0x2A [transmissionMode] [periodicDataIdentifier...] */
     if (len < 2u) {
-        return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     uint8_t mode = data[1] & 0x0Fu; /* 1: Fast, 2: Medium, 3: Slow, 4: Stop */
@@ -214,32 +233,35 @@ int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint1
         /* Stop Sending */
         if (len == 2u) {
             /* Stop all */
-            memset(ctx->periodic_ids, 0, sizeof(ctx->periodic_ids));
-            ctx->periodic_count = 0u;
+            memset(ctx->server.periodic_ids, 0, sizeof(ctx->server.periodic_ids));
+            ctx->server.periodic_count = 0u;
         }
         else {
             /* Stop specific IDs */
             for (uint16_t i = 2u; i < len; i++) {
                 uint8_t id = data[i];
                 for (uint8_t j = 0u; j < 8u; j++) {
-                    if (ctx->periodic_ids[j] == id) {
-                        ctx->periodic_ids[j] = 0u;
-                        ctx->periodic_count--;
+                    if (ctx->server.periodic_ids[j] == id) {
+                        ctx->server.periodic_ids[j] = 0u;
+                        ctx->server.periodic_count--;
                     }
                 }
             }
         }
         ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_BY_PER_ID + UDS_RESPONSE_OFFSET);
-        return uds_send_response(ctx, 1u);
+        uds_ok(out, 1u);
+        return;
     }
 
     if (mode < 0x01u || mode > 0x03u) {
-        return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
     }
 
     /* Cannot schedule periodic reads without a reader callback. */
     if (ctx->config->fn_periodic_read == NULL) {
-        return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
     }
 
     /* Add/Update Periodic IDs */
@@ -247,23 +269,24 @@ int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint1
         uint8_t id = data[i];
         bool found = false;
         for (uint8_t j = 0u; j < 8u; j++) {
-            if (ctx->periodic_ids[j] == id) {
-                ctx->periodic_rates[j] = mode;
+            if (ctx->server.periodic_ids[j] == id) {
+                ctx->server.periodic_rates[j] = mode;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            if (ctx->periodic_count >= 8u) {
-                return uds_send_nrc(ctx, UDS_SID_READ_BY_PER_ID, UDS_NRC_RESPONSE_TOO_LONG);
+            if (ctx->server.periodic_count >= 8u) {
+                uds_nrc(out, UDS_NRC_RESPONSE_TOO_LONG);
+                return;
             }
             for (uint8_t j = 0u; j < 8u; j++) {
-                if (ctx->periodic_ids[j] == 0u) {
-                    ctx->periodic_ids[j] = id;
-                    ctx->periodic_rates[j] = mode;
-                    ctx->periodic_timers[j] =
+                if (ctx->server.periodic_ids[j] == 0u) {
+                    ctx->server.periodic_ids[j] = id;
+                    ctx->server.periodic_rates[j] = mode;
+                    ctx->server.periodic_timers[j] =
                         ctx->config->get_time_ms(); /* Start immediately or after interval */
-                    ctx->periodic_count++;
+                    ctx->server.periodic_count++;
                     break;
                 }
             }
@@ -271,5 +294,5 @@ int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint1
     }
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_BY_PER_ID + UDS_RESPONSE_OFFSET);
-    return uds_send_response(ctx, 1u);
+    uds_ok(out, 1u);
 }

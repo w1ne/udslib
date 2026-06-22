@@ -71,8 +71,8 @@ void flash_unlock(void)
  * ------------------------------------------------------------------------- */
 RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
 {
-    volatile uint32_t *dst = (volatile uint32_t *)(uintptr_t)addr;
-    const uint32_t    *src = (const uint32_t *)(uintptr_t)data;
+    volatile uint32_t *dst = (volatile uint32_t *) (uintptr_t) addr;
+    const uint32_t *src = (const uint32_t *) (uintptr_t) data;
 
     /* Enable programming mode */
     FLASH_NSCR |= NSCR_PG;
@@ -118,9 +118,7 @@ RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
  * ------------------------------------------------------------------------- */
 RAMFUNC int flash_erase_sector(uint8_t bank, uint32_t sector)
 {
-    uint32_t cr = NSCR_SER
-                | ((uint32_t)(sector << NSCR_SNB_SHIFT) & NSCR_SNB_MASK)
-                | NSCR_STRT;
+    uint32_t cr = NSCR_SER | ((uint32_t) (sector << NSCR_SNB_SHIFT) & NSCR_SNB_MASK) | NSCR_STRT;
 
     if (bank != 0u) {
         cr |= NSCR_BKSEL;
@@ -175,7 +173,8 @@ void flash_set_swap_and_reset(void)
     SCB_AIRCR = AIRCR_RESET_KEY;
 
     /* Should not reach here */
-    for (;;) {}
+    for (;;) {
+    }
 }
 
 /* ---------------------------------------------------------------------------
@@ -200,7 +199,8 @@ void flash_swap_to_bank_and_reset(uint8_t target_bank)
     /* Step 2: Write the desired SWAP_BANK value explicitly (set or clear) */
     if (target_bank != 0u) {
         FLASH_OPTSR_PRG |= OPTSR_SWAP_BANK;
-    } else {
+    }
+    else {
         FLASH_OPTSR_PRG &= ~OPTSR_SWAP_BANK;
     }
 
@@ -217,7 +217,8 @@ void flash_swap_to_bank_and_reset(uint8_t target_bank)
     SCB_AIRCR = AIRCR_RESET_KEY;
 
     /* Should not reach here */
-    for (;;) {}
+    for (;;) {
+    }
 }
 
 /* ---------------------------------------------------------------------------

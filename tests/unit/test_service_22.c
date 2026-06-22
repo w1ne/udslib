@@ -26,7 +26,7 @@ static int read_active_session(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, 
 {
     (void) did;
     if (max_len < 1u) return -0x22;
-    buf[0] = ctx->active_session;
+    buf[0] = ctx->session.active;
     return 1;
 }
 
@@ -153,7 +153,7 @@ static void test_rdbi_std_active_session_dynamic(void **state)
     assert_int_equal(g_tx_buf[0], 0x62);
     assert_int_equal(g_tx_buf[1], 0xF1);
     assert_int_equal(g_tx_buf[2], 0x86);
-    assert_int_equal(g_tx_buf[3], ctx.active_session); /* default session 0x01 */
+    assert_int_equal(g_tx_buf[3], ctx.session.active); /* default session 0x01 */
 }
 
 int main(void)

@@ -45,7 +45,7 @@ static void test_request_upload_success(void **state)
     assert_int_equal(g_tx_buf[0], 0x75);
     assert_int_equal(g_upload_addr, 0x1122);
     assert_int_equal(g_upload_size, 0x3344);
-    assert_int_equal(ctx.flash_sequence, 0);
+    assert_int_equal(ctx.server.flash_sequence, 0);
 }
 
 int main(void)
