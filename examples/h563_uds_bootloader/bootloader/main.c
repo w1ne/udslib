@@ -244,6 +244,20 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
         return -(int) 0x33; /* securityAccessDenied */
     }
 
+    /*
+     * Alignment gate: the H5 programs flash in 16-byte (quad-word) units, and a
+     * quad-word program whose base is not 16-byte aligned raises INCERR on real
+     * silicon (and in the faithful sim) and commits nothing.  Require a
+     * 16-byte-aligned base so every flushed quad-word lands on an aligned base.
+     * The declared size need NOT be a multiple of 16: flush_stage() pads the
+     * final partial block to a full quad-word with 0xFF.  STAGE_SZ is the
+     * quad-word width (16).
+     */
+    if ((addr % STAGE_SZ) != 0u) {
+        uart_puts("BL: RD reject misaligned\n");
+        return -(int) 0x70; /* uploadDownloadNotAccepted */
+    }
+
     uint8_t inactive = flash_active_bank() ? 0u : 1u;
     uint32_t base    = bank_base(inactive) + BL_REGION_SIZE;
     uint32_t end_off = bank_base(inactive) + BANK_SIZE;

@@ -8,6 +8,42 @@
 #include "flash_h5.h"
 
 /* ---------------------------------------------------------------------------
+ * flash_wait_bsy  (internal)
+ *
+ * Spin on NSSR.BSY with a finite iteration cap so a stuck flash controller can
+ * no longer hang the CPU.  Returns FLASH_OK when BSY clears within the budget,
+ * FLASH_ERR_TIMEOUT otherwise.
+ * ------------------------------------------------------------------------- */
+static int flash_wait_bsy(void)
+{
+    uint32_t guard = FLASH_BSY_TIMEOUT;
+    while ((FLASH_NSSR & NSSR_BSY) != 0u) {
+        if (--guard == 0u) {
+            return FLASH_ERR_TIMEOUT;
+        }
+    }
+    return FLASH_OK;
+}
+
+/* ---------------------------------------------------------------------------
+ * flash_check_and_clear  (internal)
+ *
+ * Inspect NSSR after an operation.  If any error flag is set, clear it via
+ * NSCCR (write-1-clears) and report FLASH_ERR_HW.  On a clean operation clear
+ * the sticky EOP flag (also via NSCCR) and report FLASH_OK.
+ * ------------------------------------------------------------------------- */
+static int flash_check_and_clear(void)
+{
+    uint32_t sr = FLASH_NSSR;
+    if ((sr & NSSR_ERR_MASK) != 0u) {
+        FLASH_NSCCR = sr & NSSR_ERR_MASK;
+        return FLASH_ERR_HW;
+    }
+    FLASH_NSCCR = NSSR_EOP;
+    return FLASH_OK;
+}
+
+/* ---------------------------------------------------------------------------
  * flash_unlock
  *
  * Writes the two-step NSKEYR sequence to unlock the flash controller
@@ -50,14 +86,24 @@ int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
         dst[i + 1u] = src[i + 1u];
         dst[i + 2u] = src[i + 2u];
         dst[i + 3u] = src[i + 3u];
-        /* Wait for the quad-word write to complete */
-        while (FLASH_NSSR & NSSR_BSY) {}
+        /* Wait for the quad-word write to complete (bounded). */
+        if (flash_wait_bsy() != FLASH_OK) {
+            FLASH_NSCR &= ~NSCR_PG;
+            return FLASH_ERR_TIMEOUT;
+        }
+        /* Check for a hardware program error (e.g. INCERR on a misaligned
+         * quad-word, WRPERR on a protected sector).  On error the controller
+         * has committed nothing; clear the flag and abort. */
+        if (flash_check_and_clear() != FLASH_OK) {
+            FLASH_NSCR &= ~NSCR_PG;
+            return FLASH_ERR_HW;
+        }
     }
 
     /* Clear programming enable */
     FLASH_NSCR &= ~NSCR_PG;
 
-    return 0;
+    return FLASH_OK;
 }
 
 /* ---------------------------------------------------------------------------
@@ -82,9 +128,14 @@ int flash_erase_sector(uint8_t bank, uint32_t sector)
 
     FLASH_NSCR = cr;
 
-    while (FLASH_NSSR & NSSR_BSY) {}
+    if (flash_wait_bsy() != FLASH_OK) {
+        return FLASH_ERR_TIMEOUT;
+    }
+    if (flash_check_and_clear() != FLASH_OK) {
+        return FLASH_ERR_HW;
+    }
 
-    return 0;
+    return FLASH_OK;
 }
 
 /* ---------------------------------------------------------------------------
@@ -112,8 +163,11 @@ void flash_set_swap_and_reset(void)
     /* Step 3: Commit — OPTSTRT programs the option byte */
     FLASH_OPTCR |= OPTCR_OPTSTRT;
 
-    /* Step 4: Wait for the option byte write to complete */
-    while (FLASH_NSSR & NSSR_BSY) {}
+    /* Step 4: Wait for the option byte write to complete (bounded).
+     * A timeout here intentionally falls through to the system reset rather
+     * than hanging: the reset is what applies the swap on real silicon, and
+     * stalling forever is never an acceptable outcome on this path. */
+    (void) flash_wait_bsy();
 
     /* Step 5: System reset — swap takes effect on next boot (real HW path).
      *         On the sim the CPU has already rebooted at OPTSTRT; the reset
@@ -153,8 +207,11 @@ void flash_swap_to_bank_and_reset(uint8_t target_bank)
     /* Step 3: Commit the option byte write */
     FLASH_OPTCR |= OPTCR_OPTSTRT;
 
-    /* Step 4: Wait for the option byte write to complete */
-    while (FLASH_NSSR & NSSR_BSY) {}
+    /* Step 4: Wait for the option byte write to complete (bounded).
+     * A timeout here intentionally falls through to the system reset rather
+     * than hanging: the reset is what applies the swap on real silicon, and
+     * stalling forever is never an acceptable outcome on this path. */
+    (void) flash_wait_bsy();
 
     /* Step 5: System reset — swap takes effect on next boot. */
     SCB_AIRCR = AIRCR_RESET_KEY;

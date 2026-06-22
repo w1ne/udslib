@@ -35,6 +35,7 @@
  *   OPTCR    @ 0x1C  — option control register
  *   NSSR     @ 0x20  — non-secure status register
  *   NSCR     @ 0x28  — non-secure control register
+ *   NSCCR    @ 0x30  — non-secure clear control register (write-1-clears NSSR flags)
  *   OPTSR_CUR@ 0x50  — option status register (current)
  *   OPTSR_PRG@ 0x54  — option status register (to program)
  * ------------------------------------------------------------------------- */
@@ -43,6 +44,7 @@
 #define FLASH_OPTCR         REG32(FLASH_BASE + 0x1CU)
 #define FLASH_NSSR          REG32(FLASH_BASE + 0x20U)
 #define FLASH_NSCR          REG32(FLASH_BASE + 0x28U)
+#define FLASH_NSCCR         REG32(FLASH_BASE + 0x30U)
 #define FLASH_OPTSR_CUR     REG32(FLASH_BASE + 0x50U)
 #define FLASH_OPTSR_PRG     REG32(FLASH_BASE + 0x54U)
 
@@ -59,8 +61,39 @@
 
 /* ---------------------------------------------------------------------------
  * FLASH_NSSR bits  (RM0481 §7.8.7 / stm32h563.svd NSSR)
+ *
+ * The error/EOP flags are sticky and read-only in NSSR; they are cleared by
+ * writing a 1 to the corresponding bit in NSCCR (NOT by writing NSSR).
  * ------------------------------------------------------------------------- */
-#define NSSR_BSY            (1UL << 0)   /* Non-secure operation busy */
+#define NSSR_BSY            (1UL << 0)    /* Non-secure operation busy */
+#define NSSR_WBNE           (1UL << 1)    /* Write buffer not empty */
+#define NSSR_EOP            (1UL << 16)   /* End of operation */
+#define NSSR_WRPERR         (1UL << 17)   /* Write protection error */
+#define NSSR_PGSERR         (1UL << 18)   /* Programming sequence error */
+#define NSSR_STRBERR        (1UL << 19)   /* Strobe (alignment) error */
+#define NSSR_INCERR         (1UL << 20)   /* Inconsistency error */
+
+/* Aggregate of all program/erase error flags. */
+#define NSSR_ERR_MASK       (NSSR_WRPERR | NSSR_PGSERR | NSSR_STRBERR | NSSR_INCERR)
+
+/* ---------------------------------------------------------------------------
+ * Bounded-wait iteration cap.
+ *
+ * Replaces the previous unbounded `while (NSSR & BSY)` spins.  A program or
+ * erase that does not clear BSY within this many polling iterations is treated
+ * as a stuck controller and reported as a timeout (FLASH_ERR_TIMEOUT).  The
+ * value is large enough never to trip on a healthy op (an 8 KB sector erase is
+ * a few ms) yet finite so a faulted controller can no longer hang the CPU.
+ * ------------------------------------------------------------------------- */
+#define FLASH_BSY_TIMEOUT   0x10000000UL
+
+/* ---------------------------------------------------------------------------
+ * Driver error codes (returned by flash_program / flash_erase_sector).
+ * Any non-zero value propagates as a programming failure to the UDS layer.
+ * ------------------------------------------------------------------------- */
+#define FLASH_OK            0
+#define FLASH_ERR_TIMEOUT   1            /* BSY never cleared within the cap */
+#define FLASH_ERR_HW        2            /* NSSR reported a program/erase error */
 
 /* ---------------------------------------------------------------------------
  * FLASH_NSCR bits  (RM0481 §7.8.9 / stm32h563.svd NSCR)

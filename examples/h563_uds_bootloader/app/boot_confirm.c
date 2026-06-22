@@ -36,6 +36,9 @@
 #define FLASH_NSKEY2    0xCDEF89ABUL
 
 #define NSSR_BSY        (1UL << 0)
+/* Finite cap on the BSY spin so a stuck flash controller cannot hang the app
+ * (mirrors FLASH_BSY_TIMEOUT in the bootloader's flash_h5.h). */
+#define NSSR_BSY_TIMEOUT 0x10000000UL
 #define NSCR_SER        (1UL << 2)
 #define NSCR_STRT       (1UL << 5)
 #define NSCR_SNB_SHIFT  6U
@@ -70,6 +73,13 @@ void boot_confirm(void)
                 | NSCR_STRT;
     FLASH_NSCR = cr;
 
-    /* Wait for the erase to complete. */
-    while (FLASH_NSSR & NSSR_BSY) {}
+    /* Wait for the erase to complete (bounded — never spin forever on a
+     * stuck controller). boot_confirm() returns void; a timeout simply stops
+     * waiting. */
+    uint32_t guard = NSSR_BSY_TIMEOUT;
+    while ((FLASH_NSSR & NSSR_BSY) != 0u) {
+        if (--guard == 0u) {
+            break;
+        }
+    }
 }
