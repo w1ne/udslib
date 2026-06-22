@@ -17,6 +17,27 @@
 #include <stdint.h>
 
 /* ---------------------------------------------------------------------------
+ * RAMFUNC — place a function in the .ramfunc section so it executes from SRAM.
+ *
+ * On STM32H5 silicon an erase/program of a flash bank cannot run while the CPU
+ * fetches instructions from that same bank (read-while-write hazard, RM0481
+ * §7.3.4).  Functions that issue an erase/program and then poll NSSR.BSY are
+ * marked RAMFUNC; startup.c copies .ramfunc from its flash load address (LMA)
+ * to RAM (VMA) before main(), and long_call lets a flash-resident caller reach
+ * the RAM-resident routine regardless of the relative branch range.
+ *
+ * The attribute is enabled only for the ARM firmware build.  The host unit
+ * test (boot_state_test) compiles boot_state.c with the system gcc, whose
+ * default linker script has no .ramfunc section; long_call is also Arm-only.
+ * Leaving the macro empty off-target keeps those host links clean.
+ * ------------------------------------------------------------------------- */
+#if defined(__arm__)
+#define RAMFUNC  __attribute__((section(".ramfunc"), noinline, long_call))
+#else
+#define RAMFUNC
+#endif
+
+/* ---------------------------------------------------------------------------
  * MMIO helper
  * ------------------------------------------------------------------------- */
 #define REG32(a)  (*(volatile uint32_t *)(uintptr_t)(a))
@@ -35,6 +56,7 @@
  *   OPTCR    @ 0x1C  — option control register
  *   NSSR     @ 0x20  — non-secure status register
  *   NSCR     @ 0x28  — non-secure control register
+ *   NSCCR    @ 0x30  — non-secure clear control register (write-1-clears NSSR flags)
  *   OPTSR_CUR@ 0x50  — option status register (current)
  *   OPTSR_PRG@ 0x54  — option status register (to program)
  * ------------------------------------------------------------------------- */
@@ -43,6 +65,7 @@
 #define FLASH_OPTCR         REG32(FLASH_BASE + 0x1CU)
 #define FLASH_NSSR          REG32(FLASH_BASE + 0x20U)
 #define FLASH_NSCR          REG32(FLASH_BASE + 0x28U)
+#define FLASH_NSCCR         REG32(FLASH_BASE + 0x30U)
 #define FLASH_OPTSR_CUR     REG32(FLASH_BASE + 0x50U)
 #define FLASH_OPTSR_PRG     REG32(FLASH_BASE + 0x54U)
 
@@ -59,8 +82,39 @@
 
 /* ---------------------------------------------------------------------------
  * FLASH_NSSR bits  (RM0481 §7.8.7 / stm32h563.svd NSSR)
+ *
+ * The error/EOP flags are sticky and read-only in NSSR; they are cleared by
+ * writing a 1 to the corresponding bit in NSCCR (NOT by writing NSSR).
  * ------------------------------------------------------------------------- */
-#define NSSR_BSY            (1UL << 0)   /* Non-secure operation busy */
+#define NSSR_BSY            (1UL << 0)    /* Non-secure operation busy */
+#define NSSR_WBNE           (1UL << 1)    /* Write buffer not empty */
+#define NSSR_EOP            (1UL << 16)   /* End of operation */
+#define NSSR_WRPERR         (1UL << 17)   /* Write protection error */
+#define NSSR_PGSERR         (1UL << 18)   /* Programming sequence error */
+#define NSSR_STRBERR        (1UL << 19)   /* Strobe (alignment) error */
+#define NSSR_INCERR         (1UL << 20)   /* Inconsistency error */
+
+/* Aggregate of all program/erase error flags. */
+#define NSSR_ERR_MASK       (NSSR_WRPERR | NSSR_PGSERR | NSSR_STRBERR | NSSR_INCERR)
+
+/* ---------------------------------------------------------------------------
+ * Bounded-wait iteration cap.
+ *
+ * Replaces the previous unbounded `while (NSSR & BSY)` spins.  A program or
+ * erase that does not clear BSY within this many polling iterations is treated
+ * as a stuck controller and reported as a timeout (FLASH_ERR_TIMEOUT).  The
+ * value is large enough never to trip on a healthy op (an 8 KB sector erase is
+ * a few ms) yet finite so a faulted controller can no longer hang the CPU.
+ * ------------------------------------------------------------------------- */
+#define FLASH_BSY_TIMEOUT   0x10000000UL
+
+/* ---------------------------------------------------------------------------
+ * Driver error codes (returned by flash_program / flash_erase_sector).
+ * Any non-zero value propagates as a programming failure to the UDS layer.
+ * ------------------------------------------------------------------------- */
+#define FLASH_OK            0
+#define FLASH_ERR_TIMEOUT   1            /* BSY never cleared within the cap */
+#define FLASH_ERR_HW        2            /* NSSR reported a program/erase error */
 
 /* ---------------------------------------------------------------------------
  * FLASH_NSCR bits  (RM0481 §7.8.9 / stm32h563.svd NSCR)
@@ -117,7 +171,7 @@ void flash_unlock(void);
  *
  * Returns 0 on success.
  */
-int flash_program(uint32_t addr, const uint8_t *data, uint32_t len);
+RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len);
 
 /**
  * flash_erase_sector() — Erase one flash sector.
@@ -128,7 +182,7 @@ int flash_program(uint32_t addr, const uint8_t *data, uint32_t len);
  * Caller must have called flash_unlock() first.
  * Returns 0 on success.
  */
-int flash_erase_sector(uint8_t bank, uint32_t sector);
+RAMFUNC int flash_erase_sector(uint8_t bank, uint32_t sector);
 
 /**
  * flash_set_swap_and_reset() — Program the SWAP_BANK option bit and reset.

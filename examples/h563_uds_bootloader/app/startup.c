@@ -16,6 +16,9 @@
 extern uint32_t _sidata;
 extern uint32_t _sdata;
 extern uint32_t _edata;
+extern uint32_t _siramfunc;
+extern uint32_t _sramfunc;
+extern uint32_t _eramfunc;
 extern uint32_t _sbss;
 extern uint32_t _ebss;
 extern uint32_t _estack;
@@ -35,6 +38,14 @@ void Reset(void)
     uint32_t *src = &_sidata;
     uint32_t *dst = &_sdata;
     while (dst < &_edata) {
+        *dst++ = *src++;
+    }
+
+    /* Copy RAM-resident flash routines (.ramfunc) from flash (LMA) to RAM
+     * (VMA) BEFORE main() — main() calls boot_confirm(), which erases the
+     * active bank and must run from SRAM (H5 read-while-write). */
+    src = &_siramfunc;
+    for (dst = &_sramfunc; dst < &_eramfunc;) {
         *dst++ = *src++;
     }
 

@@ -68,9 +68,48 @@
 #endif
 
 /* ---------------------------------------------------------------------------
- * Timing (simple free-running counter — no SysTick wired; incremented in loop)
+ * Timing — Cortex-M33 SysTick 1 ms time base
+ *
+ * g_now_ms is incremented once per millisecond by SysTick_Handler (the modeled
+ * exception #15), NOT by the main loop.  This makes cfg.security_delay_ms and
+ * cfg.p2_star_ms real wall-clock milliseconds: the brute-force lockout in 0x27
+ * Security Access is an actual time delay rather than a loop-iteration count.
+ *
+ * The firmware does not configure RCC, so the core runs at the H563 reset
+ * clock.  On STM32H5 the reset clock source is HSI = 32 MHz, undivided in the
+ * reset configuration, so SystemCoreClock at reset is 32 MHz.  Exact
+ * wall-clock fidelity is not required here; a monotonic ms tick driven by a
+ * hardware timer is the goal.
  * ------------------------------------------------------------------------- */
+
+/* H563 reset core clock: HSI = 32 MHz (undivided in the reset RCC config). */
+#define CORE_CLOCK_HZ 32000000u
+
+/* Cortex-M33 SysTick / SCS registers (System Control Space @ 0xE000E010). */
+#define SYST_CSR  (*(volatile uint32_t *) 0xE000E010u) /* control and status */
+#define SYST_RVR  (*(volatile uint32_t *) 0xE000E014u) /* reload value       */
+#define SYST_CVR  (*(volatile uint32_t *) 0xE000E018u) /* current value      */
+
+/* SYST_CSR bit fields. */
+#define SYST_CSR_ENABLE    (1u << 0) /* counter enabled                       */
+#define SYST_CSR_TICKINT   (1u << 1) /* assert SysTick exception on count-to-0 */
+#define SYST_CSR_CLKSOURCE (1u << 2) /* clock source = processor clock        */
+
 static volatile uint32_t g_now_ms;
+
+/* SysTick exception (#15): advance the millisecond time base. */
+void SysTick_Handler(void)
+{
+    ++g_now_ms;
+}
+
+/* Configure SysTick for a 1 ms tick from the processor clock. */
+static void systick_init(void)
+{
+    SYST_RVR = (CORE_CLOCK_HZ / 1000u) - 1u; /* reload for a 1 ms period */
+    SYST_CVR = 0u;                           /* clear current count + COUNTFLAG */
+    SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
+}
 
 static uint32_t get_time_ms(void)
 {
@@ -209,7 +248,13 @@ static int flush_stage(void)
     return rc;
 }
 
-/* Erase the app sectors of `bank`. */
+/* Erase the app sectors of `bank`, then pre-erase its boot-state sector.
+ *
+ * Pre-erasing the boot-state sector here (during the OTA ERASE phase) is what
+ * makes the later 0xFF02 ActivateSoftware path torn-write-safe: by the time
+ * boot_state_mark_pending() runs the sector is already all-0xFF, so marking
+ * pending is a single atomic quad-word PROGRAM with no erase→program window.
+ * The per-boot attempt slots are programmed into the same pre-erased space. */
 static int erase_app_sectors(uint8_t bank)
 {
     flash_unlock();
@@ -219,6 +264,8 @@ static int erase_app_sectors(uint8_t bank)
             return rc;
         }
     }
+    /* Pre-erase the inactive bank's boot-state sector for the activate path. */
+    boot_state_prepare(bank_base(bank));
     return 0;
 }
 
@@ -242,6 +289,20 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
     /* Security gate: 0x27 must have been completed before reprogramming. */
     if (ctx->security_level < 1u) {
         return -(int) 0x33; /* securityAccessDenied */
+    }
+
+    /*
+     * Alignment gate: the H5 programs flash in 16-byte (quad-word) units, and a
+     * quad-word program whose base is not 16-byte aligned raises INCERR on real
+     * silicon (and in the faithful sim) and commits nothing.  Require a
+     * 16-byte-aligned base so every flushed quad-word lands on an aligned base.
+     * The declared size need NOT be a multiple of 16: flush_stage() pads the
+     * final partial block to a full quad-word with 0xFF.  STAGE_SZ is the
+     * quad-word width (16).
+     */
+    if ((addr % STAGE_SZ) != 0u) {
+        uart_puts("BL: RD reject misaligned\n");
+        return -(int) 0x70; /* uploadDownloadNotAccepted */
     }
 
     uint8_t inactive = flash_active_bank() ? 0u : 1u;
@@ -465,6 +526,12 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * then swap banks and reset.  The pending flag ensures the bootloader
          * will roll back if the newly-activated app never calls boot_confirm().
          *
+         * Torn-write safety: the inactive bank's boot-state sector was already
+         * pre-erased during the OTA ERASE phase (erase_app_sectors() / 0xFF00),
+         * so boot_state_mark_pending() here is PROGRAM-ONLY — a single atomic
+         * H5 quad-word.  There is no erase→program window on this path: power
+         * loss either commits the full header (pending=1) or commits nothing.
+         *
          * Order matters: boot_state_mark_pending() MUST complete before
          * the swap+reset so the flag is visible on the next boot.
          * A power loss after mark_pending but before swap keeps the CURRENT
@@ -572,6 +639,7 @@ static uint8_t    g_tx_buf[512];
 int main(void)
 {
     uart_init();
+    systick_init(); /* start the 1 ms SysTick time base for UDS timing */
     uart_puts("BL-START\n");
 
     /*
@@ -590,8 +658,12 @@ int main(void)
      * Safety properties:
      *   - Power-loss during download: inactive bank header check fails on
      *     next boot → BL-RECOVERY (existing behaviour, unchanged).
-     *   - Power-loss after erase but before boot-state program: sector reads
-     *     as all-0xFF → magic mismatch → pending=0 → JUMP (safe default).
+     *   - Torn-write safety: the activate/boot path issues only single atomic
+     *     H5 quad-word PROGRAMs (the boot-state sector is pre-erased during the
+     *     OTA ERASE phase). mark_pending either fully commits pending=1 or
+     *     nothing; a per-boot attempt slot either commits or leaves the prior
+     *     count. A power loss can therefore never erase the pending flag and
+     *     never make an unconfirmed bank look confirmed — rollback survives.
      *   - Rolled-back-to bank must not be pending: ActivateSoftware only
      *     marks the INACTIVE bank before swapping, so the prior known-good
      *     bank never has its boot-state touched.
@@ -708,8 +780,5 @@ int main(void)
 #ifdef SIM_OTA_TESTER
         sim_tester_poll();
 #endif
-
-        /* Increment the free-running millisecond counter. */
-        ++g_now_ms;
     }
 }

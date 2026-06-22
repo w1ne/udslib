@@ -52,6 +52,22 @@ SECTIONS {
         _edata = .;
     } > RAM AT > FLASH
 
+    /*
+     * RAM-resident code: boot_confirm() erases the active bank's boot-state
+     * sector, which on H5 silicon must NOT execute from the bank being erased
+     * (read-while-write hazard, RM0481 §7.3.4).  Linked for execution in RAM
+     * (VMA) but stored in FLASH (LMA, after .data's load image); startup.c
+     * copies it before main(), exactly like .data.
+     */
+    _siramfunc = LOADADDR(.ramfunc);
+    .ramfunc : {
+        . = ALIGN(4);
+        _sramfunc = .;
+        *(.ramfunc*)
+        . = ALIGN(4);
+        _eramfunc = .;
+    } > RAM AT > FLASH
+
     /* Zero-initialised data */
     .bss : {
         . = ALIGN(4);

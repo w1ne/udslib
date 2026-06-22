@@ -68,6 +68,21 @@ static boot_state_t make_erased(void)
 }
 
 /* ---------------------------------------------------------------------------
+ * Slot-buffer helpers (mirror the on-flash attempt-slot region)
+ * ------------------------------------------------------------------------- */
+
+/* Build a slot buffer with `programmed` attempt slots marked, the rest erased
+ * (0xFF). Slots are programmed in order, as on flash. */
+static void make_slots(uint8_t *buf, uint32_t programmed)
+{
+    memset(buf, 0xFF, (size_t) BOOT_STATE_ATTEMPT_SLOTS * BOOT_STATE_SLOT_SIZE);
+    for (uint32_t i = 0u; i < programmed && i < BOOT_STATE_ATTEMPT_SLOTS; i++) {
+        uint32_t mark = ATTEMPT_SLOT_MARK;
+        memcpy(buf + (i * BOOT_STATE_SLOT_SIZE), &mark, sizeof(mark));
+    }
+}
+
+/* ---------------------------------------------------------------------------
  * Test: not-pending bank → JUMP
  * ------------------------------------------------------------------------- */
 static int test_confirmed_jumps(void)
@@ -222,6 +237,117 @@ static int test_perform_rollback_bootstate_invariant(void)
 }
 
 /* ---------------------------------------------------------------------------
+ * Test: boot_state_count_attempts counts programmed slots in order
+ * ------------------------------------------------------------------------- */
+static int test_count_attempts_basic(void)
+{
+    uint8_t buf[BOOT_STATE_ATTEMPT_SLOTS * BOOT_STATE_SLOT_SIZE];
+
+    make_slots(buf, 0u);
+    CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) == 0u,
+          "count: 0 programmed slots → 0 attempts (all erased)");
+
+    make_slots(buf, 1u);
+    CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) == 1u,
+          "count: 1 programmed slot → 1 attempt");
+
+    make_slots(buf, BOOT_STATE_ATTEMPT_SLOTS);
+    CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) ==
+              BOOT_STATE_ATTEMPT_SLOTS,
+          "count: all slots programmed → MAX attempts");
+
+    return 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Test: counting stops at the first erased slot (in-order programming)
+ *
+ * A still-erased slot means no further attempts were recorded; a gap must not
+ * be counted. This also models a TORN attempt-slot program: the half-written
+ * (commits-nothing) slot reads all-0xFF, so it is NOT counted — the prior
+ * count is preserved (atomic quad-word property).
+ * ------------------------------------------------------------------------- */
+static int test_count_attempts_torn_slot_not_counted(void)
+{
+    uint8_t buf[BOOT_STATE_ATTEMPT_SLOTS * BOOT_STATE_SLOT_SIZE];
+
+    /* 1 programmed, then an erased ("torn") slot, then a stray programmed one:
+     * counting must stop at the erased slot and report exactly 1. */
+    make_slots(buf, 1u);
+    if (BOOT_STATE_ATTEMPT_SLOTS >= 3u) {
+        uint32_t mark = ATTEMPT_SLOT_MARK;
+        memcpy(buf + (2u * BOOT_STATE_SLOT_SIZE), &mark, sizeof(mark)); /* slot 2 set, slot 1 erased */
+    }
+    CHECK(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS) == 1u,
+          "count: torn/erased slot stops the count (prior count preserved)");
+    return 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Test: torn/partial boot-state never yields "confirmed" for a pending bank
+ *
+ * Reconstruct the abstract record the way the flash reader does (header magic
+ * + pending, attempts from the slot count) and assert that across the whole
+ * range of slot counts a pending bank is NEVER decided as a plain JUMP
+ * ("confirmed"): it is BUMP_AND_JUMP while budget remains, then ROLLBACK.
+ * A power loss can only (a) fail to add a slot → fewer attempts → still
+ * on-trial, or (b) leave the pending header committed → still on-trial.
+ * It can never flip a pending bank to confirmed.
+ * ------------------------------------------------------------------------- */
+static int test_torn_pending_never_confirmed(void)
+{
+    uint8_t buf[BOOT_STATE_ATTEMPT_SLOTS * BOOT_STATE_SLOT_SIZE];
+
+    for (uint32_t programmed = 0u; programmed <= BOOT_STATE_ATTEMPT_SLOTS; programmed++) {
+        make_slots(buf, programmed);
+
+        boot_state_t st;
+        st.magic    = BOOT_STATE_MAGIC;
+        st.pending  = 1u;
+        st.reserved = 0xFFFFFFFFu;
+        st.attempts = boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS);
+
+        boot_decision_t d = boot_state_decide(&st, MAX_BOOT_ATTEMPTS);
+        CHECK(d != BOOT_DECISION_JUMP,
+              "torn pending bank is never decided as confirmed (JUMP)");
+        if (st.attempts < MAX_BOOT_ATTEMPTS) {
+            CHECK(d == BOOT_DECISION_BUMP_AND_JUMP,
+                  "pending + budget remaining → BUMP_AND_JUMP");
+        } else {
+            CHECK(d == BOOT_DECISION_ROLLBACK,
+                  "pending + budget exhausted → ROLLBACK");
+        }
+    }
+    return 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * Test: full no-erase trial sequence (slots drive the count)
+ *
+ * Pre-erased sector + pending header. Each trial boot programs ONE slot.
+ * Decision walks BUMP_AND_JUMP (slots 0..MAX-1) then ROLLBACK (slots == MAX).
+ * ------------------------------------------------------------------------- */
+static int test_slot_driven_trial_sequence(void)
+{
+    uint8_t buf[BOOT_STATE_ATTEMPT_SLOTS * BOOT_STATE_SLOT_SIZE];
+
+    for (uint32_t programmed = 0u; programmed < MAX_BOOT_ATTEMPTS; programmed++) {
+        make_slots(buf, programmed);
+        boot_state_t st = make_pending(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS));
+        CHECK(boot_state_decide(&st, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_BUMP_AND_JUMP,
+              "slot-seq: pending, slots<MAX → BUMP_AND_JUMP");
+    }
+
+    make_slots(buf, MAX_BOOT_ATTEMPTS);
+    {
+        boot_state_t st = make_pending(boot_state_count_attempts(buf, BOOT_STATE_ATTEMPT_SLOTS));
+        CHECK(boot_state_decide(&st, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_ROLLBACK,
+              "slot-seq: pending, slots==MAX → ROLLBACK");
+    }
+    return 0;
+}
+
+/* ---------------------------------------------------------------------------
  * Entry point
  * ------------------------------------------------------------------------- */
 int main(void)
@@ -235,6 +361,10 @@ int main(void)
     rc |= test_pending_over_max_rollback();
     rc |= test_full_rollback_sequence();
     rc |= test_perform_rollback_bootstate_invariant();
+    rc |= test_count_attempts_basic();
+    rc |= test_count_attempts_torn_slot_not_counted();
+    rc |= test_torn_pending_never_confirmed();
+    rc |= test_slot_driven_trial_sequence();
 
     if (rc == 0) {
         printf("\nAll bootstate-test cases PASS\n");

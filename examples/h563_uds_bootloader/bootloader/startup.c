@@ -1,7 +1,11 @@
 #include <stdint.h>
 
 extern uint32_t _sidata, _sdata, _edata, _sbss, _ebss, _estack;
+extern uint32_t _siramfunc, _sramfunc, _eramfunc;
 extern int main(void);
+
+/* Defined in main.c — advances the 1 ms time base used for UDS timing. */
+void SysTick_Handler(void);
 
 void Default_Handler(void)
 {
@@ -14,6 +18,13 @@ void Reset(void)
     uint32_t *src = &_sidata;
     uint32_t *dst = &_sdata;
     while (dst < &_edata) {
+        *dst++ = *src++;
+    }
+
+    /* Copy RAM-resident flash routines (.ramfunc) from flash (LMA) to RAM
+     * (VMA) before any flash erase/program runs (H5 read-while-write). */
+    src = &_siramfunc;
+    for (dst = &_sramfunc; dst < &_eramfunc;) {
         *dst++ = *src++;
     }
 
@@ -41,6 +52,6 @@ __attribute__((section(".isr_vector"), used)) void (*const g_vectors[16])(void) 
     Default_Handler,
     Default_Handler,
     0,
-    Default_Handler,
-    Default_Handler,
+    Default_Handler,    /* #14 PendSV  */
+    SysTick_Handler,    /* #15 SysTick */
 };
