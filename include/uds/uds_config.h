@@ -216,6 +216,10 @@ static inline void uds_pending(uds_result_t *out)
  */
 typedef int (*uds_service_handler_t)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
 
+/** v2 handler: writes its outcome into *out; central dispatch emits. */
+typedef void (*uds_handler_v2_t)(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                 uds_result_t *out);
+
 /**
  * @brief UDS Service Registry Entry
  */
@@ -226,8 +230,9 @@ typedef struct
     uint8_t session_mask;          /**< Allowed sessions bitmask */
     uint16_t security_mask;        /**< Minimum security level required (bitmask or level) */
     uds_service_handler_t handler; /**< Function pointer to handler */
-    const uint8_t *sub_mask; /**< Optional bitmask of supported 7-bit subfunctions (16 bytes) */
-    uint8_t address_mode;    /**< Allowed addressing (UDS_ADDR_* bitmask); 0 = both */
+    const uint8_t *sub_mask;     /**< Optional bitmask of supported 7-bit subfunctions (16 bytes) */
+    uint8_t address_mode;        /**< Allowed addressing; 0 = both */
+    uds_handler_v2_t handler_v2; /**< Migrated handler; NULL => use legacy handler */
 } uds_service_entry_t;
 
 /* --- Configuration Structure --- */

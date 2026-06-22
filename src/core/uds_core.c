@@ -244,18 +244,62 @@ static bool is_subfunction_supported(const uds_service_entry_t *service, uint8_t
     return (service->sub_mask[index] & bit) != 0u;
 }
 
-static int execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, const uint8_t *data,
-                           uint16_t len)
+static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, const uint8_t *data,
+                            uint16_t len)
 {
-    int res = service->handler(ctx, data, len);
-    if (res == UDS_PENDING) {
-        uds_send_nrc(ctx, data[0], UDS_NRC_RESPONSE_PENDING);
-        ctx->p2_msg_pending = true;
-        ctx->p2_star_active = true;
-        ctx->p2_timer_start = ctx->config->get_time_ms();
-        ctx->server_pending_sid = data[0];
+    if (service->handler_v2 != NULL) {
+        uds_result_t r;
+        r.kind = UDS_RESULT_POSITIVE;
+        r.len = 0u;
+        r.nrc = 0u;
+        service->handler_v2(ctx, data, len, &r);
+
+        switch (r.kind) {
+            case UDS_RESULT_PENDING:
+                uds_send_nrc(ctx, data[0], UDS_NRC_RESPONSE_PENDING);
+                ctx->p2_msg_pending = true;
+                ctx->p2_star_active = true;
+                ctx->p2_timer_start = ctx->config->get_time_ms();
+                ctx->server_pending_sid = data[0];
+                break;
+            case UDS_RESULT_NRC:
+                uds_send_nrc(ctx, data[0], r.nrc); /* NRC never suppressed (ISO) */
+                break;
+            case UDS_RESULT_POSITIVE:
+            default:
+                if (ctx->suppress_pos_resp) {
+                    ctx->suppress_pos_resp = false;
+                    ctx->rcrrp_count = 0u;
+                    ctx->p2_msg_pending = false;
+                    ctx->server_pending_sid = 0u;
+                    if (ctx->secure_capturing) {
+                        ctx->secure_capture_len = 0u;
+                    }
+                }
+                else {
+                    (void) uds_emit_response(ctx, r.len);
+                }
+                break;
+        }
     }
-    return res;
+    else {
+        int res = service->handler(ctx, data, len); /* legacy: emits internally */
+        if (res == UDS_PENDING) {
+            uds_send_nrc(ctx, data[0], UDS_NRC_RESPONSE_PENDING);
+            ctx->p2_msg_pending = true;
+            ctx->p2_star_active = true;
+            ctx->p2_timer_start = ctx->config->get_time_ms();
+            ctx->server_pending_sid = data[0];
+        }
+    }
+
+    /* Deferred reset runs only after the response is on the wire. */
+    if (ctx->reset_pending) {
+        ctx->reset_pending = false;
+        if (ctx->config->fn_reset != NULL) {
+            ctx->config->fn_reset(ctx, ctx->reset_pending_type);
+        }
+    }
 }
 
 static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
