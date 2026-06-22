@@ -16,6 +16,7 @@ smoke test.
 | [`auth_challenge_mbedtls`](auth_challenge_mbedtls/) | The same 0x29 flow with **real AES-128-CMAC** behind `fn_auth` — builds against mbedTLS (`make`) or wolfSSL (`make CRYPTO=wolfssl`), byte-identical output. |
 | [`security_access_mbedtls`](security_access_mbedtls/) | Security Access (0x27) deriving the key from the seed with **real AES-128-CMAC** behind `fn_security_seed` / `fn_security_key` — two security levels, two key sets; mbedTLS or wolfSSL. |
 | [`dtc_store`](dtc_store/) | Manage DTC instances with the opt-in reference store and answer ReadDTCInformation (0x19) end-to-end. |
+| [`dtc_clear`](dtc_clear/) | Implement the ClearDiagnosticInformation (0x14) `fn_dtc_clear` hook by hand — group-all vs. specific-group, with conditionsNotCorrect / requestOutOfRange NRCs. |
 | [`dtc_full_coverage`](dtc_full_coverage/) | Every 0x19 sub-function — library-framed and application-served — plus 0x04/0x06 freeze-frame payloads. |
 
 ## Other host examples (`make`, then run the binary)
