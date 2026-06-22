@@ -141,27 +141,15 @@ static int bl_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, c
 {
     (void) ctx;
     (void) level;
-    (void) seed;
     uint8_t expected[SEC_KEY_LEN];
 
     if (key_len != SEC_KEY_LEN) {
         return -(int) 0x35; /* invalidKey: wrong length */
     }
 
-#ifdef SIM_OTA_TESTER
-    /* mbedTLS DSP instructions (SMULL/SMLAL family) execute as NOPs in the
-     * labwired simulator, making the AES computation return garbage.
-     * Use the host-precomputed AES-128-CMAC(DEMO_SECRET, DEMO_SEED) directly. */
-    static const uint8_t SIM_EXPECTED_KEY[16] = {
-        0x5F, 0xAC, 0xED, 0x58, 0x61, 0xBA, 0xC1, 0x37,
-        0x66, 0x8A, 0xD5, 0x25, 0x4D, 0xED, 0xB2, 0x44
-    };
-    memcpy(expected, SIM_EXPECTED_KEY, SEC_KEY_LEN);
-#else
     if (aes_cmac(DEMO_SECRET, seed, SEC_SEED_LEN, expected) != 0) {
         return -(int) 0x22; /* conditionsNotCorrect: crypto failure */
     }
-#endif
 
     if (!ct_equal(key, expected, SEC_KEY_LEN)) {
         return -(int) 0x35; /* invalidKey */
