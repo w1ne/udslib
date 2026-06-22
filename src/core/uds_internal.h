@@ -205,8 +205,10 @@ int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *dat
 int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Memory Services (0x23, 0x3D) */
-int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                             uds_result_t *out);
+void uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                              uds_result_t *out);
 
 /* New Services (0x2F, 0x35) */
 void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
