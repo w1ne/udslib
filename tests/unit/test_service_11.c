@@ -198,6 +198,60 @@ static void test_ecu_reset_suppress_does_not_leak(void **state)
     assert_int_equal(g_tx_buf[0], 0x54);
 }
 
+/*
+ * Regression for the issue #80 follow-up (PR #81 comments): the *non-suppressed*
+ * ECU reset path must also leave the next request able to respond. The reporter
+ * drove the exact PCAN schedule
+ *     1. 10 01   DiagnosticSessionControl (default)
+ *     2. 11 01   ECUReset hardReset, suppressPosRsp NOT set -> 51 01 emitted
+ *     3. 10 01   DiagnosticSessionControl (default)
+ * and saw step 3 get "No response". This asserts the core emits a response for
+ * all three at the dispatch level (across suppressed and non-suppressed resets),
+ * so the regression can never creep back into handle_request/uds_send_response.
+ * The core is verified correct; the reporter's "No response" was traced to their
+ * ECU still being unavailable from the hardReset when the next request arrived
+ * (a transport/timing effect on their bench, not a stack logic bug).
+ */
+static void test_ecu_reset_non_suppressed_allows_next_service(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_reset = mock_reset_cb;
+    g_reset_called = 0;
+
+    /* 1. 10 01 -> 50 01 ... */
+    uint8_t sess_req[] = {0x10, 0x01};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_any(mock_tp_send, len);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, sess_req, sizeof(sess_req));
+    assert_int_equal(g_tx_buf[0], 0x50);
+
+    /* 2. 11 01 (NOT suppressed) -> 51 01 emitted, reset fires. */
+    uint8_t reset_req[] = {0x11, 0x01};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, reset_req, sizeof(reset_req));
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_reset_called, 1);
+
+    /* 3. 10 01 again MUST still respond (this is the step the reporter saw fail). */
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_any(mock_tp_send, len);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, sess_req, sizeof(sess_req));
+    assert_int_equal(g_tx_buf[0], 0x50);
+}
+
 /* ISO 14229-1: the enableRapidPowerShutDown (0x11 sub 0x04) positive response
  * carries an extra powerDownTime byte -> {0x51, 0x04, powerDownTime} (3 bytes),
  * sourced from cfg.power_down_time. Other reset types stay 2 bytes. */
@@ -328,6 +382,7 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
         cmocka_unit_test(test_ecu_reset_suppress_does_not_leak),
+        cmocka_unit_test(test_ecu_reset_non_suppressed_allows_next_service),
         cmocka_unit_test(test_ecu_reset_rapid_shutdown_power_down_time),
         cmocka_unit_test(test_ecu_reset_no_reset_when_send_fails),
         cmocka_unit_test(test_ecu_reset_secured_defers_until_outer_response),
