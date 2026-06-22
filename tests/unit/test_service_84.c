@@ -237,9 +237,103 @@ static void test_secured_inner_suppressed_emits_nothing(void **state)
     uds_input_sdu(&ctx, req, 5);
 }
 
+/* ------------------------------------------------------------------ */
+/* Nested 0x84 ECU-reset ordering (regression for the Phase-1 collapse  */
+/* of the captured-reset deferral). A 0x11 unwrapped from a 0x84 must    */
+/* emit the secured response BEFORE fn_reset, and must NOT reset at all  */
+/* when the outer secured response fails to encode.                      */
+/* ------------------------------------------------------------------ */
+static int g_order[4];
+static int g_order_n;
+static uint8_t g_secured_tx[64];
+
+static int recording_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    if (g_order_n < 4) {
+        g_order[g_order_n++] = 1; /* 1 = response emitted */
+    }
+    for (uint16_t i = 0u; i < len && i < (uint16_t) sizeof(g_secured_tx); i++) {
+        g_secured_tx[i] = data[i];
+    }
+    return 0;
+}
+
+static void recording_reset(uds_ctx_t *ctx, uint8_t type)
+{
+    (void) ctx;
+    (void) type;
+    if (g_order_n < 4) {
+        g_order[g_order_n++] = 2; /* 2 = fn_reset called */
+    }
+}
+
+static int failing_encode(uds_ctx_t *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                          uint8_t *out, uint16_t out_max)
+{
+    (void) ctx;
+    (void) apar;
+    (void) in;
+    (void) in_len;
+    (void) out;
+    (void) out_max;
+    return -0x22; /* conditionsNotCorrect */
+}
+
+static void test_secured_inner_reset_responds_before_reset(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_secure_decode = xor_decode;
+    cfg.fn_secure_encode = xor_encode;
+    cfg.fn_tp_send = recording_send;
+    cfg.fn_reset = recording_reset;
+    g_order_n = 0;
+
+    /* Inner = {0x11, 0x01} (ECUReset hardReset); encoded = inner ^ 0xFF. */
+    uint8_t req[] = {0x84, 0x12, 0x34, (uint8_t) (0x11u ^ 0xFFu), (uint8_t) (0x01u ^ 0xFFu)};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    uds_input_sdu(&ctx, req, sizeof(req));
+
+    /* Secured response MUST be on the wire before fn_reset runs. */
+    assert_int_equal(g_order_n, 2);
+    assert_int_equal(g_order[0], 1); /* response emitted ... */
+    assert_int_equal(g_order[1], 2); /* ... then reset */
+    assert_int_equal(g_secured_tx[0], 0xC4u);
+    /* secured body = inner response {0x51,0x01} ^ 0xAA */
+    assert_int_equal(g_secured_tx[3], (uint8_t) (0x51u ^ 0xAAu));
+    assert_int_equal(g_secured_tx[4], (uint8_t) (0x01u ^ 0xAAu));
+}
+
+static void test_secured_inner_reset_cancelled_on_encode_fail(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_secure_decode = xor_decode;
+    cfg.fn_secure_encode = failing_encode; /* outer secured response cannot be built */
+    cfg.fn_tp_send = recording_send;
+    cfg.fn_reset = recording_reset;
+    g_order_n = 0;
+
+    uint8_t req[] = {0x84, 0x12, 0x34, (uint8_t) (0x11u ^ 0xFFu), (uint8_t) (0x01u ^ 0xFFu)};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    uds_input_sdu(&ctx, req, sizeof(req));
+
+    /* Tester gets 7F 84 22; the ECU must NOT reboot (no reset event recorded). */
+    assert_int_equal(g_order_n, 1);
+    assert_int_equal(g_order[0], 1);
+    assert_int_equal(g_secured_tx[0], 0x7Fu);
+    assert_int_equal(g_secured_tx[1], 0x84u);
+    assert_int_equal(g_secured_tx[2], 0x22u);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_secured_inner_reset_responds_before_reset),
+        cmocka_unit_test(test_secured_inner_reset_cancelled_on_encode_fail),
         cmocka_unit_test(test_secured_roundtrip),
         cmocka_unit_test(test_secured_gating_direct_rejected),
         cmocka_unit_test(test_secured_no_hook),

@@ -32,7 +32,11 @@
 - **ECUReset (0x11) now sends the positive response before performing the reset**
   per ISO 14229-1, and no longer leaves the server unable to respond to
   subsequent requests after an in-context reset. Reset is deferred by the
-  framework (`reset_pending`) and runs strictly after emission. (#76, #80)
+  framework (`reset_pending`) and runs strictly after emission — including when
+  the 0x11 is unwrapped from a SecuredDataTransmission (0x84): the reset waits
+  for the outer secured response and is cancelled if that response fails to
+  encode (the tester receives an NRC, so the ECU does not reboot). A captured
+  ResponseOnEvent (0x86) inner dispatch never triggers a reset. (#76, #80)
 - **suppressPosRsp no longer leaks into the following request**: suppression is
   consumed at the single framework emission site, so a suppressed positive
   response can never carry its flag into the next service. (#80)

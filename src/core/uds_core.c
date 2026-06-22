@@ -291,8 +291,12 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
             break;
     }
 
-    /* Deferred reset runs only after the response is on the wire. */
-    if (ctx->scratch.reset_pending) {
+    /* Deferred reset runs only after the response is on the wire, and never
+     * during a captured (0x84/0x86 inner) dispatch: a 0x11 nested in a 0x84 must
+     * not reboot before the OUTER secured response is emitted, and the outer
+     * handler may cancel the reset if it fails to emit (NRC). While capturing,
+     * leave reset_pending set for the outer dispatch's execute_handler to run. */
+    if (!ctx->scratch.secure_capturing && ctx->scratch.reset_pending) {
         ctx->scratch.reset_pending = false;
         if (ctx->config->fn_reset != NULL) {
             ctx->config->fn_reset(ctx, ctx->scratch.reset_pending_type);
@@ -454,13 +458,19 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     ctx->scratch.secure_capture_size = 0u;
     ctx->scratch.secure_capture_overflow = false;
 
-    /* Inner response overflowed the scratch buffer -> cannot encode safely. */
+    /* Inner response overflowed the scratch buffer -> cannot encode safely.
+     * If the inner request was a 0x11, the tester gets an NRC, not a
+     * confirmation, so the deferred reset must be cancelled (no reboot). */
     if (overflow) {
+        ctx->scratch.reset_pending = false;
         uds_nrc(out, UDS_NRC_RESPONSE_TOO_LONG);
         return;
     }
 
-    /* Inner response suppressed -> nothing to secure or send. */
+    /* Inner response suppressed -> nothing to secure or send. A nested 0x11's
+     * reset_pending is intentionally LEFT set here: this returns to the outer
+     * execute_handler (0x84 is always dispatched via handle_request), which
+     * fires the deferred reset after this (empty) outer result. */
     if (captured_len == 0u) {
         uds_none(out);
         return;
@@ -472,6 +482,9 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     int sec_out =
         ctx->config->fn_secure_encode(ctx, apar, captured, captured_len, &tx[hdr], out_max);
     if (sec_out < 0) {
+        /* Encode failed -> tester gets an NRC, not a confirmation: cancel any
+         * pending reset from a nested 0x11 so the ECU does not reboot. */
+        ctx->scratch.reset_pending = false;
         uds_nrc(out, (uint8_t) - (int32_t) sec_out);
         return;
     }
@@ -479,6 +492,8 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     tx[0] = (uint8_t) (UDS_SID_SECURED_DATA_TRANS + UDS_RESPONSE_OFFSET);
     tx[1] = (uint8_t) ((apar >> 8) & 0xFFu);
     tx[2] = (uint8_t) (apar & 0xFFu);
+    /* Success: a nested 0x11's reset_pending is LEFT set; the outer
+     * execute_handler fires it strictly after this secured response is emitted. */
     uds_ok(out, (uint16_t) ((uint16_t) sec_out + hdr));
 }
 
@@ -503,6 +518,12 @@ int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_
     ctx->scratch.secure_capturing = false;
     ctx->scratch.secure_capture_buf = NULL;
     ctx->scratch.secure_capture_size = 0u;
+
+    /* A captured ROE (0x86) inner dispatch must never trigger an ECU reset: the
+     * serviceToRespondTo runs asynchronously, with no tester transaction to
+     * confirm. Cancel any reset a nested 0x11 may have armed (it was held while
+     * capturing by the execute_handler guard). */
+    ctx->scratch.reset_pending = false;
 
     /* Overflow: the inner response did not fit in the caller's buffer.
      * Return a negative sentinel so the caller can react explicitly rather than
