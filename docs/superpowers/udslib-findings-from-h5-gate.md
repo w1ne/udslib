@@ -255,6 +255,51 @@ must not be treated as a confirmed labwired bug until a minimal repro pins it:
 
 ---
 
+## F-9 — High-SID (SID ≥ 0x80) value corruption — SYSTEMIC, NEEDS-CONFIRM, BLOCKS 5 SERVICES
+
+**Status:** NEEDS-CONFIRM (NOT yet attributed to emulator — no isolated minimal repro).
+**Discovered:** Task 4 (DTC services), 2026-06-22.
+
+**Symptom (two independent observations, ControlDTCSetting 0x85):**
+1. Tester side: `do_request(0x85)` stores `client_pending_sid = 0x85`; the pump's
+   read-back diag (`p<val>`) shows `0x05` (= `0x85 & 0x7F`, bit 7 cleared). The store
+   compiles to a 16-bit low-register `strb r0,[r1]` (objdump `0x8001604: 7008`) with
+   `r0` provably holding `0x85` (the same `r0` is stored to the SDU buffer one
+   instruction earlier and the ECU receives `0x85` correctly over the wire).
+2. ECU side: the ECU's positive response SID `0xC5` arrives at the tester as `0x05`
+   (`= 0xC5 & 0x3F`, bits 6+7 cleared — diag `<0205>`), so the response is unmatchable.
+
+**Why this is NOT a clean "STRB strips bit 7" emulator bug:** a blanket strip is
+impossible — the ECU and tester store and transmit `0x85`-valued bytes correctly in
+many other places (DID data; the SDU byte that reaches the ECU). The two observations
+also use *different* masks (`& 0x7F` vs `& 0x3F`). This looks more like a
+firmware/struct/codegen issue than an instruction-decoder defect, consistent with the
+disproven F-1/F-2/F-3 pattern. **Do NOT record this as an emulator defect without an
+isolated minimal repro** (store a known `0x85` to a fixed RAM address via a single
+`strb`, read it back; if it reads `0x05` the emulator is implicated — otherwise it is
+firmware/codegen).
+
+**Secondary effect — NRC cascade:** under the library dispatch path, an unmatched
+response (or an unsolicited 0x2A/0x86 emission) falls through to the server
+`handle_request` path and the tester emits an NRC; the ECU answers, and a
+tester↔ECU NRC cascade runs forever (the headless run hangs to wall-timeout, exit 124).
+A pure-client pump (dispatch only frames matching the in-flight request, never NRC)
+fixes the cascade but is a larger change that regressed one service (0x22) in a hasty
+attempt — deferred as a quality follow-up.
+
+**Scope — this blocks all five SID ≥ 0x80 services:** 0x83 (AccessTimingParameter),
+0x84 (SecuredDataTransmission), 0x85 (ControlDTCSetting), 0x86 (ResponseOnEvent),
+0x87 (LinkControl). **Until F-9 is fixed, the achievable gate ceiling is 22/27, not
+27/27.** This is a goal-affecting blocker the udslib owner needs to prioritise.
+
+**Action taken (Task 4):** descoped 0x85 and 0x86 from the gate (requests NOT sent —
+sending 0x85 triggers the cascade; 0x86 also arms ROE periodic emission). Marked
+`TESTER_SKIP_85_F9` / `TESTER_SKIP_86_F9` in
+`examples/h5_uds_tester/firmware/main.c`. Gate lands at **14/27** (mask `0x303EFD`).
+0x83/0x84/0x87 (T6) will be descoped on the same basis when reached.
+
+---
+
 ## Hand-rolled workarounds currently in the tree (Task 1) — REVERT when emulator fixed
 
 1. **ECU user-service for SID 0x22** (`svc_rdbi` + `g_user_services[]` in

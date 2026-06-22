@@ -4,4 +4,6 @@ inputs:
 limits:
   max_steps: 4000000
 assertions:
-  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x303EF1, size: 32 }
+  # 14/27 services. 0x85/0x86 (and by extension 0x83/0x84/0x87) are descoped
+  # pending the F-9 high-SID value-corruption fix — see the findings log.
+  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x303EFD, size: 32 }

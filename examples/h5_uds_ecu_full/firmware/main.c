@@ -15,6 +15,19 @@
  *        registered via the real udslib server API (built-in dispatch +
  *        the documented fn_* hooks).
  *
+ * F-7 (EMULATOR — labwired STM32H563 core_services FLASH read at high index):
+ *        SID 0x85 (ControlDTCSetting) sits at index 19 in core_services[].
+ *        handle_request() reads service->sub_mask from that struct at FLASH
+ *        offset ~19*sizeof(uds_service_entry_t).  The labwired H563 FLASH model
+ *        returns a non-zero garbage value for this pointer field, so
+ *        is_subfunction_supported() dereferences a bad address → Default_Handler.
+ *        SID 0x86 (ResponseOnEvent) is at index 26 and hits the same fault.
+ *        Workaround: user-service shims for 0x85 and 0x86 with sub_mask=NULL;
+ *        the built-in handlers are called directly and validate sub themselves.
+ *        SID 0x19 (index 3) uses the same sub_mask mechanism and works, confirming
+ *        this is an offset-dependent FLASH read bug, not a universal issue.
+ *        See docs/superpowers/udslib-findings-from-h5-gate.md entry F-7.
+ *
  * F-2 / F-3 (EMULATOR — labwired STM32H563 FLASH model):
  *        The built-in RDBI path (uds_internal_handle_read_data_by_id) calls
  *        memcpy(tx_buf, entry->storage, size) where entry->storage is a
@@ -34,6 +47,7 @@
 
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
+#include "uds_internal.h" /* WORKAROUND udslib F-7: shims for 0x85, 0x86 */
 
 /* ---- freestanding mem helpers ---- */
 
@@ -224,6 +238,8 @@ static uint32_t get_time_ms(void) { return g_now_ms; }
 
 static int can_send(uint32_t id, const uint8_t *data, uint8_t len)
 {
+    uart_putc('@'); /* DIAG: can_send entered */
+    uart_putc((char)('0' + (len & 0xFu))); /* DIAG: len low nibble as ASCII */
     return fdcan_send_frame(id, data, len, len > 8u);
 }
 
@@ -360,12 +376,34 @@ static int svc_ioctl(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
     return uds_send_nrc(ctx, 0x2Fu, 0x31u); /* requestOutOfRange */
 }
 
-/* WORKAROUND udslib F-2 + F-6 */
-static const uds_service_entry_t g_user_services[] = {
-    {0x22u, 3u, UDS_SESSION_ALL, 0u, svc_rdbi,  NULL, 0u},
-    {0x2Eu, 3u, UDS_SESSION_ALL, 0u, svc_wdbi,  NULL, 0u},
-    {0x2Fu, 3u, UDS_SESSION_ALL, 0u, svc_ioctl, NULL, 0u},
-};
+/* WORKAROUND udslib F-7 — explicit shims for 0x85 and 0x86.
+ * sub_mask=NULL (set in g_user_services) means handle_request never calls
+ * is_subfunction_supported(), avoiding the FLASH-offset pointer bug.
+ * The shims validate sub-function themselves and build the response inline,
+ * with no uart_puts calls (ECU UART spin-waits burn tester pump ticks). */
+static int svc_ctrl_dtc(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    uart_putc('!'); /* DIAG: svc_ctrl_dtc entered */
+    int rr = uds_internal_handle_control_dtc_setting(ctx, data, len);
+    uart_putc('%'); /* DIAG: handler returned */
+    return rr;
+}
+
+static int svc_roe(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    return uds_internal_handle_response_on_event(ctx, data, len);
+}
+
+/* WORKAROUND udslib F-2 + F-6 + F-7:
+ * g_user_services is intentionally NON-const (.bss / RAM) to work around the
+ * labwired H563 FLASH model bug that returns wrong values when reading struct
+ * fields (handler ptr, sub_mask ptr) at byte offsets > ~64 within a .rodata
+ * array.  With the table in RAM, all field reads succeed.
+ * Entries are initialized byte-by-byte in main() via a volatile pointer to
+ * force individual STR instructions (same technique as g_ecu_dids / F-4 fix).
+ * Revert to `static const` once the labwired H563 FLASH model is fixed. */
+#define USER_SERVICE_COUNT 5u
+static uds_service_entry_t g_user_services[USER_SERVICE_COUNT];
 
 /* ---- Service callbacks — all fn_* hooks, mirroring examples/host_sim/main.c ---- */
 
@@ -602,6 +640,61 @@ int main(void)
         vd[1].storage       = (void *)g_customer_name;
     }
 
+    /* WORKAROUND udslib F-7: initialize user-service table in RAM.
+     * g_user_services is non-const (.bss) to avoid the labwired H563 .rodata
+     * FLASH bug (struct field read returns wrong value at byte offsets > ~64).
+     * Entries for 0x85 and 0x86 would fall at offset ≥68 in a 20-byte-stride
+     * array, triggering the same fault class as core_services[19].  With the
+     * table in RAM, field reads succeed.
+     * Volatile pointer forces individual STR instructions (avoids STM.W / F-4). */
+    {
+        volatile uds_service_entry_t *vu = g_user_services;
+
+        vu[0].sid           = 0x22u;
+        vu[0].min_len       = 3u;
+        vu[0].session_mask  = (uint8_t)UDS_SESSION_ALL;
+        vu[0].security_mask = 0u;
+        vu[0].handler       = svc_rdbi;
+        vu[0].sub_mask      = NULL;
+        vu[0].address_mode  = 0u;
+
+        vu[1].sid           = 0x2Eu;
+        vu[1].min_len       = 3u;
+        vu[1].session_mask  = (uint8_t)UDS_SESSION_ALL;
+        vu[1].security_mask = 0u;
+        vu[1].handler       = svc_wdbi;
+        vu[1].sub_mask      = NULL;
+        vu[1].address_mode  = 0u;
+
+        vu[2].sid           = 0x2Fu;
+        vu[2].min_len       = 3u;
+        vu[2].session_mask  = (uint8_t)UDS_SESSION_ALL;
+        vu[2].security_mask = 0u;
+        vu[2].handler       = svc_ioctl;
+        vu[2].sub_mask      = NULL;
+        vu[2].address_mode  = 0u;
+
+        /* WORKAROUND udslib F-7: 0x85 at core_services[19] (offset ~304 bytes) and
+         * 0x86 at core_services[26] (offset ~380 bytes) trigger the FLASH-read bug.
+         * User shims intercept them here; sub_mask=NULL, built-in handlers validate
+         * sub-functions themselves. */
+        vu[3].sid           = 0x85u;
+        vu[3].min_len       = 2u;
+        vu[3].session_mask  = (uint8_t)UDS_SESSION_ALL;
+        vu[3].security_mask = 0u;
+        vu[3].handler       = svc_ctrl_dtc;
+        vu[3].sub_mask      = NULL;
+        vu[3].address_mode  = 0u;
+
+        vu[4].sid           = 0x86u;
+        vu[4].min_len       = 2u;
+        vu[4].session_mask  = (uint8_t)UDS_SESSION_ALL;
+        vu[4].security_mask = 0u;
+        vu[4].handler       = svc_roe;
+        vu[4].sub_mask      = NULL;
+        vu[4].address_mode  = 0u;
+    }
+
     uart_init();
     uart_puts("H5-UDS-ECU-FULL\n");
 
@@ -632,9 +725,9 @@ int main(void)
     cfg.did_table.entries = g_ecu_dids;
     cfg.did_table.count   = (uint16_t)(sizeof(g_ecu_dids) / sizeof(g_ecu_dids[0]));
 
-    /* WORKAROUND F-2: user-service shim for 0x22; remove when emulator is fixed */
+    /* WORKAROUND F-2 + F-7: user-service shims; remove when emulator is fixed */
     cfg.user_services      = g_user_services;
-    cfg.user_service_count = (uint16_t)(sizeof(g_user_services) / sizeof(g_user_services[0]));
+    cfg.user_service_count = (uint16_t)USER_SERVICE_COUNT;
 
     /* Service callbacks — all 27 ISO-14229-1 services.
      *
@@ -686,6 +779,9 @@ int main(void)
         can_frame_t frame;
         while (fdcan_poll_rx(&frame)) {
             if (frame.id == 0x7E0u) {
+                uart_putc('['); /* DIAG: RX frame PCI-high-nibble */
+                uart_putc((char)('0' + ((frame.data[0] >> 4u) & 0xFu)));
+                uart_putc(']');
                 uds_isotp_rx_callback(&g_iso, &ctx, frame.id, frame.data, frame.len);
             }
         }
