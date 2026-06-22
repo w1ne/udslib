@@ -92,8 +92,8 @@ static const uds_service_entry_t core_services[] = {
      uds_internal_handle_link_control},
     {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_83, 0u,
      uds_internal_handle_access_timing},
-    {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_secured_data, NULL,
-     0u},
+    {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
+     uds_internal_handle_secured_data},
 #if (UDS_ROE_MAX_EVENTS > 0)
     {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_86, 0u,
      uds_internal_handle_response_on_event},
@@ -395,11 +395,13 @@ static void handle_request(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 #define UDS_SECURE_SCRATCH 256u
 #endif
 
-int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out)
 {
     /* No crypto wired in -> the secured channel cannot be processed. */
     if ((ctx->config->fn_secure_decode == NULL) || (ctx->config->fn_secure_encode == NULL)) {
-        return uds_send_nrc(ctx, UDS_SID_SECURED_DATA_TRANS, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
     }
 
     /* Request: 84 <APAR hi> <APAR lo> <secured payload...> (min_len 4 enforced). */
@@ -411,14 +413,17 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     int inner_len = ctx->config->fn_secure_decode(ctx, apar, sec_in, sec_in_len, inner,
                                                   (uint16_t) sizeof(inner));
     if (inner_len < 0) {
-        return uds_send_nrc(ctx, UDS_SID_SECURED_DATA_TRANS, (uint8_t) - (int32_t) inner_len);
+        uds_nrc(out, (uint8_t) - (int32_t) inner_len);
+        return;
     }
     if (inner_len < 1) {
-        return uds_send_nrc(ctx, UDS_SID_SECURED_DATA_TRANS, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
     /* No nesting: an inner SecuredDataTransmission is out of range. */
     if (inner[0] == UDS_SID_SECURED_DATA_TRANS) {
-        return uds_send_nrc(ctx, UDS_SID_SECURED_DATA_TRANS, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
     }
 
     /* Dispatch the inner request with the secured-session gate granted,
@@ -448,7 +453,8 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
 
     /* Inner response suppressed -> nothing to secure or send. */
     if (captured_len == 0u) {
-        return UDS_OK;
+        uds_ok(out, 0u);
+        return;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -457,13 +463,14 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     int sec_out =
         ctx->config->fn_secure_encode(ctx, apar, captured, captured_len, &tx[hdr], out_max);
     if (sec_out < 0) {
-        return uds_send_nrc(ctx, UDS_SID_SECURED_DATA_TRANS, (uint8_t) - (int32_t) sec_out);
+        uds_nrc(out, (uint8_t) - (int32_t) sec_out);
+        return;
     }
 
     tx[0] = (uint8_t) (UDS_SID_SECURED_DATA_TRANS + UDS_RESPONSE_OFFSET);
     tx[1] = (uint8_t) ((apar >> 8) & 0xFFu);
     tx[2] = (uint8_t) (apar & 0xFFu);
-    return uds_send_response(ctx, (uint16_t) ((uint16_t) sec_out + hdr));
+    uds_ok(out, (uint16_t) ((uint16_t) sec_out + hdr));
 }
 
 int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
