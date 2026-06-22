@@ -41,18 +41,17 @@
  *          bit  2  BIT_14  SID 0x14  ClearDiagnosticInformation
  *          bit 25  BIT_86  SID 0x86  ResponseOnEvent (setup) (F-9 fix)
  *
- *        Phase 4 services tested (4 of 27 — transfer subset):
+ *        Phase 4 services tested (5 of 27 — transfer subset):
+ *          bit 14  BIT_31  SID 0x31  RoutineControl          (F-11 fix)
  *          bit 15  BIT_34  SID 0x34  RequestDownload
  *          bit 17  BIT_36  SID 0x36  TransferData
  *          bit 18  BIT_37  SID 0x37  RequestTransferExit
  *          bit 16  BIT_35  SID 0x35  RequestUpload
  *
  *        DESCOPED:
- *          bit 14  BIT_31  SID 0x31  RoutineControl (F-11: r2 arg zeroed on
- *                                    7-argument indirect call)
  *          bit 19  BIT_38  SID 0x38  RequestFileTransfer (F-10 incorrectLength)
  *
- *        Gate expects g_service_results @ 0x20010000 = 0x337BEFD  (20/27).
+ *        Gate expects g_service_results @ 0x20010000 = 0x337FEFD  (21/27).
  */
 
 #include <stdbool.h>
@@ -977,16 +976,26 @@ int main(void)
      * so unaffected by F-9.
      * ================================================================== */
 
-    /* 0x31 RoutineControl — DESCOPED, see findings F-11 (distinct from F-9).
-     * After the F-9/LDRB.W fix, 0x85/0x86 pass, but 0x31 still returns NRC 0x31:
-     * the ECU's fn_routine_control receives routine id = 0x0000 instead of the
-     * requested value (confirmed via UART diag "R0000").  The id is the 3rd
-     * argument (r2) of a 7-argument indirect struct-pointer call; it arrives
-     * zeroed.  fn_io_control (also 7-arg) is unaffected because its id is the
-     * 2nd arg (r1) and it never validates its r2 arg, so 0x31 is the only
-     * service exercising r2 across a many-argument call.  Not sent; BIT_31
-     * left clear and excluded from the mask. */
-    uart_puts("TESTER_SKIP_31_F11\n");
+    /* 0x31 RoutineControl: 31 01 FF00 (erase) -> 71 01 FF 00 00.
+     * Re-enabled after the F-11 fix: the library extracts the routine id with
+     * `uxth.w r2, ip` (a wide T2 register-extend) that labwired previously did
+     * not decode, leaving id=0; now decoded, the id arrives intact. */
+    uart_puts("TESTER_REQ_31\n");
+    {
+        uint8_t payload[] = {0x01u, 0xFFu, 0x00u};
+        if (do_request(0x31u, payload, 3u, 1000u)) {
+            if (g_resp_sid == 0x71u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_71_OK\n");
+                g_service_results |= BIT_31;
+            } else {
+                uart_puts("TESTER_RESP_71_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_31\n");
+        }
+    }
 
     /* 0x34 RequestDownload: 34 00 44 <addr32> <size32> -> 74 20 00 00 04 00 */
     uart_puts("TESTER_REQ_34\n");
@@ -1071,13 +1080,13 @@ int main(void)
     uart_puts("TESTER_SKIP_38_F10\n");
 
     /* ==================================================================
-     * Phase 4 result (0x31 descoped F-11, 0x38 descoped F-10 -> 4 of 6)
+     * Phase 4 result (0x38 still descoped under F-10 -> 5 of 6)
      * ================================================================== */
     {
-        uint32_t phase4_bits = BIT_34 | BIT_36 | BIT_37 | BIT_35;
+        uint32_t phase4_bits = BIT_31 | BIT_34 | BIT_36 | BIT_37 | BIT_35;
         uint32_t phase4_got  = g_service_results & phase4_bits;
         if (phase4_got == phase4_bits) {
-            uart_puts("PHASE4 4/4 PASS\n");
+            uart_puts("PHASE4 5/5 PASS\n");
         } else {
             uart_puts("PHASE4 FAIL\n");
         }

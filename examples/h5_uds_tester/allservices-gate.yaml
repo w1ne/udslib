@@ -4,7 +4,7 @@ inputs:
 limits:
   max_steps: 4000000
 assertions:
-  # 20/27 services (phases 1-4) after the F-9 fix (labwired LDRB.W sign-extension).
-  # 0x85/0x86 re-enabled and passing. Remaining: 0x31 (F-11 r2-arg zeroed on 7-arg
-  # call), 0x38 (F-10 incorrectLength), 0x83/0x84/0x87 (T6, not yet wired). See findings.
-  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x337BEFD, size: 32 }
+  # 21/27 services (phases 1-4) after the F-9 + F-11 labwired fixes. 0x31/0x85/0x86
+  # all pass. Remaining: 0x38 (F-10 incorrectLength), 0x83/0x84/0x87 (T6, not yet
+  # wired). See the findings log.
+  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x337FEFD, size: 32 }

@@ -344,9 +344,26 @@ ISO-TP works — suspect an 8-byte-PDU boundary in the tester's single-frame fra
 transit byte drop. **Action:** descoped (`TESTER_SKIP_38_F10`), excluded from mask.
 Needs a focused repro (dump the exact bytes/len the ECU's 0x38 handler receives).
 
-## F-11 — RoutineControl (0x31): r2 argument zeroed on a 7-argument indirect call — NEEDS-CONFIRM
+## F-11 — RoutineControl (0x31): routine id zeroed — ✅ RESOLVED (labwired wide-extend decode)
 
-**Status:** NEEDS-CONFIRM. **Discovered:** Task 5 (post F-9 fix), 2026-06-22.
+**FINAL STATUS: ROOT-CAUSED AND FIXED.** It was NOT the indirect-call ABI (two
+subagents cleared that: a genuine 7-arg `blx` call delivers r2 fine). The real cause:
+labwired did not decode the **wide T2 register-extend** instructions
+(`UXTH.W`/`UXTB.W`/`SXTH.W`/`SXTB.W`, `0xFA0F/0xFA1F/0xFA4F/0xFA5F`) — they fell to
+`Unknown32` and were silently skipped. The library computes the routine id as
+`orr.w ip, data[3], data[2] lsl #8; uxth.w r2, ip`; with `uxth.w r2, ip` (`FA1F F28C`)
+skipped, r2 kept its prior value `len-4 = 0`, so the ECU saw routine id `0x0000` and
+returned NRC 0x31. (clang uses the wide form because `ip`/r12 is a high register.)
+
+Fixed in labwired-core (decode + execute all four wide extends with ROR support) +
+regression test; full suite green (1342). With the fix, **0x31 passes** — gate 20→21/27
+(mask `0x337FEFD`), exit 0. Found via the disassembly the subagents recommended pulling.
+
+Original investigation notes below.
+
+---
+
+**Status (historical):** NEEDS-CONFIRM. **Discovered:** Task 5 (post F-9 fix), 2026-06-22.
 
 After the F-9/LDRB.W fix, 0x85/0x86 pass but 0x31 still returns NRC `0x31`
 (requestOutOfRange). A UART diag in the ECU's `fn_routine_control` confirmed it
