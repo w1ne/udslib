@@ -43,8 +43,8 @@ static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
  * Applications add or override entries via config.user_services without
  * editing this table (see examples/custom_service). */
 static const uds_service_entry_t core_services[] = {
-    {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
-     mask_sub_10, 0u},
+    {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_10, 0u,
+     uds_internal_handle_session_control},
     {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_ecu_reset, mask_sub_11, 0u},
     {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_clear_dtc, NULL, 0u},
     {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_dtc_info, mask_sub_19,
@@ -75,8 +75,8 @@ static const uds_service_entry_t core_services[] = {
      uds_internal_handle_request_file_transfer, NULL, 0u},
     {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_memory_by_addr,
      NULL, 0u},
-    {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_tester_present,
-     mask_sub_3E, 0u},
+    {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_3E, 0u,
+     uds_internal_handle_tester_present},
     {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_control_dtc_setting,
      mask_sub_85, 0u},
     {UDS_SID_READ_BY_PER_ID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_periodic_read,

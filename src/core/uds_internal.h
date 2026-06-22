@@ -164,8 +164,10 @@ int uds_emit_response(uds_ctx_t *ctx, uint16_t len);
 /* --- Core Service Handlers --- */
 
 /* Session Services (0x10, 0x3E) */
-int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                        uds_result_t *out);
 
 /* Data Services (0x22, 0x24, 0x2E) */
 int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
