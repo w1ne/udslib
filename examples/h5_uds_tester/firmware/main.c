@@ -41,17 +41,22 @@
  *          bit  2  BIT_14  SID 0x14  ClearDiagnosticInformation
  *          bit 25  BIT_86  SID 0x86  ResponseOnEvent (setup) (F-9 fix)
  *
- *        Phase 4 services tested (5 of 27 — transfer subset):
+ *        Phase 4 services tested (6 of 27 — transfer subset):
  *          bit 14  BIT_31  SID 0x31  RoutineControl          (F-11 fix)
  *          bit 15  BIT_34  SID 0x34  RequestDownload
  *          bit 17  BIT_36  SID 0x36  TransferData
  *          bit 18  BIT_37  SID 0x37  RequestTransferExit
  *          bit 16  BIT_35  SID 0x35  RequestUpload
+ *          bit 19  BIT_38  SID 0x38  RequestFileTransfer     (F-10 fix)
  *
- *        DESCOPED:
- *          bit 19  BIT_38  SID 0x38  RequestFileTransfer (F-10 incorrectLength)
+ *        Phase 5 services tested (5 of 27):
+ *          bit  8  BIT_28  SID 0x28  CommunicationControl
+ *          bit 22  BIT_83  SID 0x83  AccessTimingParameter
+ *          bit 26  BIT_87  SID 0x87  LinkControl
+ *          bit 23  BIT_84  SID 0x84  SecuredDataTransmission (identity crypto)
+ *          bit  1  BIT_11  SID 0x11  EcuReset (tested LAST)
  *
- *        Gate expects g_service_results @ 0x20010000 = 0x337FEFD  (21/27).
+ *        Gate expects g_service_results @ 0x20010000 = 0x07FFFFFF  (27/27).
  */
 
 #include <stdbool.h>
@@ -1071,24 +1076,153 @@ int main(void)
         }
     }
 
-    /* 0x38 RequestFileTransfer — DESCOPED, see findings F-10.
-     * Request [38 01 00 04 'test'] is well-formed (8-byte PDU, no high-bit
-     * bytes so NOT F-9), yet the ECU returns NRC 0x13 (incorrectLength): the
-     * library computes 4 + path_len > len, implying the received length is
-     * short by one (suspect ISO-TP 8-byte-PDU framing or a transit byte drop).
-     * Not sent; BIT_38 left clear and excluded from the mask. */
-    uart_puts("TESTER_SKIP_38_F10\n");
+    /* 0x38 RequestFileTransfer: 38 01 0004 "test" -> 78 01.
+     * Re-enabled after the F-9/F-11 fixes (the prior NRC 0x13 was a symptom of
+     * the wide-instruction decode bugs corrupting the parsed length/path_len). */
+    uart_puts("TESTER_REQ_38\n");
+    {
+        /* 38 01 0002 'ab' -> 78 01 (mode=AddFile, filePathLen=2, path="ab"). */
+        uint8_t payload[] = {0x01u, 0x00u, 0x02u, 'a', 'b'};
+        if (do_request(0x38u, payload, 5u, 1000u)) {
+            if (g_resp_sid == 0x78u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_78_OK\n");
+                g_service_results |= BIT_38;
+            } else {
+                uart_puts("TESTER_RESP_78_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" nrc=");
+                uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_38\n");
+        }
+    }
 
     /* ==================================================================
-     * Phase 4 result (0x38 still descoped under F-10 -> 5 of 6)
+     * Phase 4 result (transfer subset, 6/6)
      * ================================================================== */
     {
-        uint32_t phase4_bits = BIT_31 | BIT_34 | BIT_36 | BIT_37 | BIT_35;
+        uint32_t phase4_bits = BIT_31 | BIT_34 | BIT_36 | BIT_37 | BIT_35 | BIT_38;
         uint32_t phase4_got  = g_service_results & phase4_bits;
         if (phase4_got == phase4_bits) {
-            uart_puts("PHASE4 5/5 PASS\n");
+            uart_puts("PHASE4 6/6 PASS\n");
         } else {
             uart_puts("PHASE4 FAIL\n");
+        }
+    }
+
+    /* ==================================================================
+     * Phase 5 — remaining services (0x28, 0x83, 0x87, 0x84) + reset (0x11 last).
+     * ================================================================== */
+
+    /* 0x28 CommunicationControl: 28 00 01 -> 68 00 */
+    uart_puts("TESTER_REQ_28\n");
+    {
+        uint8_t payload[] = {0x00u, 0x01u};
+        if (do_request(0x28u, payload, 2u, 1000u)) {
+            if (g_resp_sid == 0x68u) {
+                uart_puts("TESTER_RESP_68_OK\n");
+                g_service_results |= BIT_28;
+            } else {
+                uart_puts("TESTER_RESP_68_BAD sid=");
+                uart_puthex8(g_resp_sid); uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_28\n");
+        }
+    }
+
+    /* 0x83 AccessTimingParameter: 83 01 (readExtended) -> C3 01 P2 P2* */
+    uart_puts("TESTER_REQ_83\n");
+    {
+        uint8_t payload[] = {0x01u};
+        if (do_request(0x83u, payload, 1u, 1000u)) {
+            if (g_resp_sid == 0xC3u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_C3_OK\n");
+                g_service_results |= BIT_83;
+            } else {
+                uart_puts("TESTER_RESP_C3_BAD sid=");
+                uart_puthex8(g_resp_sid); uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_83\n");
+        }
+    }
+
+    /* 0x87 LinkControl: 87 01 01 (verifyModeFixed) -> C7 01 */
+    uart_puts("TESTER_REQ_87\n");
+    {
+        uint8_t payload[] = {0x01u, 0x01u};
+        if (do_request(0x87u, payload, 2u, 1000u)) {
+            if (g_resp_sid == 0xC7u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_C7_OK\n");
+                g_service_results |= BIT_87;
+            } else {
+                uart_puts("TESTER_RESP_C7_BAD sid=");
+                uart_puthex8(g_resp_sid); uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_87\n");
+        }
+    }
+
+    /* 0x84 SecuredDataTransmission: wrap an inner TesterPresent.
+     *   84 0001 [3E 00]  -> C4 0001 [7E 00]  (identity "crypto"). */
+    uart_puts("TESTER_REQ_84\n");
+    {
+        uint8_t payload[] = {0x00u, 0x01u, 0x3Eu, 0x00u};
+        if (do_request(0x84u, payload, 4u, 1000u)) {
+            /* response after SID: apar(2) + inner response.  Expect C4 then
+             * the wrapped inner positive response 7E. */
+            if (g_resp_sid == 0xC4u && g_resp_len >= 3u && g_resp_data[2] == 0x7Eu) {
+                uart_puts("TESTER_RESP_C4_OK\n");
+                g_service_results |= BIT_84;
+            } else {
+                uart_puts("TESTER_RESP_C4_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_puts(" d2=");
+                uart_puthex8((g_resp_len > 2u) ? g_resp_data[2] : 0u);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_84\n");
+        }
+    }
+
+    /* 0x11 ECUReset: 11 01 -> 51 01.  TESTED LAST — the ECU reboots after, so
+     * it cannot disturb any earlier result. */
+    uart_puts("TESTER_REQ_11\n");
+    {
+        uint8_t payload[] = {0x01u};
+        if (do_request(0x11u, payload, 1u, 1000u)) {
+            if (g_resp_sid == 0x51u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_51_OK\n");
+                g_service_results |= BIT_11;
+            } else {
+                uart_puts("TESTER_RESP_51_BAD sid=");
+                uart_puthex8(g_resp_sid); uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_11\n");
+        }
+    }
+
+    /* ==================================================================
+     * Phase 5 result + final summary
+     * ================================================================== */
+    {
+        uint32_t phase5_bits = BIT_28 | BIT_83 | BIT_87 | BIT_84 | BIT_11;
+        uint32_t phase5_got  = g_service_results & phase5_bits;
+        if (phase5_got == phase5_bits) {
+            uart_puts("PHASE5 5/5 PASS\n");
+        } else {
+            uart_puts("PHASE5 FAIL\n");
+        }
+        if (g_service_results == ALL_SERVICES_MASK) {
+            uart_puts("SERVICES 27/27 PASS\n");
+        } else {
+            uart_puts("SERVICES INCOMPLETE\n");
         }
     }
 

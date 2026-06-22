@@ -577,6 +577,38 @@ static int fn_file_transfer(struct uds_ctx *ctx, uint8_t mode, const uint8_t *pa
     return 0;
 }
 
+/* LinkControl (0x87): accept the requested mode/baud transition. */
+static int fn_link_control(struct uds_ctx *ctx, uint8_t subfunction, uint32_t link_param)
+{
+    (void)ctx;
+    (void)subfunction;
+    (void)link_param;
+    return 0;
+}
+
+/* SecuredDataTransmission (0x84): identity "crypto" — the gate proves the
+ * secured envelope + inner-dispatch + re-wrap, not a real cipher (real-cipher
+ * validation lives in the mbedTLS examples).  decode/encode just copy. */
+static int fn_secure_decode(struct uds_ctx *ctx, uint16_t apar, const uint8_t *in,
+                            uint16_t in_len, uint8_t *out, uint16_t out_max)
+{
+    (void)ctx;
+    (void)apar;
+    uint16_t n = (in_len <= out_max) ? in_len : out_max;
+    memcpy(out, in, n);
+    return (int)n;
+}
+
+static int fn_secure_encode(struct uds_ctx *ctx, uint16_t apar, const uint8_t *in,
+                            uint16_t in_len, uint8_t *out, uint16_t out_max)
+{
+    (void)ctx;
+    (void)apar;
+    uint16_t n = (in_len <= out_max) ? in_len : out_max;
+    memcpy(out, in, n);
+    return (int)n;
+}
+
 static int fn_periodic_read(struct uds_ctx *ctx, uint8_t periodic_id,
                             uint8_t *out_buf, uint16_t max_len)
 {
@@ -778,6 +810,9 @@ int main(void)
         vcfg->fn_io_control       = fn_io_control;
         vcfg->fn_request_upload   = fn_request_upload;
         vcfg->fn_file_transfer    = fn_file_transfer;
+        vcfg->fn_link_control     = fn_link_control;
+        vcfg->fn_secure_decode    = fn_secure_decode;
+        vcfg->fn_secure_encode    = fn_secure_encode;
         vcfg->fn_periodic_read    = fn_periodic_read;
         vcfg->fn_read_scaling     = fn_read_scaling;
         vcfg->fn_dynamic_did      = fn_dynamic_did;

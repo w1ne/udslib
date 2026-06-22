@@ -329,7 +329,24 @@ passed through indirect struct-pointer calls (and possibly large-offset struct f
 reads/writes) are corrupted. **This is the single thing to root-cause** — fixing it
 unblocks 0x31/0x83/0x84/0x85/0x86/0x87 at once. 0x31 descoped (`TESTER_SKIP_31_F9`).
 
-## F-10 — RequestFileTransfer (0x38) returns NRC 0x13 (incorrectLength) — NEEDS-CONFIRM
+## F-10 — RequestFileTransfer (0x38) NRC 0x13 — ✅ RESOLVED (labwired extend-and-add decode)
+
+**FINAL STATUS: ROOT-CAUSED AND FIXED.** The sibling of F-11. The 0x38 handler's
+length check `4 + path_len > len` compiles to `uxtah r6, r3, r0` (`FA13 F680`) — the
+**extend-and-add** UXTAH (Rn=r3, not 0xF). The F-11 fix only decoded the plain extends
+(Rn=0xF), so UXTAH still fell to `Unknown32` and was skipped, leaving r6 stale → the
+length check rejected valid requests. (A debug `printf` masked it by perturbing register
+allocation — a classic "it works with instrumentation" tell that this was an emulator
+instruction bug, not firmware.) Fixed in labwired-core by broadening the wide-extend
+decode to the whole family (UXTAH/UXTAB/SXTAH/SXTAB) + a UXTAH executor path and test.
+With the fix, **0x38 passes** — the gate reaches **27/27, exit 0**. NOTE: the original
+8-byte-PDU framing suspicion was wrong; it was always this decode gap.
+
+Original investigation notes below.
+
+---
+
+## F-10 (historical) — RequestFileTransfer (0x38) returns NRC 0x13 (incorrectLength)
 
 **Status:** NEEDS-CONFIRM. **Discovered:** Task 5, 2026-06-22.
 
