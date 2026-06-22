@@ -15,22 +15,17 @@
  *        registered via the real udslib server API (built-in dispatch +
  *        the documented fn_* hooks), used 100% unmodified.
  *
- *        This is the idiomatic-udslib ECU: DID data and the DID table live in
- *        .rodata const, RDBI/WDBI/IOControl (0x22/0x2E/0x2F) and
- *        ControlDTCSetting/ResponseOnEvent (0x85/0x86) all run through udslib's
- *        BUILT-IN dispatch (no user-service shims).  Findings F-2/F-3/F-5/F-6/F-7
- *        were all labwired ARMv7-M decoder/load bugs (same class as F-9/F-10/F-11)
- *        and are resolved by the fixed emulator.
+ *        This is the idiomatic-udslib ECU — udslib is used 100% unmodified, with
+ *        NO firmware workarounds: DID data and the DID table live in .rodata
+ *        const; RDBI/WDBI/IOControl (0x22/0x2E/0x2F) and ControlDTCSetting/
+ *        ResponseOnEvent (0x85/0x86) run through udslib's BUILT-IN dispatch (no
+ *        user-service shims); the config is assigned idiomatically.
  *
- * F-4 (EMULATOR — labwired decodes Thumb-2 STMIA.W as STMDB.W):
- *        The ONE remaining workaround.  clang -Os coalesces the cfg.fn_* stores
- *        into STMIA.W (0xE88x); the labwired decoder treats 0xE8xx and 0xE9xx
- *        identically (StmdbW), executing decrement-before instead of
- *        increment-after, so four fn_* hooks land 16 bytes low and read NULL.
- *        Workaround: a `volatile uds_config_t *` forces individual STR.W stores.
- *        This is an emulator decoder defect, NOT a udslib bug.  See the detailed
- *        comment at the cfg.fn_* assignment block below and
- *        docs/superpowers/udslib-findings-from-h5-gate.md entry F-4.
+ *        Every issue found while building this gate (findings F-1..F-11) was a
+ *        labwired STM32 (ARMv7-M) instruction-decoder bug, NOT a udslib bug —
+ *        all four now fixed in the emulator (LDRB.W/LDRH.W sign-extend, wide
+ *        UXT/SXT, UXTAH/UXTAB extend-and-add, and STMIA.W-vs-STMDB.W). See
+ *        docs/superpowers/udslib-findings-from-h5-gate.md.
  */
 
 #include <stdbool.h>
@@ -534,52 +529,28 @@ int main(void)
     cfg.did_table.entries = g_ecu_dids;
     cfg.did_table.count   = (uint16_t)(sizeof(g_ecu_dids) / sizeof(g_ecu_dids[0]));
 
-    /* Service callbacks — all 27 ISO-14229-1 services.
-     *
-     * WORKAROUND udslib F-4 (EMULATOR — labwired STM32H563 decodes STMIA.W as
-     * STMDB.W).  Idiomatic `cfg.fn_x = ...` assignments let clang -Os coalesce
-     * the consecutive function-pointer stores into Thumb-2 STMIA.W (store
-     * multiple, increment-after, encoding 0xE88x — e.g. `e880 5030 stmia.w r0,
-     * {r4,r5,ip,lr}` writing cfg offsets 188..200).  The labwired ARMv7-M
-     * decoder (crates/core/src/decoder/arm.rs, the `(h1 & 0xFE00) == 0xE800`
-     * branch) does not test h1 bit 8 (the P/U selector) and returns
-     * Instruction::StmdbW for BOTH 0xE8xx (STMIA.W) and 0xE9xx (STMDB.W).  The
-     * StmdbW executor then stores at `Rn - count*4` (decrement-before) instead
-     * of `Rn` (increment-after), so the fn_mem_read/fn_mem_write/fn_io_control/
-     * fn_request_upload pointers land 16 bytes low and the real fields read back
-     * NULL -> 0x23/0x2F/0x34/0x36/0x38/0x87/0x29 fail (NRC 0x22/0x11).  This is
-     * the SAME bug class as the fixed F-9/F-10/F-11 load/extend decode gaps, but
-     * for a store.  (Note: STMDB.W prologue pushes `e92d ...` are genuine STMDB
-     * and execute correctly, which is why only this init breaks.)
-     *
-     * The `volatile uds_config_t *` pointer forces clang to emit one STR.W per
-     * field instead of STMIA.W, sidestepping the mis-decode.  Revert to plain
-     * `cfg.fn_* = ...` once labwired decodes STMIA.W (add an StmiaW variant /
-     * increment-after executor path keyed on h1 bit 8). */
-    {
-        volatile uds_config_t *vcfg = &cfg;
-        vcfg->fn_reset            = fn_reset;
-        vcfg->fn_dtc_read         = fn_dtc_read;
-        vcfg->fn_dtc_clear        = fn_dtc_clear;
-        vcfg->fn_security_seed    = fn_security_seed;
-        vcfg->fn_security_key     = fn_security_key;
-        vcfg->fn_auth             = fn_auth;
-        vcfg->fn_routine_control  = fn_routine_control;
-        vcfg->fn_request_download = fn_request_download;
-        vcfg->fn_transfer_data    = fn_transfer_data;
-        vcfg->fn_transfer_exit    = fn_transfer_exit;
-        vcfg->fn_mem_read         = fn_mem_read;
-        vcfg->fn_mem_write        = fn_mem_write;
-        vcfg->fn_io_control       = fn_io_control;
-        vcfg->fn_request_upload   = fn_request_upload;
-        vcfg->fn_file_transfer    = fn_file_transfer;
-        vcfg->fn_link_control     = fn_link_control;
-        vcfg->fn_secure_decode    = fn_secure_decode;
-        vcfg->fn_secure_encode    = fn_secure_encode;
-        vcfg->fn_periodic_read    = fn_periodic_read;
-        vcfg->fn_read_scaling     = fn_read_scaling;
-        vcfg->fn_dynamic_did      = fn_dynamic_did;
-    }
+    /* Service callbacks — all 27 ISO-14229-1 services, idiomatic udslib. */
+    cfg.fn_reset            = fn_reset;
+    cfg.fn_dtc_read         = fn_dtc_read;
+    cfg.fn_dtc_clear        = fn_dtc_clear;
+    cfg.fn_security_seed    = fn_security_seed;
+    cfg.fn_security_key     = fn_security_key;
+    cfg.fn_auth             = fn_auth;
+    cfg.fn_routine_control  = fn_routine_control;
+    cfg.fn_request_download = fn_request_download;
+    cfg.fn_transfer_data    = fn_transfer_data;
+    cfg.fn_transfer_exit    = fn_transfer_exit;
+    cfg.fn_mem_read         = fn_mem_read;
+    cfg.fn_mem_write        = fn_mem_write;
+    cfg.fn_io_control       = fn_io_control;
+    cfg.fn_request_upload   = fn_request_upload;
+    cfg.fn_file_transfer    = fn_file_transfer;
+    cfg.fn_link_control     = fn_link_control;
+    cfg.fn_secure_decode    = fn_secure_decode;
+    cfg.fn_secure_encode    = fn_secure_encode;
+    cfg.fn_periodic_read    = fn_periodic_read;
+    cfg.fn_read_scaling     = fn_read_scaling;
+    cfg.fn_dynamic_did      = fn_dynamic_did;
 
     static uds_ctx_t ctx;
     if (uds_init(&ctx, &cfg) != UDS_OK) {

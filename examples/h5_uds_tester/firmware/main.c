@@ -168,9 +168,7 @@ static void uart_puts(const char *s)
     }
 }
 
-/* Hex nibble table in RAM (F-3 workaround: static, not local const char[]).
- * WORKAROUND udslib F-3: local const char arrays fault in the labwired H563
- * emulator (FLASH double-indirection read); use static storage instead. */
+/* Hex nibble table (.rodata const). */
 static const char g_hex[16] = {
     '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
 };

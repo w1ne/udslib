@@ -23,7 +23,7 @@ UXTH/UXTB/SXTH/SXTB, and UXTAH/UXTAB extend-and-add decode fixes). Result:
 | F-5 | DID table RAM/volatile init → `static const` .rodata | **emulator artifact** — 27/27 |
 | F-6 | 0x2E/0x2F shims → built-in WDBI/IOControl via find_did | **emulator artifact** — 27/27 |
 | F-7 | 0x85/0x86 shims → built-in ControlDTCSetting/ResponseOnEvent dispatch | **emulator artifact** — 27/27 |
-| F-4 | volatile-cfg STR.W trick → idiomatic `cfg.fn_* = ...` | **STILL NEEDED** — genuine *unfixed* labwired decoder bug (NOT udslib) |
+| F-4 | volatile-cfg STR.W trick → idiomatic `cfg.fn_* = ...` | **FIXED** — labwired STMIA.W decode fix (main `897eac17`); reverted, 27/27 |
 
 **F-4 root cause (newly pinned, a real emulator decoder defect — same class as
 F-9/F-10/F-11 but for a STORE):** idiomatic `cfg.fn_* = ...` lets clang -Os coalesce
@@ -44,12 +44,20 @@ execute correctly, which is why only the cfg init breaks.)
 increment-after executor path. **No udslib change.**
 
 **BOTTOM LINE:** udslib has **no genuine bug**. All 11 findings (F-1..F-11) reduce to
-labwired ARMv7-M decoder defects — 3 already fixed (F-9 LDRB.W/LDRH.W sign-extend,
-F-11 wide UXT/SXT, F-10 UXTAH/UXTAB extend-and-add) plus 1 still unfixed (F-4 STMIA.W
-decoded as STMDB.W). The ECU now uses udslib **100% unmodified** (built-in dispatch +
-documented fn_* hooks, .rodata const DID table/data); the only remaining firmware
-deviation is the F-4 store-coalescing dodge, attributable solely to the emulator.
-Gate: **27/27, exit 0** with F-2/F-3/F-5/F-6/F-7 reverted and only F-4 retained.
+**four** labwired ARMv7-M instruction-decoder defects, **all now fixed**:
+- F-9 — `LDRB.W`/`LDRH.W` decoded as signed (PRs #328) 
+- F-11 — wide `UXTH.W`/`UXTB.W`/`SXTH.W`/`SXTB.W` not decoded (#329)
+- F-10 — `UXTAH`/`UXTAB`/`SXTAH`/`SXTAB` (extend-and-add) not decoded (#331)
+- F-4 — `STMIA.W` decoded as `STMDB.W` (decrement-before); already fixed on labwired
+  `main` as `897eac17` (the bxCAN work). The gate's old integration-branch binary
+  predated it, which is why this pass first saw F-4 still broken.
+
+With a labwired binary carrying all four fixes, EVERY ECU workaround was reverted:
+the ECU now uses udslib **100% unmodified** — built-in dispatch + documented fn_*
+hooks, `.rodata`-const DID table/data, idiomatic `cfg.fn_* = ...`. **Zero workaround
+markers remain.** Gate: **27/27, exit 0.** Three of the four fixes were also validated
+byte-for-byte on a real NUCLEO-L476RG (`validation/silicon-decoder` in labwired-core);
+STMIA.W increment-after was likewise confirmed on that silicon.
 
 ---
 
