@@ -93,8 +93,8 @@ static const uds_service_entry_t core_services[] = {
     {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_secured_data, NULL,
      0u},
 #if (UDS_ROE_MAX_EVENTS > 0)
-    {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_response_on_event,
-     mask_sub_86, 0u},
+    {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_86, 0u,
+     uds_internal_handle_response_on_event},
 #endif
 };
 

@@ -225,7 +225,8 @@ void uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint1
 int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* ResponseOnEvent (0x86) */
-int uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                           uds_result_t *out);
 void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now);
 
 /* Run an inner request through the dispatcher, capturing its response into
