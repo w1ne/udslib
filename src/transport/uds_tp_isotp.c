@@ -332,7 +332,7 @@ static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
     if (iso->mode == ISOTP_HALF_DUPLEX) {
         iso->tx_state = ISOTP_TX_IDLE;
         iso->timer_n_bs = 0u;
-        iso->first_cf_after_fc = 0u; /* defensive: clear on TX abort */
+        iso->first_cf_after_fc = 0u; /* defensive: clear on TX teardown */
     }
 
     uint8_t sdu_len = (uint8_t) (data[0] & 0x0Fu);
@@ -367,7 +367,7 @@ static void uds_rx_ff(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
     if (iso->mode == ISOTP_HALF_DUPLEX) {
         iso->tx_state = ISOTP_TX_IDLE;
         iso->timer_n_bs = 0u;
-        iso->first_cf_after_fc = 0u; /* defensive: clear on TX abort */
+        iso->first_cf_after_fc = 0u; /* defensive: clear on TX teardown */
     }
 
     if (len < 2u) {
@@ -490,7 +490,7 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
             /* Overflow or reserved/invalid FS: cancel the transmission. */
             iso->tx_state = ISOTP_TX_IDLE;
             iso->timer_n_bs = 0u;
-            iso->first_cf_after_fc = 0u; /* defensive: clear on any TX abort */
+            iso->first_cf_after_fc = 0u; /* defensive: clear on any TX teardown */
             break;
     }
 }

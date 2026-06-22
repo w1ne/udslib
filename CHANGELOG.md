@@ -19,7 +19,21 @@
 - The temporary `uds_handler_v2_t` typedef has been removed; use
   `uds_service_handler_t` directly.
 
-## [Unreleased]
+### Fixed
+- **ECUReset (0x11) now sends the positive response before performing the reset**
+  per ISO 14229-1, and no longer leaves the server unable to respond to
+  subsequent requests after an in-context reset. Reset is deferred by the
+  framework (`reset_pending`) and runs strictly after emission. (#76, #80)
+- **suppressPosRsp no longer leaks into the following request**: suppression is
+  consumed at the single framework emission site, so a suppressed positive
+  response can never carry its flag into the next service. (#80)
+- **ISO-TP: the first consecutive frame after FC.CTS is sent immediately**;
+  STmin now gates only the interval *between* consecutive frames, not the first
+  CF, removing a spurious inter-frame stall.
+- **SecuredDataTransmission (0x84) / ResponseOnEvent (0x86): an oversized inner
+  response is no longer silently truncated.** 0x84 returns NRC 0x14
+  (responseTooLong); the 0x86 captured-dispatch path drops the event rather than
+  emitting a truncated frame.
 
 ### Added
 - **ISO-TP configurable frame padding**: `uds_tp_isotp_set_pad_byte()` sets the byte used to fill unused bytes in every transmitted frame (SF, FF, CF, FC). The default is now `0xCC` (`ISOTP_PAD_BYTE_DEFAULT`), the value ISO 15765-2:2016 recommends to minimize stuff-bit insertions on the wire; override per channel (e.g. `0xAA`, or `0x00` to restore the previous fill). (#67)

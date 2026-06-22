@@ -6,7 +6,8 @@
 /**
  * @file uds_service_flash.c
  * @brief Flash Engine Services: RoutineControl (0x31), RequestDownload (0x34),
- *        TransferData (0x36), RequestTransferExit (0x37)
+ *        RequestUpload (0x35), TransferData (0x36), RequestTransferExit (0x37),
+ *        RequestFileTransfer (0x38)
  */
 
 #include <string.h>
