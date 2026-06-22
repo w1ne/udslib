@@ -39,3 +39,7 @@ SECTIONS {
   PROVIDE(_end = .);
   /DISCARD/ : { *(.ARM.exidx*) *(.note.gnu.build-id*) }
 }
+/* Hard-fail the link if BL code/rodata/data-init would grow into the reserved
+ * boot-state sector at 0x08016000, rather than silently corrupting it. */
+ASSERT(LOADADDR(.data) + SIZEOF(.data) <= _boot_state_addr,
+       "Bootloader flash image overflows into the boot-state sector (0x16000)")

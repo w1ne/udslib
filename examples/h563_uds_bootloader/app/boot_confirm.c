@@ -54,7 +54,9 @@
  * ------------------------------------------------------------------------- */
 void boot_confirm(void)
 {
-    /* Unlock the flash controller. */
+    /* Unlock the flash controller. The app is a standalone payload that does
+     * NOT link the bootloader's flash_h5 driver, so it re-issues the NSKEYR
+     * sequence directly here (identical to flash_h5's flash_unlock()). */
     FLASH_NSKEYR = FLASH_NSKEY1;
     FLASH_NSKEYR = FLASH_NSKEY2;
 

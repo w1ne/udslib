@@ -106,6 +106,10 @@ typedef struct {
     uint32_t reserved; /**< Unused; all-ones after sector erase.    */
 } boot_state_t;
 
+/* The record is programmed as a single H5 quad-word; adding a field would
+ * break that 16-byte alignment assumption silently. Fail the build instead. */
+_Static_assert(sizeof(boot_state_t) == 16u, "boot_state_t must stay 16 bytes (one H5 quad-word)");
+
 /* ---------------------------------------------------------------------------
  * API
  * ------------------------------------------------------------------------- */
