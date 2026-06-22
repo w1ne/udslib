@@ -34,6 +34,61 @@ static int mock_dtc_clear_cb(uds_ctx_t *ctx, uint32_t group)
     return UDS_OK;
 }
 
+/* --- Ordering probes for issue #76 ---
+ * ISO 14229-1: the ECUReset positive response SHALL be sent before the reset
+ * is performed (after a real reset the server cannot answer). These local
+ * callbacks stamp a monotonic counter so the test can assert send-before-reset.
+ */
+static int g_order_seq;
+static int g_send_order;
+static int g_reset_order;
+
+static int order_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    g_send_order = ++g_order_seq;
+    if (len > sizeof(g_tx_buf)) {
+        len = (uint16_t) sizeof(g_tx_buf);
+    }
+    memcpy(g_tx_buf, data, len);
+    return 0;
+}
+
+static void order_reset_cb(uds_ctx_t *ctx, uint8_t type)
+{
+    (void) ctx;
+    (void) type;
+    g_reset_order = ++g_order_seq;
+}
+
+static void test_ecu_reset_response_sent_before_reset(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = order_tp_send; /* override the cmocka mock to record order */
+    cfg.fn_reset = order_reset_cb;
+    g_order_seq = 0;
+    g_send_order = 0;
+    g_reset_order = 0;
+
+    uint8_t request[] = {0x11, 0x01};
+
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    /* Both happened... */
+    assert_int_not_equal(g_send_order, 0);
+    assert_int_not_equal(g_reset_order, 0);
+    /* ...and the positive response went out BEFORE the reset was performed. */
+    assert_true(g_send_order < g_reset_order);
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_tx_buf[1], 0x01);
+}
+
 static void test_ecu_reset_hard_success(void **state)
 {
     (void) state;
@@ -146,6 +201,7 @@ static void test_ecu_reset_suppress_does_not_leak(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_ecu_reset_response_sent_before_reset),
         cmocka_unit_test(test_ecu_reset_hard_success),
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),

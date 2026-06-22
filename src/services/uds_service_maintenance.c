@@ -28,22 +28,27 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
         return uds_send_nrc(ctx, UDS_SID_ECU_RESET, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
     }
 
+    /* ISO 14229-1 (§ ECUReset): "The ECUReset positive response message (if
+     * required) shall be sent before the reset is executed in the server(s)."
+     * A real reset reboots the MCU inside fn_reset and never returns, so the
+     * response must be on the wire first — otherwise the tester sees no answer.
+     * Emit the response (or honour suppressPosRsp), then perform the reset. */
+    int rc = UDS_OK;
     if (suppress_pos_resp) {
         ctx->suppress_pos_resp = true;
     }
+    else {
+        ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
+        ctx->config->tx_buffer[1] = sub;
+        rc = uds_send_response(ctx, 2u);
+    }
 
-    /* Process Reset */
+    /* Perform the reset only after the response has been handed to transport. */
     if (ctx->config->fn_reset) {
         ctx->config->fn_reset(ctx, sub);
     }
 
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-
-    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
-    ctx->config->tx_buffer[1] = sub;
-    return uds_send_response(ctx, 2u);
+    return rc;
 }
 
 int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
