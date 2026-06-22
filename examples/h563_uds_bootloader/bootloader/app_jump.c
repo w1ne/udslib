@@ -6,6 +6,7 @@
 #include "app_jump.h"
 #include "ota_image.h"
 #include "ota_crc.h"
+#include "sec_ecdsa.h"
 #include <stdint.h>
 
 /* STM32H563 SRAM: 0x20000000 .. 0x200A0000 (640 KB total) */
@@ -29,14 +30,24 @@ int app_is_valid(uint32_t app_base)
         return 0;
     }
 
-    /* 3. CRC-32 over the payload */
+    /* 3. CRC-32 over the payload (fast integrity check — defense in depth). */
     const uint8_t *payload = (const uint8_t *) (uintptr_t) (app_base + OTA_IMAGE_HDR_SIZE);
     uint32_t computed = ota_crc32(payload, hdr->image_size);
     if (computed != hdr->crc32) {
         return 0;
     }
 
-    /* 4. Initial SP must be within RAM */
+    /* 4. ECDSA-P256 authenticity: the 64-byte raw r||s signature sits
+     * immediately after the payload. Verify it over SHA-256(payload) against
+     * the baked public key — only images signed with the matching private key
+     * are accepted. A forged-but-CRC-good image fails here. */
+    const uint8_t *sig =
+        (const uint8_t *) (uintptr_t) (app_base + OTA_IMAGE_HDR_SIZE + hdr->image_size);
+    if (!ecdsa_verify_p256(payload, hdr->image_size, sig)) {
+        return 0;
+    }
+
+    /* 5. Initial SP must be within RAM */
     uint32_t initial_sp = *((const uint32_t *) (uintptr_t) (app_base + OTA_IMAGE_HDR_SIZE));
     if (initial_sp < RAM_BASE || initial_sp > RAM_END) {
         return 0;

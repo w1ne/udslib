@@ -666,7 +666,9 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    /* Load image file */
+    /* Load image file. The whole file is transferred verbatim, so a signed OTA
+     * image (header + payload + 64-byte ECDSA-P256 signature) flows through with
+     * no logic change — the trailing signature is part of img_size. */
     FILE *f = fopen(img_path, "rb");
     if (f == NULL) {
         fprintf(stderr, "Cannot open image file: %s\n", img_path);

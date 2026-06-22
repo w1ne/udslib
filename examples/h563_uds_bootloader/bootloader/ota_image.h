@@ -9,10 +9,16 @@
  *
  * Layout in flash for a bank's app slot (app_base = bank_base + 0x18000):
  *
- *   [app_base+0x000 .. app_base+0x010)   ota_image_header_t (magic/image_size/crc32/version)
- *   [app_base+0x010 .. app_base+0x400)   RESERVED padding (filled with 0xFF by mkimage.py)
- *   [app_base+0x400 .. )                 app payload; the app's Cortex-M vector table starts
- *                                         at app_base + 0x400 = app_base + OTA_IMAGE_HDR_SIZE.
+ *   [app_base+0x000 .. app_base+0x010)              ota_image_header_t (magic/image_size/crc32/version)
+ *   [app_base+0x010 .. app_base+0x400)              RESERVED padding (filled with 0xFF by mkimage.py)
+ *   [app_base+0x400 .. +0x400+image_size)           app payload; the app's Cortex-M vector
+ *                                                    table starts at app_base + 0x400 = app_base
+ *                                                    + OTA_IMAGE_HDR_SIZE.
+ *   [app_base+0x400+image_size .. +image_size+0x40) ECDSA-P256 signature, raw r||s (64 bytes)
+ *
+ * The signature offset is computed from image_size — no new header field is
+ * needed. mkimage.py appends it; the bootloader reads it back from the same
+ * offset for verification.
  *
  * The header region is 0x400 (1024) bytes so that the vector table lands on a
  * 1024-byte boundary.  Cortex-M33 VTOR[6:0] are RES0, so SCB->VTOR must be
@@ -24,7 +30,9 @@
  *
  * All multi-byte fields are little-endian (native Cortex-M byte order).
  * The CRC covers only the payload bytes [app_base+0x400, app_base+0x400+image_size)
- * — it does NOT cover the header or padding.
+ * — it does NOT cover the header or padding.  The ECDSA-P256 signature covers
+ * SHA-256 of those exact same payload bytes (defense in depth: CRC = fast
+ * integrity check, signature = authenticity).  See sec_ecdsa.h.
  *
  * Algorithm: CRC-32/ISO-HDLC
  *   Poly:      0x04C11DB7 (reflected: 0xEDB88320)
@@ -53,6 +61,13 @@ typedef struct {
  * RESERVED padding (0xFF).  The app's vector table starts at app_base + OTA_IMAGE_HDR_SIZE.
  */
 #define OTA_IMAGE_HDR_SIZE  0x400u
+
+/**
+ * ECDSA-P256 signature size in bytes: raw r||s (32 + 32, big-endian).
+ * Appended immediately after the payload. The signature lives at
+ *   app_base + OTA_IMAGE_HDR_SIZE + image_size .. + OTA_IMAGE_SIG_SIZE
+ */
+#define OTA_IMAGE_SIG_SIZE  64u
 
 /**
  * Maximum permitted payload size for the H563 dual-bank layout:

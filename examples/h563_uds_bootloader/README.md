@@ -42,10 +42,17 @@ Flash address    Bank 0              Bank 1
             │  (0x3F0 B)   │               │  (0x3F0 B)   │
 +0x400      │ App vector   │  +0x400       │ App vector   │
             │ table + code │               │ table + code │
-            │  (up to      │               │  (up to      │
-            │  ~928 KB)    │               │  ~928 KB)    │
+            │ (payload,    │               │ (payload,    │
+            │  image_size) │               │  image_size) │
++0x400      │ ECDSA-P256   │  +0x400       │ ECDSA-P256   │
++image_size │ signature    │  +image_size  │ signature    │
+            │  (64 bytes)  │               │  (64 bytes)  │
 0x08100000  └──────────────┘   0x08200000  └──────────────┘
 ```
+
+The 64-byte ECDSA-P256 signature (raw `r||s`) is appended immediately after the
+payload; its offset is derived from `image_size`, so no header field is needed.
+See the secure-boot section below.
 
 Each bank base (`0x08000000` or `0x08100000`) hosts an identical bootloader
 image.  The active bank is selected by the H5 FLASH option bytes; the
@@ -60,8 +67,8 @@ All routines require programming session (0x10 02) and security access (0x27).
 | Routine ID | Name | Description |
 |---|---|---|
 | 0xFF00 | EraseMemory | Erase the inactive-bank app sectors (alternative to the erase done in RequestDownload). |
-| 0xFF01 | CheckProgrammingDependencies | Validate OTA image header + CRC-32 over payload; returns `0x01` on pass. |
-| 0xFF02 | ActivateSoftware | Mark inactive bank pending, then `flash_set_swap_and_reset()` — does not return. |
+| 0xFF01 | CheckProgrammingDependencies | Validate OTA image header + CRC-32 over payload + ECDSA-P256 signature; returns `0x01` on pass. |
+| 0xFF02 | ActivateSoftware | Re-validate the inactive image (CRC + signature), mark bank pending, then `flash_swap_to_bank_and_reset()` — does not return. |
 | 0xFF03 | PerformRollback | Tester-commanded revert to the other (currently inactive) bank — see note below. |
 
 ### Automatic vs tester-commanded rollback
@@ -91,6 +98,37 @@ The bootloader has **two independent rollback mechanisms**:
    ```sh
    host/flash_tool can0 --rollback
    ```
+
+## Image authenticity (secure boot)
+
+CRC-32 alone is forgeable: anyone past SecurityAccess could flash arbitrary
+code that still passes the CRC. The bootloader therefore also verifies an
+**ECDSA-P256 signature** over the image, baking the public key into the
+bootloader so only images signed with the matching private key are accepted.
+The CRC is kept as a fast integrity check (defense in depth).
+
+- **Curve / hash:** secp256r1 (NIST P-256), SHA-256 over the payload bytes (the
+  same bytes the CRC covers, `[+0x400 .. +0x400+image_size)`).
+- **Signature:** raw 64-byte `r||s` (32+32, big-endian) appended immediately
+  after the payload. The device verifies it with `mbedtls_ecdsa_verify` on the
+  raw `r,s` MPIs — no ASN.1/DER parsing on the target.
+- **Enforcement:** the signature is checked in `app_is_valid()`, so it gates
+  every path that calls it: boot-time validation, `0xFF01` CheckProgramming,
+  the `0xFF02` ActivateSoftware re-validation just before the bank swap, and
+  `0xFF03` PerformRollback. A forged-but-CRC-good image fails.
+- **Keys:** the baked public key lives in `bootloader/image_pubkey.h`
+  (uncompressed `X||Y`, 64 bytes). The matching private key `app/signing_key_dev.pem`
+  is committed so the example is self-contained.
+
+  > **DEMO KEYS — DO NOT SHIP.** `app/signing_key_dev.pem` is a development
+  > signing key committed for this example only. A real product NEVER commits
+  > its signing key: it lives in an HSM or an offline signing service, and only
+  > the public half is baked into the bootloader.
+
+The crypto is independently provable on the host (no MCU):
+```sh
+make -C bootloader ecdsa-test   # verifies signed image; proves tamper is rejected
+```
 
 ## OTA Sequence
 
@@ -151,27 +189,32 @@ Host unit tests (run on the build machine, no cross-compiler needed):
 
 ```sh
 UDSLIB_DIR=<path> make -C bootloader cmac-test       # RFC 4493 AES-CMAC vectors
+UDSLIB_DIR=<path> make -C bootloader ecdsa-test      # ECDSA-P256 image signature + tamper
 UDSLIB_DIR=<path> make -C bootloader image-test      # OTA image header/CRC logic
 UDSLIB_DIR=<path> make -C bootloader bootstate-test  # boot-state decision FSM
 ```
 
-### Demo Applications (App A / App B-good / App B-bad)
+### Demo Applications (App A / App B-good / App B-bad / App B-sig-bad)
 
 ```sh
-make -C app all-three   # builds all three variants
+make -C app all-four    # builds all four variants
 # or individually:
-make -C app APP=A       # App A (healthy, confirms)
-make -C app APP=B       # App B-good (healthy, confirms)
-make -C app APP=Bbad    # App B-bad (unhealthy, no confirm → rollback demo)
+make -C app APP=A        # App A (healthy, confirms)
+make -C app APP=B        # App B-good (healthy, confirms)
+make -C app APP=Bbad     # App B-bad (unhealthy, no confirm → rollback demo)
+make -C app APP=Bsigbad  # App B payload, CRC-good but signature TAMPERED → fails verify
 ```
 
 Produces in `app/`:
 - `app_a.elf`, `app_a.bin`, `app_a_image.bin` (version 0x00010000)
 - `app_b.elf`, `app_b.bin`, `app_b_image.bin` (version 0x00020000)
 - `app_bbad.elf`, `app_bbad.bin`, `app_bbad_image.bin` (version 0x00020000)
+- `app_bsigbad_image.bin` (App B payload, CRC valid, signature tampered — for
+  negative secure-boot tests; must FAIL `0xFF01` / `app_is_valid()`)
 
 Each image is a raw binary wrapped by `mkimage.py` into the OTA format
-(0x400-byte header + payload).  To cross-check the image:
+(0x400-byte header + payload + 64-byte ECDSA-P256 signature, signed with
+`app/signing_key_dev.pem`).  To cross-check the image:
 
 ```sh
 make -C app image-verify   # validates app_b_image.bin via bootloader logic
@@ -198,6 +241,7 @@ host/flash_tool can0 app/app_b_image.bin
 |---|---|
 | Bootloader compiles | `UDSLIB_DIR=. make -C bootloader` |
 | AES-CMAC RFC 4493 vectors | `make -C bootloader cmac-test` (host, no MCU) |
+| ECDSA-P256 image signature + tamper rejection | `make -C bootloader ecdsa-test` (host, no MCU) |
 | OTA image header/CRC logic | `make -C bootloader image-test` (host, no MCU) |
 | Boot-state decision FSM | `make -C bootloader bootstate-test` (host, no MCU) |
 | App B image well-formed | `make -C app image-verify` (host, no MCU) |

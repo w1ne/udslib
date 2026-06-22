@@ -475,14 +475,17 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          *
          * Validates the OTA image header written to the inactive bank's app region.
          * The downloaded image has the form:
-         *   [dl_addr+0x000 .. +0x010)  ota_image_header_t (magic, image_size, crc32, version)
-         *   [dl_addr+0x010 .. +0x400)  RESERVED padding (0xFF)
-         *   [dl_addr+0x400 .. )        app payload
+         *   [dl_addr+0x000 .. +0x010)             ota_image_header_t (magic, image_size, crc32, version)
+         *   [dl_addr+0x010 .. +0x400)             RESERVED padding (0xFF)
+         *   [dl_addr+0x400 .. +0x400+image_size)  app payload
+         *   [.. +0x400+image_size+0x40)           ECDSA-P256 signature (raw r||s, 64B)
          *
          * Verification:
          *   1. header.magic == OTA_IMAGE_MAGIC
          *   2. header.image_size > 0 && <= OTA_IMAGE_MAX_PAYLOAD
          *   3. CRC-32/ISO-HDLC over [dl_addr+0x400, dl_addr+0x400+image_size) == header.crc32
+         *   4. ECDSA-P256 signature over SHA-256(payload) verifies against the
+         *      baked public key (authenticity — rejects forged but CRC-good images)
          *
          * Returns 1 byte: 0x01 = PASS, 0x00 = FAIL.
          */
@@ -494,18 +497,20 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         const ota_image_header_t *hdr =
             (const ota_image_header_t *) (uintptr_t) g_flash_state.dl_addr;
 
-        /* The full payload must have been transferred before we CRC it,
-         * otherwise validation would run over still-erased (0xFF) flash.
-         * Check image_size first (overflow-safe) then the written count. */
+        /* The full payload AND its trailing signature must have been transferred
+         * before we validate, otherwise verification would run over still-erased
+         * (0xFF) flash. Check image_size first (overflow-safe) then the written
+         * count covering header + payload + 64-byte signature. */
         if (hdr->image_size > OTA_IMAGE_MAX_PAYLOAD ||
             g_flash_state.bytes_written <
-                (uint32_t) OTA_IMAGE_HDR_SIZE + hdr->image_size) {
+                (uint32_t) OTA_IMAGE_HDR_SIZE + hdr->image_size + OTA_IMAGE_SIG_SIZE) {
             return -(int) 0x22; /* conditionsNotCorrect: incomplete image */
         }
 
         /* Validate with the SAME routine the bootloader runs at boot, so a PASS
          * here guarantees the next-boot app_is_valid() also passes (magic +
-         * size + CRC-32 + initial-SP-in-RAM) — no download/boot divergence. */
+         * size + CRC-32 + ECDSA signature + initial-SP-in-RAM) — no download/boot
+         * divergence. */
         uint8_t pass = app_is_valid(g_flash_state.dl_addr) ? 0x01u : 0x00u;
 
         if (max_len < 1u) {
@@ -547,6 +552,18 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         uint8_t  active    = flash_active_bank();
         uint8_t  inactive  = active ? 0u : 1u;
         uint32_t inactive_base = 0x08000000UL + (uint32_t) inactive * 0x100000UL;
+
+        /* Re-validate the inactive image (CRC + ECDSA signature) immediately
+         * before committing the swap. CheckProgramming (0xFF01) already ran the
+         * same check, but re-running it here closes the activate-without-
+         * revalidation hole: nothing may swap to a bank that does not currently
+         * hold an authentic, CRC-good image. */
+        uint32_t inactive_app = inactive_base + BL_REGION_SIZE;
+        if (!app_is_valid(inactive_app)) {
+            uart_puts("BL: activate refused — inactive image invalid\n");
+            return -(int) 0x22; /* conditionsNotCorrect */
+        }
+
         uart_puts("BL: marking inactive bank pending\n");
         boot_state_mark_pending(inactive_base);
         uart_puts("BL: activate software\n");
