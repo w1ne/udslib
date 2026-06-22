@@ -225,6 +225,7 @@ static struct {
     uint8_t  stage[STAGE_SZ]; /* 16-byte alignment staging buffer */
     uint8_t  stage_used;      /* bytes currently in staging buffer */
     bool     dl_active;       /* true between RequestDownload and TransferExit */
+    uint8_t  bsc_expected;    /* next expected block-sequence-counter (ISO 14229 §14.3) */
 } g_flash_state;
 
 /* Return bank base address for bank index (0 or 1). */
@@ -336,6 +337,9 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
     g_flash_state.bytes_written = 0u;
     g_flash_state.stage_used    = 0u;
     g_flash_state.dl_active     = true;
+    /* First TransferData block after RequestDownload carries counter 0x01
+     * (ISO 14229-1 §14.3). */
+    g_flash_state.bsc_expected  = 0x01u;
 
     uart_puts("BL: download armed\n");
     return UDS_OK;
@@ -349,8 +353,6 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
  */
 static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *data, uint16_t len)
 {
-    (void) sequence;
-
     /* Security gate: 0x27 must have been completed before reprogramming. */
     if (ctx->security_level < 1u) {
         return -(int) 0x33; /* securityAccessDenied */
@@ -358,6 +360,31 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
 
     if (!g_flash_state.dl_active) {
         return -(int) 0x70;
+    }
+
+    /*
+     * Block-sequence-counter enforcement (ISO 14229-1 §14.3).
+     *
+     * The first block after RequestDownload carries counter 0x01; thereafter the
+     * counter increments per accepted block and wraps 0xFF -> 0x00.
+     *   - matching counter  : accept and program (advance expected below)
+     *   - previous counter  : retransmission of the last accepted block — ACK
+     *                         without re-writing flash (idempotent)
+     *   - any other value   : wrongBlockSequenceCounter (NRC 0x73)
+     *
+     * The udslib core verifies the counter as well; duplicating it here keeps the
+     * example's flash side authoritative and torn-write-safe regardless of how the
+     * server core is configured.
+     */
+    uint8_t previous =
+        (g_flash_state.bsc_expected == 0x00u) ? 0xFFu : (uint8_t) (g_flash_state.bsc_expected - 1u);
+
+    if (sequence == previous) {
+        /* Retransmission: data already programmed — ACK without re-writing. */
+        return UDS_OK;
+    }
+    if (sequence != g_flash_state.bsc_expected) {
+        return -(int) 0x73; /* wrongBlockSequenceCounter */
     }
 
     /* Bounds check: refuse to write past the declared download region. */
@@ -392,6 +419,11 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
     }
 
     g_flash_state.bytes_written += len;
+
+    /* Block accepted — advance expected counter (wrap 0xFF -> 0x00). */
+    g_flash_state.bsc_expected =
+        (g_flash_state.bsc_expected == 0xFFu) ? 0x00u
+                                              : (uint8_t) (g_flash_state.bsc_expected + 1u);
     return UDS_OK;
 }
 
