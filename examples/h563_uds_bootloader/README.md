@@ -217,12 +217,16 @@ the LabWired H563 simulator this constraint is not enforced and the operations
 complete correctly from flash.  Do not port this code to real silicon without
 adding the RAM-execute wrapper.
 
-**b. Boot-state writes are not atomic across power loss.**
-`boot_state_write()` erases the sector then programs 16 bytes.  A power loss
-between erase and program leaves the sector as all-0xFF; on the next boot the
-magic word will not match and the bank is treated as confirmed (safe default).
-A production design should use a log/ring-buffer within the 8 KB sector to
-spread wear and make writes crash-safe (see the wear note in `boot_state.h`).
+**b. Boot-state updates are torn-write-safe.**
+The activate/boot critical path never erases: the inactive bank's boot-state
+sector is pre-erased during the OTA ERASE phase (`erase_app_sectors()` /
+0xFF00), so `boot_state_mark_pending()` is a single atomic H5 quad-word
+PROGRAM, and each trial boot PROGRAMs one additional pre-erased attempt slot
+rather than rewriting a counter.  An H5 quad-word commits atomically (the
+write buffer flushes only on the 16th byte), so a power loss either commits a
+full record or nothing — it can never erase the pending flag mid-update nor
+make an unconfirmed bank look confirmed.  The attempt count is the number of
+programmed slots in the sector; see the layout in `boot_state.h`.
 
 **c. `uart_init` does not configure RCC or GPIO.**
 The UART output (`BL-START`, `BL-JUMP`, etc.) works in the labwired-core

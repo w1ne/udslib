@@ -13,8 +13,10 @@
  * previous (known-good) bank.
  *
  * Implementation:
- *   Erases the active bank's boot-state sector at BOOT_STATE_SECTOR_ADDR
- *   (0x08016000 under the current bank mapping).  After erase the sector
+ *   Erases the running bank's boot-state sector (sector 11).  The erase
+ *   TARGET is selected by NSCR.BKSEL by physical bank (read from
+ *   OPTSR_CUR.SWAP_BANK), not by the SWAP_BANK-remapped read view — so the
+ *   sector of the bank actually executing is cleared.  After erase the sector
  *   reads as all-0xFF, which the bootloader treats as "confirmed/good".
  *
  * Read-while-write:
@@ -24,11 +26,13 @@
  *   copied to SRAM by startup.c before main() runs (hence before this is
  *   called), so the erase and its NSSR.BSY poll run from RAM.
  *
- * Limitation (do not fix for this simulation example):
- *   The erase + implicit "clear" is not atomic across power loss.
- *      If the MCU loses power mid-erase the sector may be partially
- *      erased; on the next boot the magic word will not match, so the
- *      bank is treated as confirmed (safe default).
+ * Power-loss behaviour:
+ *   The confirm erase is the LAST step of a successful boot. If the MCU loses
+ *   power mid-erase the sector may stay (partly) programmed: the pending
+ *   header survives, so the bank simply remains on-trial and the bootloader
+ *   keeps its rollback budget on the next boot — never a spurious "confirmed".
+ *   Only a fully completed erase clears the pending flag. This is the safe
+ *   direction: a torn confirm costs at most one extra trial boot.
  */
 
 #ifndef BOOT_CONFIRM_H

@@ -209,7 +209,13 @@ static int flush_stage(void)
     return rc;
 }
 
-/* Erase the app sectors of `bank`. */
+/* Erase the app sectors of `bank`, then pre-erase its boot-state sector.
+ *
+ * Pre-erasing the boot-state sector here (during the OTA ERASE phase) is what
+ * makes the later 0xFF02 ActivateSoftware path torn-write-safe: by the time
+ * boot_state_mark_pending() runs the sector is already all-0xFF, so marking
+ * pending is a single atomic quad-word PROGRAM with no erase→program window.
+ * The per-boot attempt slots are programmed into the same pre-erased space. */
 static int erase_app_sectors(uint8_t bank)
 {
     flash_unlock();
@@ -219,6 +225,8 @@ static int erase_app_sectors(uint8_t bank)
             return rc;
         }
     }
+    /* Pre-erase the inactive bank's boot-state sector for the activate path. */
+    boot_state_prepare(bank_base(bank));
     return 0;
 }
 
@@ -479,6 +487,12 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * then swap banks and reset.  The pending flag ensures the bootloader
          * will roll back if the newly-activated app never calls boot_confirm().
          *
+         * Torn-write safety: the inactive bank's boot-state sector was already
+         * pre-erased during the OTA ERASE phase (erase_app_sectors() / 0xFF00),
+         * so boot_state_mark_pending() here is PROGRAM-ONLY — a single atomic
+         * H5 quad-word.  There is no erase→program window on this path: power
+         * loss either commits the full header (pending=1) or commits nothing.
+         *
          * Order matters: boot_state_mark_pending() MUST complete before
          * the swap+reset so the flag is visible on the next boot.
          * A power loss after mark_pending but before swap keeps the CURRENT
@@ -604,8 +618,12 @@ int main(void)
      * Safety properties:
      *   - Power-loss during download: inactive bank header check fails on
      *     next boot → BL-RECOVERY (existing behaviour, unchanged).
-     *   - Power-loss after erase but before boot-state program: sector reads
-     *     as all-0xFF → magic mismatch → pending=0 → JUMP (safe default).
+     *   - Torn-write safety: the activate/boot path issues only single atomic
+     *     H5 quad-word PROGRAMs (the boot-state sector is pre-erased during the
+     *     OTA ERASE phase). mark_pending either fully commits pending=1 or
+     *     nothing; a per-boot attempt slot either commits or leaves the prior
+     *     count. A power loss can therefore never erase the pending flag and
+     *     never make an unconfirmed bank look confirmed — rollback survives.
      *   - Rolled-back-to bank must not be pending: ActivateSoftware only
      *     marks the INACTIVE bank before swapping, so the prior known-good
      *     bank never has its boot-state touched.
