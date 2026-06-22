@@ -131,6 +131,14 @@ def test_full_sequence():
         # 22 F1 90 - VIN (MF Response)
         resp = client.uds_request(bytes([0x22, 0xF1, 0x90]))
         assert bytes(resp[3:]).decode() == "UDSLIB_SIM_001"
+        # Standardized identification DIDs (ISO 14229-1, issue #69)
+        assert bytes(client.uds_request(bytes([0x22, 0xF1, 0x80]))[3:]).decode() == "BOOTSW-V1.0.0"
+        assert bytes(client.uds_request(bytes([0x22, 0xF1, 0x8C]))[3:]).decode() == "ECU-SN-0001-2026"
+        assert bytes(client.uds_request(bytes([0x22, 0xF1, 0x92]))[3:]).decode() == "HW-NUM-0001"
+        # 0xF186 ActiveDiagnosticSession reflects the current (Extended 0x03) session
+        assert client.uds_request(bytes([0x22, 0xF1, 0x86])) == [0x62, 0xF1, 0x86, 0x03]
+        # 0xF18B ECU manufacturing date (BCD-packed YYYYMMDD)
+        assert client.uds_request(bytes([0x22, 0xF1, 0x8B])) == [0x62, 0xF1, 0x8B, 0x20, 0x26, 0x06, 0x21]
         # 2E 01 23 - Write Customer Name
         data_to_write = b"TEST_CLIENT_001".ljust(16, b"\x00")
         assert client.uds_request(bytes([0x2E, 0x01, 0x23]) + data_to_write) == [0x6E, 0x01, 0x23]
