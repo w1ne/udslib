@@ -695,42 +695,6 @@ void uds_process(uds_ctx_t *ctx)
     }
 }
 
-int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
-                       uds_response_cb callback)
-{
-    if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
-        return UDS_ERR_NOT_INIT;
-    }
-
-    if (len > 0 && !data) {
-        return UDS_ERR_INVALID_ARG;
-    }
-
-    if (len + 1u > ctx->config->tx_buffer_size) {
-        return UDS_ERR_BUFFER_TOO_SMALL;
-    }
-
-    if (ctx->config->fn_mutex_lock != NULL) {
-        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
-    }
-
-    ctx->client.pending_sid = sid;
-    ctx->client.cb = (void *) callback;
-
-    ctx->config->tx_buffer[0] = sid;
-    if (data && len > 0u) {
-        memcpy(&ctx->config->tx_buffer[1], data, len);
-    }
-
-    int result = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, (uint16_t) (len + 1u));
-
-    if (ctx->config->fn_mutex_unlock != NULL) {
-        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-    }
-
-    return result;
-}
-
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     uds_input_sdu_addr(ctx, data, len, UDS_ADDR_PHYSICAL);
@@ -779,26 +743,7 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
         return;
     }
 
-    /* 2. Response to our previous request? (Client Mode) */
-    if (ctx->client.pending_sid != 0u) {
-        bool is_pos = (sid == (uint8_t) ((uint16_t) ctx->client.pending_sid | UDS_RESPONSE_OFFSET));
-        bool is_neg = (sid == UDS_NRC_SERVICE_NOT_SUPP_IN_SESS && len >= 2u &&
-                       data[1] == ctx->client.pending_sid);
-        if (is_pos || is_neg) {
-            if (ctx->client.cb != NULL) {
-                uds_response_cb cb = (uds_response_cb) ctx->client.cb;
-                cb(ctx, sid, &data[1], (uint16_t) (len - 1u));
-                ctx->client.cb = NULL;
-            }
-            ctx->client.pending_sid = 0u;
-            if (ctx->config->fn_mutex_unlock != NULL) {
-                ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-            }
-            return;
-        }
-    }
-
-    /* 3. Start Timing & Dispatch */
+    /* 2. Start Timing & Dispatch */
     ctx->server.p2_timer_start = ctx->config->get_time_ms();
     ctx->server.p2_msg_pending = false;
     ctx->server.p2_star_active = false;

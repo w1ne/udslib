@@ -88,16 +88,6 @@ typedef enum
     UDS_AUTH_CONFIGURATION = 0x08,
 } uds_auth_type_t;
 
-/**
- * @brief Client Response Callback
- *
- * @param ctx   Pointer to the UDS context.
- * @param sid   Service ID of the response message.
- * @param data  Pointer to the response payload data.
- * @param len   Length of the payload data in bytes.
- */
-typedef void (*uds_response_cb)(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len);
-
 /* --- Public API --- */
 
 /**
@@ -207,19 +197,6 @@ int uds_roe_serialize(uds_ctx_t *ctx, uint8_t *buf, uint16_t max);
  *         malformed/incompatible blob.
  */
 int uds_roe_deserialize(uds_ctx_t *ctx, const uint8_t *buf, uint16_t len);
-
-/**
- * @brief Send a UDS Request as a Client.
- *
- * @param ctx      Pointer to the initialized context.
- * @param sid      The Service ID to request (e.g., 0x22).
- * @param data     Pointer to the request payload (excluding SID).
- * @param len      Length of the payload data.
- * @param callback Function to call when a response is received from the ECU.
- * @return UDS_OK if the request was successfully passed to the transport layer.
- */
-int uds_client_request(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len,
-                       uds_response_cb callback);
 
 /**
  * @brief Send a positive response manually.

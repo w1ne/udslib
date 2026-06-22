@@ -768,13 +768,6 @@ typedef struct uds_server_state
 #endif
 } uds_server_state_t;
 
-/** Client-role state: outstanding request awaiting a response (Phase 3 seam). */
-typedef struct uds_client_state
-{
-    void *cb;            /**< Callback to invoke when the awaited response arrives */
-    uint8_t pending_sid; /**< SID we sent and are awaiting a response for (0 = none) */
-} uds_client_state_t;
-
 /** Per-dispatch scratch: scoped to a single request, not persistent state. */
 typedef struct uds_dispatch_scratch
 {
@@ -798,7 +791,6 @@ typedef struct uds_ctx
     uds_session_state_t session;
     uds_security_state_t security;
     uds_server_state_t server;
-    uds_client_state_t client;
     uds_dispatch_scratch_t scratch;
 } uds_ctx_t;
 
