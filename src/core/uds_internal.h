@@ -213,7 +213,8 @@ void uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *dat
 /* New Services (0x2F, 0x35) */
 void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
                                        uds_result_t *out);
-int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                    uds_result_t *out);
 int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Reprogramming-negotiation Services (0x83, 0x87) */
