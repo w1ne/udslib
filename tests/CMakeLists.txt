@@ -91,3 +91,11 @@ target_link_options(test_tp_addressing PRIVATE -Wl,--wrap=uds_input_sdu -Wl,--wr
 
 # Regression for issue #42 part 2: functional addressing end to end.
 add_uds_test(test_issue42_functional unit/test_issue42_functional.c)
+
+# Coverage regressions (task 12.5): core paths, service error branches, and
+# ISO-TP edge cases not exercised by the per-SID/per-feature suites.
+add_uds_test(test_core_coverage unit/test_core_coverage.c)
+add_uds_test(test_service_coverage unit/test_service_coverage.c)
+add_uds_test(test_service_coverage2 unit/test_service_coverage2.c)
+add_uds_test(test_service_coverage3 unit/test_service_coverage3.c)
+add_uds_test(test_tp_isotp_coverage unit/test_tp_isotp_coverage.c)
