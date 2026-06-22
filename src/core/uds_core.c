@@ -715,9 +715,24 @@ void uds_internal_run_pending_reset(uds_ctx_t *ctx)
         return;
     }
     ctx->reset_pending = false;
-    if (ctx->config->fn_reset != NULL) {
-        ctx->config->fn_reset(ctx, ctx->reset_pending_type);
+    if (ctx->config->fn_reset == NULL) {
+        return;
     }
+
+    if (ctx->config->fn_tx_complete != NULL) {
+        uint16_t budget = (ctx->config->reset_tx_wait_ms != 0u) ? ctx->config->reset_tx_wait_ms
+                                                                : UDS_DEFAULT_RESET_TX_WAIT_MS;
+        uint32_t start = ctx->config->get_time_ms();
+        while (!ctx->config->fn_tx_complete(ctx)) {
+            if ((uint32_t) (ctx->config->get_time_ms() - start) >= (uint32_t) budget) {
+                uds_internal_log(ctx, UDS_LOG_INFO,
+                                 "reset: TX-complete wait timed out, forcing reset");
+                break;
+            }
+        }
+    }
+
+    ctx->config->fn_reset(ctx, ctx->reset_pending_type);
 }
 
 int uds_send_response(uds_ctx_t *ctx, uint16_t len)

@@ -50,6 +50,9 @@ struct uds_ctx;
 /** Informational logging */
 #define UDS_LOG_INFO 1
 
+/* Default budget (ms) to wait for fn_tx_complete before forcing the reset. */
+#define UDS_DEFAULT_RESET_TX_WAIT_MS 50u
+
 /** Debug level logging */
 #define UDS_LOG_DEBUG 2
 
@@ -102,6 +105,14 @@ typedef int (*uds_tp_send_fn)(struct uds_ctx *ctx, const uint8_t *data, uint16_t
  * @param type  The type of reset requested (uds_reset_type_t).
  */
 typedef void (*uds_reset_fn)(struct uds_ctx *ctx, uint8_t type);
+
+/* Optional. Returns true once the most recently transmitted response is
+ * physically on the wire (transport TX buffer/mailbox drained). When set,
+ * uds_internal_run_pending_reset waits for it (bounded by reset_tx_wait_ms)
+ * before invoking fn_reset, so a rebooting fn_reset cannot drop the just-sent
+ * ECUReset positive response. NULL keeps the legacy immediate-reset behaviour.
+ * get_time_ms must advance while this returns false. */
+typedef bool (*uds_tx_complete_fn)(struct uds_ctx *ctx);
 
 /**
  * @brief DID Data Access Callbacks (SID 0x22 / 0x2E)
@@ -252,6 +263,13 @@ typedef struct
      *  (0x11 sub-function 0x04) positive response, per ISO 14229-1. 0xFF means
      *  "failure / time not available". Ignored for other reset types. */
     uint8_t power_down_time;
+
+    /** Optional: returns true when the last response has left the transport.
+     *  Gates fn_reset so a rebooting reset cannot drop the response. */
+    uds_tx_complete_fn fn_tx_complete;
+    /** Max ms to wait for fn_tx_complete before forcing the reset (0 =
+     *  UDS_DEFAULT_RESET_TX_WAIT_MS). Ignored when fn_tx_complete is NULL. */
+    uint16_t reset_tx_wait_ms;
 
     /**
      * @brief Optional: Communication Control callback (SID 0x28)
