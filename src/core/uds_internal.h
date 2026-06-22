@@ -198,11 +198,16 @@ void uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data
                                              uds_result_t *out);
 
 /* Flash Services (0x31, 0x34, 0x36, 0x37) */
-int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                          uds_result_t *out);
+void uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
+void uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                               uds_result_t *out);
+void uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                               uds_result_t *out);
 
 /* Memory Services (0x23, 0x3D) */
 void uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
@@ -215,7 +220,8 @@ void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint
                                        uds_result_t *out);
 void uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
                                     uds_result_t *out);
-int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                        uds_result_t *out);
 
 /* Reprogramming-negotiation Services (0x83, 0x87) */
 void uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
