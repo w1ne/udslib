@@ -255,9 +255,29 @@ must not be treated as a confirmed labwired bug until a minimal repro pins it:
 
 ---
 
-## F-9 — High-SID (SID ≥ 0x80) value corruption — SYSTEMIC, NEEDS-CONFIRM, BLOCKS 5 SERVICES
+## F-9 — High-SID (SID ≥ 0x80) value corruption — ✅ RESOLVED (labwired LDRB.W fix)
 
-**Status:** NEEDS-CONFIRM (NOT yet attributed to emulator — no isolated minimal repro).
+**FINAL STATUS: ROOT-CAUSED AND FIXED.** It WAS an emulator bug after all, but not
+the store/ABI defect earlier hypothesised (F-1 "r2 drop", F-8 "STRB strips bit 7" —
+both wrong). The real defect: labwired decoded the **32-bit Thumb-2 `LDRB.W`/`LDRH.W`
+(wide) loads as SIGNED** — it picked the sign from `op1` bit 3 (= h1 bit 7, the
+imm12-form selector) instead of h1 bit 8 (0x0100). Any byte/halfword with the top bit
+set loaded as `0xFFFFFFxx`, and the garbage upper bits leaked into the firmware's
+comparisons/shifts, presenting as `0x85→0x05`, `0xC5→0x05`, `id != 0xFF00`, `len==0`.
+
+Found by a minimal-repro micro-test matrix (the decisive line:
+`LDRB.W 0x85 -> 0xFFFFFF85`, identical to `LDRSB.W`). Fixed in labwired-core commit
+**`3197e04e`** (`fix(cpu): wide LDRB.W/LDRH.W must zero-extend`) + regression test; full
+labwired-core suite green (1341). **One fix retired F-1, F-8, and F-9.** With the fixed
+emulator, **0x85 and 0x86 now pass cross-node** (gate 18→20/27); 0x83/0x84/0x87 (T6)
+are expected to pass on the same basis. The firmware F-1/F-8 workarounds in
+`h5_uds_tester/firmware/main.c` are now unnecessary and can be reverted as a cleanup.
+
+Original investigation notes below (kept for the record).
+
+---
+
+**Status (historical):** NEEDS-CONFIRM at time of writing.
 **Discovered:** Task 4 (DTC services), 2026-06-22.
 
 **Symptom (two independent observations, ControlDTCSetting 0x85):**
@@ -323,6 +343,27 @@ The NRC implies the ECU received **fewer than 8 bytes** (one short) or parsed
 ISO-TP works — suspect an 8-byte-PDU boundary in the tester's single-frame framing or a
 transit byte drop. **Action:** descoped (`TESTER_SKIP_38_F10`), excluded from mask.
 Needs a focused repro (dump the exact bytes/len the ECU's 0x38 handler receives).
+
+## F-11 — RoutineControl (0x31): r2 argument zeroed on a 7-argument indirect call — NEEDS-CONFIRM
+
+**Status:** NEEDS-CONFIRM. **Discovered:** Task 5 (post F-9 fix), 2026-06-22.
+
+After the F-9/LDRB.W fix, 0x85/0x86 pass but 0x31 still returns NRC `0x31`
+(requestOutOfRange). A UART diag in the ECU's `fn_routine_control` confirmed it
+receives **routine id = `0x0000`** regardless of the requested value (`R0000` for a
+request of `31 01 FF 00`). The routine id is the **3rd argument (r2)** of the
+7-argument indirect struct-pointer call
+`ctx->config->fn_routine_control(ctx, type, id, &data[4], len-4, out, max)`. It arrives
+zeroed. This is DISTINCT from F-9 (a load sign-extension): both `0xFF00` and the
+no-high-bit `0x0100` produced the same `R0000`, so it is not value-dependent.
+
+`fn_io_control` (also 7 args) is unaffected because its id is the **2nd** argument (r1)
+and it never validates its r2 (type) argument — so 0x31 is the only service that
+exercises an r2 value across a many-argument indirect call. Candidate causes: a
+stacked-/register-argument bug in the emulator's call path for ≥5-argument indirect
+calls, or a clang codegen detail for this specific call. **Needs a minimal repro**
+(an indirect call with 5–7 args, non-trivial r2/r3, printed in the callee). **Action:**
+descoped (`TESTER_SKIP_31_F11`), excluded from the mask. Gate lands at 20/27.
 
 ---
 

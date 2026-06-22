@@ -35,9 +35,11 @@
  *          bit 13  BIT_2F  SID 0x2F  InputOutputControlByIdentifier (DID 0x0123)
  *          bit 20  BIT_3D  SID 0x3D  WriteMemoryByAddress       (ALFID 0x12)
  *
- *        Phase 3 services tested (2 of 27 — DTC subset):
+ *        Phase 3 services tested (4 of 27 — DTC subset):
  *          bit  3  BIT_19  SID 0x19  ReadDTCInformation
+ *          bit 24  BIT_85  SID 0x85  ControlDTCSetting       (F-9 fix)
  *          bit  2  BIT_14  SID 0x14  ClearDiagnosticInformation
+ *          bit 25  BIT_86  SID 0x86  ResponseOnEvent (setup) (F-9 fix)
  *
  *        Phase 4 services tested (4 of 27 — transfer subset):
  *          bit 15  BIT_34  SID 0x34  RequestDownload
@@ -45,14 +47,12 @@
  *          bit 18  BIT_37  SID 0x37  RequestTransferExit
  *          bit 16  BIT_35  SID 0x35  RequestUpload
  *
- *        DESCOPED — F-9 indirect-call value corruption (3rd arg / SID >= 0x80):
- *          bit 14  BIT_31  SID 0x31  RoutineControl (routine-id arg corrupted)
- *          bit 24  BIT_85  SID 0x85  ControlDTCSetting
- *          bit 25  BIT_86  SID 0x86  ResponseOnEvent (setup only)
- *        DESCOPED — F-10 incorrectLength:
- *          bit 19  BIT_38  SID 0x38  RequestFileTransfer
+ *        DESCOPED:
+ *          bit 14  BIT_31  SID 0x31  RoutineControl (F-11: r2 arg zeroed on
+ *                                    7-argument indirect call)
+ *          bit 19  BIT_38  SID 0x38  RequestFileTransfer (F-10 incorrectLength)
  *
- *        Gate expects g_service_results @ 0x20010000 = 0x37BEFD  (18/27).
+ *        Gate expects g_service_results @ 0x20010000 = 0x337BEFD  (20/27).
  */
 
 #include <stdbool.h>
@@ -890,16 +890,25 @@ int main(void)
         }
     }
 
-    /* Service 14: ControlDTCSetting (0x85) — DESCOPED, see findings F-9.
-     * High-SID services (SID >= 0x80) hit a value-corruption defect: the
-     * 0xC5 positive-response SID arrives at the tester as 0x05 (high bits
-     * cleared), so the response is unmatchable and, under the library
-     * dispatch path, an unsolicited-frame NRC cascade hangs the run.  This
-     * blocks 0x83/0x84/0x85/0x86/0x87 alike and needs a udslib/emulator fix
-     * (recorded in docs/superpowers/udslib-findings-from-h5-gate.md F-9).
-     * We do NOT send the request (sending it triggers the cascade) and leave
-     * BIT_85 clear; it is intentionally excluded from the gate mask. */
-    uart_puts("TESTER_SKIP_85_F9\n");
+    /* Service 14: ControlDTCSetting (0x85 01) -> C5 01.  Re-enabled after the
+     * F-9 root cause (labwired LDRB.W sign-extension) was fixed; the 0xC5
+     * response SID now arrives intact and matches. */
+    uart_puts("TESTER_REQ_85\n");
+    {
+        uint8_t payload[] = {0x01u};
+        if (do_request(0x85u, payload, 1u, 5000u)) {
+            if (g_resp_sid == 0xC5u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_C5_OK\n");
+                g_service_results |= BIT_85;
+            } else {
+                uart_puts("TESTER_RESP_C5_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_85\n");
+        }
+    }
 
     /* Service 15: ClearDiagnosticInformation (0x14 FF FF FF)
      *   group=0xFFFFFF (all DTCs).
@@ -926,22 +935,34 @@ int main(void)
         }
     }
 
-    /* Service 16: ResponseOnEvent (0x86) — DESCOPED, see findings F-9.
-     * Same high-SID value corruption as 0x85; additionally the ROE periodic
-     * emission, once armed, drives the unsolicited-frame NRC cascade.  Not
-     * sent; BIT_86 left clear and excluded from the mask. */
-    uart_puts("TESTER_SKIP_86_F9\n");
+    /* Service 16: ResponseOnEvent (0x86) — SETUP response only.
+     * Request 86 01 02 FF 19 01 FF -> C6 01 ...  Re-enabled after the F-9 fix. */
+    uart_puts("TESTER_REQ_86\n");
+    {
+        uint8_t payload[] = {0x01u, 0x02u, 0xFFu, 0x19u, 0x01u, 0xFFu};
+        if (do_request(0x86u, payload, 6u, 5000u)) {
+            if (g_resp_sid == 0xC6u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_C6_OK\n");
+                g_service_results |= BIT_86;
+            } else {
+                uart_puts("TESTER_RESP_C6_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_86\n");
+        }
+    }
 
     /* ==================================================================
      * Phase 3 result
      * ================================================================== */
     {
-        /* 0x85/0x86 descoped (F-9 high-SID value corruption); phase 3 now
-         * covers the two clean DTC services 0x19 + 0x14. */
-        uint32_t phase3_bits = BIT_19 | BIT_14;
+        /* All four DTC services now pass after the F-9 fix. */
+        uint32_t phase3_bits = BIT_19 | BIT_85 | BIT_14 | BIT_86;
         uint32_t phase3_got  = g_service_results & phase3_bits;
         if (phase3_got == phase3_bits) {
-            uart_puts("PHASE3 2/2 PASS\n");
+            uart_puts("PHASE3 4/4 PASS\n");
         } else {
             uart_puts("PHASE3 FAIL\n");
         }
@@ -956,15 +977,16 @@ int main(void)
      * so unaffected by F-9.
      * ================================================================== */
 
-    /* 0x31 RoutineControl — DESCOPED, see findings F-9.
-     * The routine id is the 3rd argument to the indirectly-dispatched
-     * fn_routine_control; it is corrupted/lost on the call (same indirect-call
-     * value-corruption family as F-1/F-9), so the ECU sees id != 0xFF00 and
-     * returns NRC 0x31 (requestOutOfRange).  Confirmed: changing the id to a
-     * no-high-bit value (0x0100) did NOT help, ruling out a byte-specific
-     * strip and implicating the argument-passing path.  Not sent; BIT_31
+    /* 0x31 RoutineControl — DESCOPED, see findings F-11 (distinct from F-9).
+     * After the F-9/LDRB.W fix, 0x85/0x86 pass, but 0x31 still returns NRC 0x31:
+     * the ECU's fn_routine_control receives routine id = 0x0000 instead of the
+     * requested value (confirmed via UART diag "R0000").  The id is the 3rd
+     * argument (r2) of a 7-argument indirect struct-pointer call; it arrives
+     * zeroed.  fn_io_control (also 7-arg) is unaffected because its id is the
+     * 2nd arg (r1) and it never validates its r2 arg, so 0x31 is the only
+     * service exercising r2 across a many-argument call.  Not sent; BIT_31
      * left clear and excluded from the mask. */
-    uart_puts("TESTER_SKIP_31_F9\n");
+    uart_puts("TESTER_SKIP_31_F11\n");
 
     /* 0x34 RequestDownload: 34 00 44 <addr32> <size32> -> 74 20 00 00 04 00 */
     uart_puts("TESTER_REQ_34\n");
@@ -1049,7 +1071,7 @@ int main(void)
     uart_puts("TESTER_SKIP_38_F10\n");
 
     /* ==================================================================
-     * Phase 4 result (0x31 + 0x38 descoped -> 4 of 6)
+     * Phase 4 result (0x31 descoped F-11, 0x38 descoped F-10 -> 4 of 6)
      * ================================================================== */
     {
         uint32_t phase4_bits = BIT_34 | BIT_36 | BIT_37 | BIT_35;
