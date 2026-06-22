@@ -25,10 +25,19 @@ request crossed the bus *and* the ECU's real response came back and matched.
 UDSLIB_DIR=$PWD make -C examples/h5_uds_ecu_full/firmware
 UDSLIB_DIR=$PWD make -C examples/h5_uds_tester/firmware
 
-# 2. Run the gate headless (exit 0 == all 27 services passed):
+# 2. Provide the chip descriptor. Each system.yaml references "stm32h563.yaml"
+#    relatively; copy it from your labwired-core checkout (it ships there).
+#    (.gitignored — not committed.)
+cp "$LABWIRED_CORE/configs/chips/stm32h563.yaml" examples/h5_uds_tester/
+cp "$LABWIRED_CORE/configs/chips/stm32h563.yaml" examples/h5_uds_ecu_full/
+
+# 3. Run the gate headless (exit 0 == all 27 services passed):
 labwired test --script examples/h5_uds_tester/allservices-gate.yaml
 echo "exit=$?"
 ```
+
+The nightly workflow does steps 1–3 automatically (it clones labwired-core and
+copies the chip in).
 
 The tester also prints a UART summary `SERVICES 27/27 PASS`.
 
