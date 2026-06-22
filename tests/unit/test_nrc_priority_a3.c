@@ -12,7 +12,7 @@
  *   1. Service lookup (line 309): unknown SID -> 0x11 (or silent if functional)
  *   2. Addressing gate (line 319): wrong addr-mode -> silent/0x11
  *   3. Session (line 329): wrong session -> 0x7F
- *   4a. Sub-function length guard (line 341): sub-service but len<2 -> 0x13
+ *   4a. Sub-function length guard (line 340): sub-service but len<2 -> 0x13
  *   4b. Sub-function validity (line 346): known-length but bad sub -> 0x12
  *   5. Min-length (line 353): request too short -> 0x13
  *   6. Security (line 359): security_mask not met -> 0x33
@@ -106,17 +106,17 @@ static void test_nrc_session_beats_length(void **state)
 /* ------------------------------------------------------------------ */
 /* NRC priority item 1(b): bad-sub AND wrong-length (len < 2)          */
 /* Length (0x13) beats subfunction (0x12) ONLY when len < 2            */
-/* Winning condition: handle_request line ~341 (len<2 guard before sub check) */
+/* Winning condition: handle_request line ~340 (len<2 guard before sub check) */
 /* ------------------------------------------------------------------ */
 static void test_nrc_length_beats_sub_when_len_lt2(void **state)
 {
     (void) state;
     /* k_svc_multi: has sub_mask, min_len=4, session=ext|prog, security=1.
      * In extended session (0x03), locked security. Send 1-byte request (SID only):
-     * - sub gate fires: len < 2 -> 0x13 (line 341, BEFORE subfunction check at 346)
+     * - sub gate fires: len < 2 -> 0x13 (line 340, BEFORE subfunction check at 346)
      * - session passes (extended), subfunction would be 0x12, min-len would be 0x13,
      *   security would be 0x33.
-     * The sub-length guard (line 341) runs first -> 0x13 wins. */
+     * The sub-length guard (line 340) runs first -> 0x13 wins. */
     uint8_t req[] = {0xC0u}; /* only SID byte; len=1 < 2 */
     /* 0x03 = UDS_SESSION_ID_EXTENDED */
     send_and_expect_nrc(k_svc_multi, 1u, 0x03u, 0u, req, sizeof(req), 0x13u, 0xC0u);
@@ -132,7 +132,7 @@ static void test_nrc_sub_beats_length_when_len_ge2(void **state)
     (void) state;
     /* k_svc_multi: min_len=4, sub_mask only allows sub=0x01.
      * Extended session (0x03), locked security. Send 2 bytes with bad subfunction 0x02:
-     * - len=2 >= 2 so sub-length guard at 341 does NOT fire.
+     * - len=2 >= 2 so sub-length guard at 340 does NOT fire.
      * - Subfunction 0x02 not in mask -> 0x12 (line 346), before min-len (line 353) */
     uint8_t req[] = {0xC0u, 0x02u}; /* bad sub=0x02, len=2 < min_len=4 */
     send_and_expect_nrc(k_svc_multi, 1u, 0x03u, 0u, req, sizeof(req), 0x12u, 0xC0u);
@@ -336,6 +336,8 @@ static void test_36_sequence_wrap_mismatch(void **state)
     expect_value(mock_tp_send, len, 3u); /* 7F 36 24 */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, req, sizeof(req));
+    assert_int_equal(g_tx_buf[0], 0x7Fu);
+    assert_int_equal(g_tx_buf[1], 0x36u);
     assert_int_equal(g_tx_buf[2], 0x24u);
 }
 
@@ -433,6 +435,13 @@ static void test_84_inner_pending_yields_secured_nrc78(void **state)
     assert_int_equal(g_tx_buf[3], (uint8_t) (0x7Fu ^ 0xAAu)); /* D5 */
     assert_int_equal(g_tx_buf[4], (uint8_t) (0xD0u ^ 0xAAu)); /* 7A */
     assert_int_equal(g_tx_buf[5], (uint8_t) (0x78u ^ 0xAAu)); /* D2 */
+
+    /* Safety invariant: the inner-PENDING state set on the inner dispatch
+     * (execute_handler line ~261) MUST be cleared by uds_emit_response on the
+     * outer positive path. If a future change broke that cleanup, p2_msg_pending
+     * would leak into the next request (the #80 bug class). Lock it. */
+    assert_false(ctx.p2_msg_pending);
+    assert_int_equal(ctx.server_pending_sid, 0u);
 }
 
 /* ------------------------------------------------------------------ */
