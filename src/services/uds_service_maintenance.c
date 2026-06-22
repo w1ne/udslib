@@ -40,7 +40,15 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
     else {
         ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
         ctx->config->tx_buffer[1] = sub;
-        rc = uds_send_response(ctx, 2u);
+        /* ISO 14229-1: the enableRapidPowerShutDown (0x04) positive response
+         * carries an additional powerDownTime byte; all other reset types
+         * respond with SID + resetType only. */
+        uint16_t resp_len = 2u;
+        if (sub == (uint8_t) UDS_RESET_ENABLE_RAPID_SHUTDOWN) {
+            ctx->config->tx_buffer[2] = ctx->config->power_down_time;
+            resp_len = 3u;
+        }
+        rc = uds_send_response(ctx, resp_len);
     }
 
     /* Perform the reset only after the response has been handed to transport. */

@@ -41,9 +41,11 @@ extern "C" {
  */
 typedef enum
 {
-    UDS_RESET_HARD = 0x01,       /**< Power cycle reset */
-    UDS_RESET_SOFT = 0x02,       /**< Software-driven reset */
-    UDS_RESET_KEY_OFF_ON = 0x03, /**< Simulated key cycle */
+    UDS_RESET_HARD = 0x01,                   /**< Power cycle reset */
+    UDS_RESET_SOFT = 0x02,                   /**< Software-driven reset */
+    UDS_RESET_KEY_OFF_ON = 0x03,             /**< Simulated key cycle */
+    UDS_RESET_ENABLE_RAPID_SHUTDOWN = 0x04,  /**< Arm rapid power shutdown */
+    UDS_RESET_DISABLE_RAPID_SHUTDOWN = 0x05, /**< Disarm rapid power shutdown */
 } uds_reset_type_t;
 
 /**
