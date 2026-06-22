@@ -320,10 +320,58 @@ static void test_ecu_reset_secured_defers_until_outer_response(void **state)
     assert_true(g_send_order < g_reset_order);
 }
 
+/* Regression for issue #88: a synchronous reset that never returns.
+ * On real hardware fn_reset (e.g. NVIC_SystemReset) reboots and never comes
+ * back. Modelled here with longjmp out of the callback. The 0x51 positive
+ * response to 0x11 0x01 MUST already be on the wire by then — on the pre-fix
+ * code fn_reset ran first, so the tester saw no answer at all (#88), and only
+ * the suppressed variant (0x11 0x81) appeared to "work". */
+static jmp_buf g_reboot_env;
+static int g_rebooted;
+
+static void reboot_reset_cb(uds_ctx_t *ctx, uint8_t type)
+{
+    (void) ctx;
+    (void) type;
+    g_rebooted = 1;
+    longjmp(g_reboot_env, 1); /* models a reset that never returns */
+}
+
+static void test_ecu_reset_88_reboot_response_on_wire(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = order_tp_send; /* records into g_tx_buf + g_send_order */
+    cfg.fn_reset = reboot_reset_cb;
+    g_order_seq = 0;
+    g_send_order = 0;
+    g_rebooted = 0;
+    memset(g_tx_buf, 0, sizeof(g_tx_buf));
+
+    uint8_t request[] = {0x11, 0x01};
+
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+
+    if (setjmp(g_reboot_env) == 0) {
+        uds_input_sdu(&ctx, request, sizeof(request));
+    }
+
+    /* The reset fired (so we reached it)... */
+    assert_int_equal(g_rebooted, 1);
+    /* ...and the 0x51 01 response was already handed to the transport. */
+    assert_int_not_equal(g_send_order, 0);
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_tx_buf[1], 0x01);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_ecu_reset_response_sent_before_reset),
+        cmocka_unit_test(test_ecu_reset_88_reboot_response_on_wire),
         cmocka_unit_test(test_ecu_reset_hard_success),
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
