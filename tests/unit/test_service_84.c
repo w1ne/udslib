@@ -177,6 +177,45 @@ static void test_secured_bad_mac(void **state)
     assert_int_equal(g_tx_buf[2], 0x33);
 }
 
+/* Inner service that fills tx_buffer with 257 bytes — larger than UDS_SECURE_SCRATCH (256). */
+static void mock_large_response_svc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                    uds_result_t *out)
+{
+    (void) data;
+    (void) len;
+    memset(ctx->config->tx_buffer, 0xABu, 257u);
+    uds_ok(out, 257u);
+}
+
+static const uds_service_entry_t k_large_svc[] = {
+    {0xBBu, 1u, UDS_SESSION_SECURED, 0u, mock_large_response_svc, NULL, 0u},
+};
+
+static void test_secured_inner_response_too_long(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.user_services = k_large_svc;
+    cfg.user_service_count = 1u;
+    cfg.fn_secure_decode = xor_decode;
+    cfg.fn_secure_encode = xor_encode;
+
+    /* inner = {0xBB, 0x01}; secured payload = inner ^ 0xFF = {0x44, 0xFE}. */
+    uint8_t req[] = {0x84, 0x12, 0x34, 0x44, 0xFE};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 84 14 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 5);
+
+    assert_int_equal(g_tx_buf[0], 0x7F);
+    assert_int_equal(g_tx_buf[1], 0x84);
+    assert_int_equal(g_tx_buf[2], 0x14); /* responseTooLong */
+}
+
 /* Regression: 0x84 wrapping an inner request with suppressPosRsp set must emit
  * NOTHING — not even a zero-length frame.  Any call to mock_tp_send will fail
  * the test because no expect_*() is registered for it. */
@@ -207,6 +246,7 @@ int main(void)
         cmocka_unit_test(test_secured_recursion_rejected),
         cmocka_unit_test(test_secured_bad_mac),
         cmocka_unit_test(test_secured_inner_suppressed_emits_nothing),
+        cmocka_unit_test(test_secured_inner_response_too_long),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

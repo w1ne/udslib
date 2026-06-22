@@ -422,6 +422,7 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     ctx->secure_capture_buf = captured;
     ctx->secure_capture_size = (uint16_t) sizeof(captured);
     ctx->secure_capture_len = 0u;
+    ctx->secure_capture_overflow = false;
 
     uint8_t saved_addr_mode = ctx->req_addr_mode;
     ctx->req_addr_mode = (uint8_t) UDS_ADDR_PHYSICAL;
@@ -432,9 +433,17 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
     ctx->secure_capturing = false;
 
     /* Drop the reference to the (stack) capture buffer before it goes away. */
+    bool overflow = ctx->secure_capture_overflow;
     uint16_t captured_len = ctx->secure_capture_len;
     ctx->secure_capture_buf = NULL;
     ctx->secure_capture_size = 0u;
+    ctx->secure_capture_overflow = false;
+
+    /* Inner response overflowed the scratch buffer -> cannot encode safely. */
+    if (overflow) {
+        uds_nrc(out, UDS_NRC_RESPONSE_TOO_LONG);
+        return;
+    }
 
     /* Inner response suppressed -> nothing to secure or send. */
     if (captured_len == 0u) {
@@ -742,9 +751,13 @@ int uds_emit_response(uds_ctx_t *ctx, uint16_t len)
     ctx->server_pending_sid = 0u;
 
     if (ctx->secure_capturing) {
-        uint16_t n = (len <= ctx->secure_capture_size) ? len : ctx->secure_capture_size;
-        memcpy(ctx->secure_capture_buf, ctx->config->tx_buffer, n);
-        ctx->secure_capture_len = n;
+        if (len > ctx->secure_capture_size) {
+            ctx->secure_capture_overflow = true;
+            ctx->rcrrp_count = 0u;
+            return UDS_OK;
+        }
+        memcpy(ctx->secure_capture_buf, ctx->config->tx_buffer, len);
+        ctx->secure_capture_len = len;
         ctx->rcrrp_count = 0u;
         return UDS_OK;
     }

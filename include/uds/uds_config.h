@@ -792,6 +792,9 @@ typedef struct uds_ctx
     uint8_t *secure_capture_buf;
     uint16_t secure_capture_size; /**< Capacity of secure_capture_buf. */
     uint16_t secure_capture_len;  /**< Bytes captured for the inner response. */
+    /** Set when the inner response exceeds secure_capture_size; causes the outer
+     *  0x84 handler to emit NRC responseTooLong (0x14) instead of a truncated frame. */
+    bool secure_capture_overflow;
 } uds_ctx_t;
 
 #ifdef __cplusplus
