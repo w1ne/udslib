@@ -62,6 +62,7 @@
 #include <stdint.h>
 
 #include "uds/uds_core.h"
+#include "uds/uds_client.h"
 #include "uds/uds_isotp.h"
 #include "service_bits.h"
 
@@ -335,9 +336,9 @@ static volatile uint16_t g_resp_len;
  * data — payload AFTER the SID byte (as delivered by uds_input_sdu_addr)
  * len  — payload length
  */
-static void on_response(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
+static void on_response(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, uint16_t len)
 {
-    (void) ctx;
+    (void) c;
     uart_putc('{');
     uart_puthex8(sid); /* DIAG: on_response entered */
     if (data == NULL) {
@@ -360,7 +361,18 @@ static void on_response(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16
 
 /* ---- pump loop ---- */
 
-static uds_ctx_t g_ctx;
+static uds_ctx_t g_ctx;           /* holds the transport config for ISO-TP reassembly */
+static uds_client_ctx_t g_client; /* client role: pending request + callback */
+
+/* ISO-TP delivers a reassembled response SDU here; route it to the client. */
+static void on_sdu_to_client(void *cookie, const uint8_t *sdu, uint16_t len, uint8_t addr)
+{
+    (void) addr;
+    if (len == 0u) {
+        return;
+    }
+    (void) uds_client_handle_response((uds_client_ctx_t *) cookie, sdu[0], sdu, len);
+}
 
 /*
  * Run the ISO-TP/UDS pump for up to max_ticks virtual ms.
@@ -426,7 +438,7 @@ static bool do_request(uint8_t sid, const uint8_t *payload, uint16_t payload_len
     g_resp_sid = 0u;
     g_resp_len = 0u;
 
-    int rc = uds_client_request(&g_ctx, sid, payload, payload_len, on_response);
+    int rc = uds_client_request(&g_client, sid, payload, payload_len, on_response);
     if (rc != 0) {
         uart_puts("CLIENT_REQ_FAIL\n");
         return false;
@@ -466,6 +478,12 @@ int main(void)
         for (;;) {
         }
     }
+
+    /* Client role shares the transport config; ISO-TP routes responses to it. */
+    g_client.config = &cfg;
+    g_client.pending_sid = 0u;
+    g_client.cb = NULL;
+    uds_isotp_set_sdu_handler(&g_iso, on_sdu_to_client, &g_client);
 
     /* Give ECU time to start up: run pump for 20 virtual ms before first request */
     for (uint32_t i = 0u; i < 20u; ++i) {

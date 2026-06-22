@@ -29,6 +29,18 @@ API**, not the wire behaviour.
   directly. The per-dispatch `scratch` is reset at the start of every top-level
   request, so no per-request flag can leak into the next.
 
+- **Client role moved to `uds_client_ctx_t`** (`uds/uds_client.h`): the server
+  `uds_ctx_t` no longer carries client state or auto-routes responses.
+  `uds_client_request` takes a `uds_client_ctx_t*`; feed incoming responses to
+  `uds_client_handle_response` (returns true if consumed). `uds_response_cb`'s
+  first argument is now `uds_client_ctx_t*`.
+
+### Added
+- **ISO-TP generic SDU sink** `uds_isotp_set_sdu_handler(iso, fn, cookie)`:
+  reassembled SDUs are delivered to a custom handler instead of the server
+  `uds_input_sdu`, so one ISO-TP channel can feed a UDS server or a UDS client.
+  Default (no handler) preserves server delivery.
+
 ### Changed
 - A handler that returns without describing a result now fails closed
   (generalReject 0x10) instead of emitting whatever is in `tx_buffer`.
