@@ -388,8 +388,9 @@ static void test_36_sequence_wrap_ff_to_00(void **state)
 }
 
 /* ------------------------------------------------------------------ */
-/* 0x36: wrap-around wrong block -> NRC 0x24                           */
-/* After flash_sequence=0xFF, expected is 0x00; send 0x01 -> 0x24.    */
+/* 0x36: armed transfer, wrap-around wrong block -> NRC 0x73           */
+/* After flash_sequence=0xFF the expected counter is 0x00; sending 0x01 */
+/* with transfer_active is wrongBlockSequenceCounter (0x73).           */
 /* ------------------------------------------------------------------ */
 static void test_36_sequence_wrap_mismatch(void **state)
 {

@@ -127,9 +127,52 @@ static void test_client_second_response_after_done_not_consumed(void **state)
     assert_int_equal(g_cb_calls, 1);
 }
 
+static void test_client_request_not_init(void **state)
+{
+    (void) state;
+    uds_client_ctx_t c;
+    uds_config_t cfg;
+    uint8_t tx[32];
+    make_client(&c, &cfg, tx, sizeof(tx));
+
+    uint8_t payload[] = {0x01};
+    /* NULL client, and a client whose config has no tx_buffer, both reject. */
+    assert_int_equal(uds_client_request(NULL, 0x10, payload, 1u, NULL), UDS_ERR_NOT_INIT);
+    cfg.tx_buffer = NULL;
+    assert_int_equal(uds_client_request(&c, 0x10, payload, 1u, NULL), UDS_ERR_NOT_INIT);
+}
+
+static void test_client_request_invalid_arg(void **state)
+{
+    (void) state;
+    uds_client_ctx_t c;
+    uds_config_t cfg;
+    uint8_t tx[32];
+    make_client(&c, &cfg, tx, sizeof(tx));
+
+    /* len > 0 but data == NULL is invalid. */
+    assert_int_equal(uds_client_request(&c, 0x10, NULL, 4u, NULL), UDS_ERR_INVALID_ARG);
+}
+
+static void test_client_request_buffer_too_small(void **state)
+{
+    (void) state;
+    uds_client_ctx_t c;
+    uds_config_t cfg;
+    uint8_t tx[4];
+    make_client(&c, &cfg, tx, sizeof(tx));
+
+    /* SID + 4 bytes = 5 > tx_buffer_size (4). */
+    uint8_t payload[] = {0x01, 0x02, 0x03, 0x04};
+    assert_int_equal(uds_client_request(&c, 0x22, payload, 4u, NULL), UDS_ERR_BUFFER_TOO_SMALL);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_client_request_not_init),
+        cmocka_unit_test(test_client_request_invalid_arg),
+        cmocka_unit_test(test_client_request_buffer_too_small),
         cmocka_unit_test(test_client_request_frames_and_sends),
         cmocka_unit_test(test_client_positive_response_fires_cb),
         cmocka_unit_test(test_client_nrc_response_fires_cb),
