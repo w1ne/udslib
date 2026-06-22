@@ -169,11 +169,15 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
 void uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
                                         uds_result_t *out);
 
-/* Data Services (0x22, 0x24, 0x2E) */
-int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+/* Data Services (0x22, 0x24, 0x2A, 0x2C, 0x2E) */
+void uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
+void uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                     uds_result_t *out);
+void uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                          uds_result_t *out);
 
 /* Security Services (0x27, 0x29) */
 int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
@@ -202,8 +206,9 @@ int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *dat
 int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
-/* New Services (0x2A, 0x2F, 0x35) */
-int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+/* New Services (0x2F, 0x35) */
+void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
 int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
