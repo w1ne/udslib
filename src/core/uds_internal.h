@@ -217,7 +217,8 @@ int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t
 int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Reprogramming-negotiation Services (0x83, 0x87) */
-int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
 
 /* Secured Data Transmission (0x84) */
 int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
@@ -231,6 +232,7 @@ void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now);
  * (and the 0x84 secured path uses the same capture machinery). */
 int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
                                    uint8_t *out, uint16_t out_size);
-int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
 
 #endif /* UDS_INTERNAL_H */
