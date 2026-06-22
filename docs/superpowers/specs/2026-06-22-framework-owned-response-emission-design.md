@@ -40,9 +40,14 @@ fixed here:
 
 1. `after_action` enum was a junk drawer → **removed**, replaced by a single
    `bool reset_pending`.
-2. `UDS_RESULT_NONE` was a "respond with nothing" footgun → **removed** (audit
-   confirmed no handler has a genuine no-response path; every such case is a
-   suppress early-return, now handled centrally as POSITIVE+suppress).
+2. `UDS_RESULT_NONE` was a "respond with nothing" footgun → **retained for exactly
+   one sanctioned use**: the 0x84 `uds_internal_handle_secured_data` path where
+   the inner response was suppressed (`captured_len == 0`). That path is a genuine
+   no-response case (the original code did `return UDS_OK` emitting nothing; the
+   refactor must preserve that behaviour). `execute_handler` treats `UDS_RESULT_NONE`
+   as a no-op (`case UDS_RESULT_NONE: break`), which is byte-identical to the
+   original. Every other suppress early-return is handled centrally as
+   POSITIVE+suppress; `UDS_RESULT_NONE` is not a general escape hatch.
 3. By-value struct return invited MISRA/ABI debate → **out-parameter** instead.
 4. The atomic mega-PR's "byte-identical" claim rested on a test suite with a
    known suppress-path gap → **a prerequisite test-coverage step** closes the
@@ -90,7 +95,8 @@ static inline void uds_nrc(uds_result_t *out, uint8_t nrc);  /* NRC      */
 static inline void uds_pending(uds_result_t *out);           /* PENDING  */
 ```
 
-There are exactly three kinds. No NONE, no after-action.
+There are four kinds: POSITIVE, NRC, PENDING, and NONE. NONE is sanctioned only
+for the 0x84 suppressed-inner path; no other handler may use it.
 
 ### Post-emit side effects
 

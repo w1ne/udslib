@@ -181,7 +181,9 @@ typedef enum
 {
     UDS_RESULT_POSITIVE, /**< tx_buffer[0..len-1] holds the positive response */
     UDS_RESULT_NRC,      /**< emit negative response with .nrc                */
-    UDS_RESULT_PENDING   /**< async: framework emits 0x78 and tracks P2*      */
+    UDS_RESULT_PENDING,  /**< async: framework emits 0x78 and tracks P2*      */
+    UDS_RESULT_NONE /**< emit no response at all (e.g. 0x84 when the inner response was suppressed)
+                     */
 } uds_result_kind_t;
 
 typedef struct
@@ -204,6 +206,10 @@ static inline void uds_nrc(uds_result_t *out, uint8_t nrc)
 static inline void uds_pending(uds_result_t *out)
 {
     out->kind = UDS_RESULT_PENDING;
+}
+static inline void uds_none(uds_result_t *out)
+{
+    out->kind = UDS_RESULT_NONE;
 }
 
 /**

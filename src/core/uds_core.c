@@ -270,6 +270,8 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
             case UDS_RESULT_NRC:
                 uds_send_nrc(ctx, data[0], r.nrc); /* NRC never suppressed (ISO) */
                 break;
+            case UDS_RESULT_NONE:
+                break; /* emit nothing — e.g. 0x84 when inner response was suppressed */
             case UDS_RESULT_POSITIVE:
             default:
                 if (ctx->suppress_pos_resp) {
@@ -453,7 +455,7 @@ void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint1
 
     /* Inner response suppressed -> nothing to secure or send. */
     if (captured_len == 0u) {
-        uds_ok(out, 0u);
+        uds_none(out);
         return;
     }
 

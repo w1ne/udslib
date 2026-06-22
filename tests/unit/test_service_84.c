@@ -177,6 +177,27 @@ static void test_secured_bad_mac(void **state)
     assert_int_equal(g_tx_buf[2], 0x33);
 }
 
+/* Regression: 0x84 wrapping an inner request with suppressPosRsp set must emit
+ * NOTHING — not even a zero-length frame.  Any call to mock_tp_send will fail
+ * the test because no expect_*() is registered for it. */
+static void test_secured_inner_suppressed_emits_nothing(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_secure_decode = xor_decode;
+    cfg.fn_secure_encode = xor_encode;
+
+    /* Inner = {0x3E, 0x80} (TesterPresent with suppressPosRsp bit set).
+     * Secured payload = inner ^ 0xFF = {0xC1, 0x7F}. */
+    uint8_t req[] = {0x84, 0x12, 0x34, 0xC1, 0x7F};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    /* No expect_*() for mock_tp_send: any outer send is a test failure. */
+
+    uds_input_sdu(&ctx, req, 5);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -185,6 +206,7 @@ int main(void)
         cmocka_unit_test(test_secured_no_hook),
         cmocka_unit_test(test_secured_recursion_rejected),
         cmocka_unit_test(test_secured_bad_mac),
+        cmocka_unit_test(test_secured_inner_suppressed_emits_nothing),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
