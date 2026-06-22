@@ -81,31 +81,56 @@ static uint8_t dlc_to_len(uint8_t dlc)
 
 static void write_payload(uint32_t payload_addr, const uint8_t *data, uint8_t len)
 {
-    for (uint32_t i = 0; i < 16u; ++i) {
-        REG32(payload_addr + i * 4u) = 0u;
+    /* Write 16 zero words to clear the element (up to 64-byte CAN-FD payload). */
+    volatile uint32_t *wp = (volatile uint32_t *)(uintptr_t)payload_addr;
+    for (uint32_t i = 0u; i < 16u; ++i) {
+        wp[i] = 0u;
     }
-    for (uint8_t i = 0; i < len; ++i) {
-        uint32_t addr  = payload_addr + ((uint32_t) i / 4u) * 4u;
-        uint32_t shift = ((uint32_t) i % 4u) * 8u;
-        REG32(addr)    = REG32(addr) | ((uint32_t) data[i] << shift);
+    /* Pack payload bytes into 32-bit words (little-endian: byte 0 in LSB). */
+    uint8_t nwords = (uint8_t)((len + 3u) >> 2u);
+    for (uint8_t w = 0u; w < nwords; ++w) {
+        uint8_t base = (uint8_t)(w * 4u);
+        uint32_t word = (uint32_t)data[base];
+        if ((uint8_t)(base + 1u) < len) { word |= (uint32_t)data[base + 1u] << 8u; }
+        if ((uint8_t)(base + 2u) < len) { word |= (uint32_t)data[base + 2u] << 16u; }
+        if ((uint8_t)(base + 3u) < len) { word |= (uint32_t)data[base + 3u] << 24u; }
+        wp[w] = word;
     }
 }
 
 static void read_payload(uint32_t payload_addr, uint8_t *data, uint8_t len)
 {
-    for (uint8_t i = 0; i < len; ++i) {
-        uint32_t word = REG32(payload_addr + ((uint32_t) i / 4u) * 4u);
-        data[i] = (uint8_t)((word >> (((uint32_t) i % 4u) * 8u)) & 0xFFu);
+    const volatile uint32_t *rp = (const volatile uint32_t *)(uintptr_t)payload_addr;
+    uint8_t nwords = (uint8_t)((len + 3u) >> 2u);
+    for (uint8_t w = 0u; w < nwords; ++w) {
+        uint32_t word = rp[w];
+        uint8_t base  = (uint8_t)(w * 4u);
+        data[base] = (uint8_t)(word & 0xFFu);
+        if ((uint8_t)(base + 1u) < len) { data[base + 1u] = (uint8_t)((word >> 8u) & 0xFFu); }
+        if ((uint8_t)(base + 2u) < len) { data[base + 2u] = (uint8_t)((word >> 16u) & 0xFFu); }
+        if ((uint8_t)(base + 3u) < len) { data[base + 3u] = (uint8_t)((word >> 24u) & 0xFFu); }
     }
 }
 
 void fdcan_start(void)
 {
+#ifdef SIM_OTA_TESTER
+    /* Internal loopback: CCCR.TEST enables the TEST register; TEST.LBCK
+     * routes TX back into RXF0 so the tester and server share one FIFO. */
+#define CCCR_TEST (1u << 7)
+#define TEST_LBCK  (1u << 4)
+    REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE | CCCR_TEST;
+    REG32(fdcan_reg(FDCAN_REG_TEST)) = TEST_LBCK;
+    REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_TEST; /* clear INIT, keep TEST */
+    while ((REG32(fdcan_reg(FDCAN_REG_CCCR)) & CCCR_INIT) != 0u) {
+    }
+#else
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE;
     REG32(fdcan_reg(FDCAN_REG_TEST)) = 0u;
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = 0u;
     while ((REG32(fdcan_reg(FDCAN_REG_CCCR)) & CCCR_INIT) != 0u) {
     }
+#endif
 }
 
 int fdcan_send_frame(uint32_t id, const uint8_t *data, uint8_t len, bool fd)

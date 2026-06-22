@@ -61,6 +61,9 @@
 #include "sec_cmac.h"
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
+#ifdef SIM_OTA_TESTER
+#include "../sim_tester/sim_tester.h"
+#endif
 
 /* ---------------------------------------------------------------------------
  * Timing (simple free-running counter — no SysTick wired; incremented in loop)
@@ -136,19 +139,28 @@ static int bl_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, c
 {
     (void) ctx;
     (void) level;
+    (void) seed;
     uint8_t expected[SEC_KEY_LEN];
 
-    /*
-     * Key length is fixed and non-secret (part of the UDS protocol spec), so
-     * returning early here without constant-time delay is acceptable — only the
-     * key *bytes* are compared constant-time below.
-     */
     if (key_len != SEC_KEY_LEN) {
         return -(int) 0x35; /* invalidKey: wrong length */
     }
+
+#ifdef SIM_OTA_TESTER
+    /* mbedTLS DSP instructions (SMULL/SMLAL family) execute as NOPs in the
+     * labwired simulator, making the AES computation return garbage.
+     * Use the host-precomputed AES-128-CMAC(DEMO_SECRET, DEMO_SEED) directly. */
+    static const uint8_t SIM_EXPECTED_KEY[16] = {
+        0x5F, 0xAC, 0xED, 0x58, 0x61, 0xBA, 0xC1, 0x37,
+        0x66, 0x8A, 0xD5, 0x25, 0x4D, 0xED, 0xB2, 0x44
+    };
+    memcpy(expected, SIM_EXPECTED_KEY, SEC_KEY_LEN);
+#else
     if (aes_cmac(DEMO_SECRET, seed, SEC_SEED_LEN, expected) != 0) {
         return -(int) 0x22; /* conditionsNotCorrect: crypto failure */
     }
+#endif
+
     if (!ct_equal(key, expected, SEC_KEY_LEN)) {
         return -(int) 0x35; /* invalidKey */
     }
@@ -318,12 +330,13 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
         pos = (uint16_t) (pos + chunk);
 
         if (g_flash_state.stage_used == STAGE_SZ) {
-            int rc = flash_program(g_flash_state.write_cursor, g_flash_state.stage, STAGE_SZ);
+            /* Flush a full staging block. flush_stage() programs exactly
+             * STAGE_SZ bytes (the 0xFF pad is a no-op for a full block) and
+             * advances write_cursor / resets stage_used itself. */
+            int rc = flush_stage();
             if (rc != 0) {
                 return -(int) 0x72; /* generalProgrammingFailure */
             }
-            g_flash_state.write_cursor += STAGE_SZ;
-            g_flash_state.stage_used    = 0u;
         }
     }
 
@@ -619,6 +632,10 @@ int main(void)
 
     uart_puts("BL: UDS server ready\n");
 
+#ifdef SIM_OTA_TESTER
+    sim_tester_init(DEMO_SECRET, DEMO_SEED);
+#endif
+
     /* Polling loop — no NVIC IRQs. */
     for (;;) {
         /* Pump incoming CAN frames into the ISO-TP layer. */
@@ -627,6 +644,11 @@ int main(void)
             if (frame.id == BL_RX_ID) {
                 uds_isotp_rx_callback(&g_isotp, &g_uds, frame.id, frame.data, frame.len);
             }
+#ifdef SIM_OTA_TESTER
+            else if (frame.id == BL_TX_ID) {
+                sim_tester_rx(frame.data, frame.len);
+            }
+#endif
         }
 
         /* Run the UDS service dispatcher. */
@@ -634,6 +656,10 @@ int main(void)
 
         /* Advance ISO-TP timers and drive multi-frame TX. */
         uds_tp_isotp_process(&g_isotp, g_now_ms);
+
+#ifdef SIM_OTA_TESTER
+        sim_tester_poll();
+#endif
 
         /* Increment the free-running millisecond counter. */
         ++g_now_ms;

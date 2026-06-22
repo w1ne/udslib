@@ -1,4 +1,9 @@
+SIM_TESTER ?= 0
+ifeq ($(SIM_TESTER),1)
+TARGET    := h563_uds_bootloader_sim
+else
 TARGET    := h563_uds_bootloader
+endif
 BUILD_DIR := build
 UDSLIB_DIR ?= /tmp/udslib-labwired-scope
 CC        := arm-none-eabi-gcc
@@ -32,6 +37,10 @@ LDFLAGS := $(CPUFLAGS) --specs=nano.specs --specs=nosys.specs -nostartfiles \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map
 
 APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c boot_state.c
+ifeq ($(SIM_TESTER),1)
+APP_SRCS     += ../sim_tester/sim_tester.c
+APP_CFLAGS   += -DSIM_OTA_TESTER -I../sim_tester -I..
+endif
 SEC_CMAC_SRC := sec_cmac.c
 UDS_SRCS := \
   $(UDSLIB_DIR)/src/core/uds_core.c \
@@ -54,7 +63,8 @@ MBEDTLS_SRCS := \
   $(MBEDTLS_DIR)/library/platform_util.c \
   $(MBEDTLS_DIR)/library/constant_time.c
 
-APP_OBJS      := $(patsubst %.c,$(BUILD_DIR)/%.o,$(APP_SRCS))
+APP_OBJS      := $(patsubst %.c,$(BUILD_DIR)/%.o,$(filter-out ../sim_tester/%.c,$(APP_SRCS))) \
+                 $(if $(filter ../sim_tester/%.c,$(APP_SRCS)),$(BUILD_DIR)/sim_tester/sim_tester.o)
 SEC_CMAC_OBJ  := $(BUILD_DIR)/sec_cmac.o
 UDS_OBJS      := $(patsubst $(UDSLIB_DIR)/%.c,$(BUILD_DIR)/udslib/%.o,$(UDS_SRCS))
 MBEDTLS_OBJS  := $(patsubst $(MBEDTLS_DIR)/library/%.c,$(BUILD_DIR)/mbedtls/%.o,$(MBEDTLS_SRCS))
@@ -70,6 +80,10 @@ $(ELF): $(APP_OBJS) $(SEC_CMAC_OBJ) $(UDS_OBJS) $(MBEDTLS_OBJS) bootloader.ld
 	$(CC) $(LDFLAGS) $(APP_OBJS) $(SEC_CMAC_OBJ) $(UDS_OBJS) $(MBEDTLS_OBJS) -o $@
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) $(APP_CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/sim_tester/sim_tester.o: ../sim_tester/sim_tester.c | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(APP_CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/udslib/%.o: $(UDSLIB_DIR)/%.c | $(BUILD_DIR)
