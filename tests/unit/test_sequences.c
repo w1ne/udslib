@@ -351,7 +351,7 @@ static void test_seq_nvm_warmstart_gated_works(void **state)
     assert_int_equal(ctx.active_session, 0x03);
     assert_int_equal(ctx.security_level, 1);
 
-    /* Request secured DID -> positive response (level=1 satisfies security_mask=1) */
+    /* Request secured DID -> positive response (level=1 satisfies security_mask=2u) */
     uint8_t rdbi_req[] = {0x22, 0x12, 0x34};
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
@@ -471,6 +471,47 @@ static void test_seq_suppress_pos_rsp_2A(void **state)
     will_return(mock_get_time, 1000);
     /* No mock_tp_send expectation: must not emit */
     uds_input_sdu(&ctx, per_req, sizeof(per_req));
+    assert_int_equal(ctx.periodic_count, 1u); /* subscription registered despite suppress */
+
+    /* Next service (3E 00) must respond normally */
+    uint8_t tp_req[] = {0x3E, 0x00};
+    will_return(mock_get_time, 2000);
+    will_return(mock_get_time, 2000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2); /* 7E 00 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, tp_req, sizeof(tp_req));
+    assert_int_equal(g_tx_buf[0], 0x7E);
+    assert_int_equal(g_tx_buf[1], 0x00);
+}
+
+/* ------------------------------------------------------------------ */
+/* Test 8c: suppressPosRsp generalized — 0x19 ReadDTCInformation        */
+/* ------------------------------------------------------------------ */
+static int mock_dtc_read_seq(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req,
+                             uint16_t req_len, uint8_t *out_buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) subfn;
+    (void) req;
+    (void) req_len;
+    (void) max_len;
+    out_buf[0] = 0xAA;
+    return 1;
+}
+
+static void test_seq_suppress_pos_rsp_19(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_read = mock_dtc_read_seq;
+
+    /* 0x19 subfn=0x01 (reportNumberOfDTCByStatusMask) | bit7 = 0x81 -> suppress */
+    uint8_t dtc_req[] = {0x19, 0x81, 0xFF};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    /* No mock_tp_send expectation: must not emit */
+    uds_input_sdu(&ctx, dtc_req, sizeof(dtc_req));
 
     /* Next service (3E 00) must respond normally */
     uint8_t tp_req[] = {0x3E, 0x00};
@@ -600,6 +641,7 @@ int main(void)
         cmocka_unit_test(test_seq_auth_deauth_gated_denied),
         cmocka_unit_test(test_seq_suppress_pos_rsp_85),
         cmocka_unit_test(test_seq_suppress_pos_rsp_2A),
+        cmocka_unit_test(test_seq_suppress_pos_rsp_19),
         cmocka_unit_test(test_seq_84_overflow_then_roe),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

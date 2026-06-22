@@ -104,26 +104,11 @@ static int setup_full(void **state)
     return 0;
 }
 
-static void test_pass(void **state)
-{
-    (void) state;
-    g_safe_state = true;
-    uint8_t req[] = {0x11, 0x01};
-    uint8_t expected[] = {0x51}; /* Positive Response */
-
-    expect_memory(mock_tp_send, data, expected, 1);
-    expect_value(mock_tp_send, len, 1);
-    will_return(mock_tp_send, 0);
-
-    uds_input_sdu(&g_ctx, req, sizeof(req));
-}
-
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_safety_check_fails, setup_full, teardown),
         cmocka_unit_test_setup_teardown(test_safety_check_passes, setup_full, teardown),
-        cmocka_unit_test_setup_teardown(test_pass, setup_full, teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
