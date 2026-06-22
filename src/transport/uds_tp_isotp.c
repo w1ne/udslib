@@ -262,22 +262,27 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
             return;
         }
 
-        /* Check STmin (Separation Time) using the receiver-honored value. */
-        uint32_t elapsed = time_ms - iso->timer_st;
-        uint32_t required_st = iso->tx_st_min;
+        /* Check STmin (Separation Time) using the receiver-honored value.
+         * The first CF after FC.CTS is exempt: ISO 15765-2 §6.5.5.5 states
+         * STmin is the minimum time between two successive CFs; there is no
+         * preceding CF before the first, so it must be sent immediately. */
+        if (iso->first_cf_after_fc == 0u) {
+            uint32_t elapsed = time_ms - iso->timer_st;
+            uint32_t required_st = iso->tx_st_min;
 
-        /* Decode ISO-TP STmin:
-           0x00 - 0x7F: 0ms - 127ms
-           0xF1 - 0xF9: 100us - 900us (treated as 1ms at ms resolution) */
-        if (required_st >= 0xF1 && required_st <= 0xF9) {
-            required_st = 1;
-        }
-        else if (required_st > 0x7F) {
-            required_st = 0; /* Reserved or invalid */
-        }
+            /* Decode ISO-TP STmin:
+               0x00 - 0x7F: 0ms - 127ms
+               0xF1 - 0xF9: 100us - 900us (treated as 1ms at ms resolution) */
+            if (required_st >= 0xF1 && required_st <= 0xF9) {
+                required_st = 1;
+            }
+            else if (required_st > 0x7F) {
+                required_st = 0; /* Reserved or invalid */
+            }
 
-        if (elapsed < required_st) {
-            return; /* Wait for STmin */
+            if (elapsed < required_st) {
+                return; /* Wait for STmin */
+            }
         }
 
         /* Check Block Size (BS) the receiver told us to honor. */
@@ -307,7 +312,8 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
             iso->tx_bytes_processed += to_copy;
             iso->tx_sn = (iso->tx_sn + 1) & 0x0F;
             iso->tx_bs_counter++;
-            iso->timer_st = time_ms; /* Reset ST timer */
+            iso->first_cf_after_fc = 0u; /* STmin enforced from next CF onward */
+            iso->timer_st = time_ms;     /* Anchor for inter-CF STmin measurement */
 
             if (iso->tx_bytes_processed >= iso->tx_msg_len) {
                 iso->tx_state = ISOTP_TX_IDLE;
@@ -459,12 +465,16 @@ static void uds_rx_fc(uds_isotp_ctx_t *iso, const uint8_t *data, uint8_t len)
     uint8_t fs = data[0] & 0x0F;
     switch (fs) {
         case ISOTP_FC_CTS:
-            /* ClearToSend: latch the receiver's BS/STmin and resume CFs. */
+            /* ClearToSend: latch the receiver's BS/STmin and resume CFs.
+             * Mark that the first CF must be sent immediately on the next
+             * process() tick — STmin governs gaps between CFs, not before
+             * the first one (ISO 15765-2 §6.5.5.5). */
             iso->tx_state = ISOTP_TX_SENDING_CF;
             iso->tx_block_size = data[1];
             iso->tx_st_min = data[2];
             iso->tx_bs_counter = 0u;
-            iso->timer_n_bs = 0u; /* FC arrived: disarm N_Bs */
+            iso->timer_n_bs = 0u;        /* FC arrived: disarm N_Bs */
+            iso->first_cf_after_fc = 1u; /* skip STmin wait for first CF */
             break;
 
         case ISOTP_FC_WAIT:

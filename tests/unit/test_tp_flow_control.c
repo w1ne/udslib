@@ -161,12 +161,86 @@ static void test_tp_duplex_mode_default_and_set(void **state)
     uds_tp_isotp_set_mode(NULL, ISOTP_FULL_DUPLEX); /* must not crash */
 }
 
+/* 4. First CF after FC.CTS must be sent immediately regardless of STmin.
+ *
+ * ISO 15765-2 §6.5.5.5: STmin governs the minimum time between two successive
+ * Consecutive Frames (CF_n-1 → CF_n). There is no preceding CF before the
+ * first one, so it must be sent on the very next process() tick after CTS is
+ * received, even when time elapsed since FC reception is less than STmin.
+ *
+ * Bug reproduced: uds_rx_fc() did not initialise iso->timer_st on the CTS
+ * path, so `elapsed = time_ms - timer_st` evaluated with timer_st==0 and a
+ * small time_ms gave elapsed < STmin, blocking the first CF.
+ */
+static void test_first_cf_sent_immediately_after_cts(void **state)
+{
+    (void) state;
+
+    /* Build a 20-byte payload: needs 1 FF + 2 CFs. */
+    uint8_t data[20];
+    memset(data, 0xAA, sizeof(data));
+
+    /* --- Step 1: Send FF (expect exactly one CAN frame out) --- */
+    uint8_t expected_ff[] = {0x10, 0x14, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+    expect_value(mock_can_send, id, 0x7E0);
+    expect_value(mock_can_send, len, 8);
+    expect_memory(mock_can_send, data, expected_ff, 8);
+    will_return(mock_can_send, 0);
+
+    uds_isotp_send(&g_iso, data, 20);
+
+    /* Verify we entered WAIT_FC state. */
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_WAIT_FC);
+
+    /* --- Step 2: Deliver FC.CTS with STmin = 0x32 (50 ms), BS = 0 --- */
+    /* The FC arrives at some small wall-clock value; the exact value does not
+       matter for the bug — what matters is that the next process() call uses a
+       time_ms < STmin away from CTS receipt time. */
+    uint8_t fc_frame[] = {0x30, 0x00, 0x32, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC};
+    uds_isotp_rx_callback(&g_iso, NULL, 0x7E8, fc_frame, 8);
+
+    /* Verify we transitioned to SENDING_CF state. */
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_SENDING_CF);
+    assert_int_equal(g_iso.tx_st_min, 0x32); /* STmin latched */
+
+    /* --- Step 3: process() at T=5 ms (only 5 ms since init/FC; << 50 ms STmin).
+     *
+     * CORRECT behaviour (ISO 15765-2): first CF sent immediately.
+     * BUGGY behaviour: elapsed = 5 - 0 = 5 < 50 → CF withheld.
+     */
+    uint8_t expected_cf1[] = {0x21, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+    expect_value(mock_can_send, id, 0x7E0);
+    expect_value(mock_can_send, len, 8);
+    expect_memory(mock_can_send, data, expected_cf1, 8);
+    will_return(mock_can_send, 0);
+
+    uds_tp_isotp_process(&g_iso, 5); /* Must send CF1 — not block on STmin */
+
+    /* --- Step 4: STmin is still enforced BETWEEN successive CFs.
+     *
+     * At T=10 ms: only 5 ms since CF1 was sent at T=5; must NOT send CF2.
+     */
+    uds_tp_isotp_process(&g_iso, 10); /* Must NOT send CF2 here */
+
+    /* --- Step 5: At T=60 ms: 55 ms since CF1 (>= 50 ms STmin) → send CF2 --- */
+    uint8_t expected_cf2[] = {0x22, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+    expect_value(mock_can_send, id, 0x7E0);
+    expect_value(mock_can_send, len, 8);
+    expect_memory(mock_can_send, data, expected_cf2, 8);
+    will_return(mock_can_send, 0);
+
+    uds_tp_isotp_process(&g_iso, 60); /* Must send CF2 now */
+
+    assert_int_equal(g_iso.tx_state, ISOTP_TX_IDLE); /* Transfer complete */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_tp_stmin_enforcement, setup, teardown),
         cmocka_unit_test_setup_teardown(test_tp_bs_enforcement, setup, teardown),
         cmocka_unit_test_setup_teardown(test_tp_duplex_mode_default_and_set, setup, teardown),
+        cmocka_unit_test_setup_teardown(test_first_cf_sent_immediately_after_cts, setup, teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

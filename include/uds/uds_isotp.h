@@ -144,6 +144,11 @@ typedef struct
     /* --- Timeout limits (ms); defaulted at init, overridable by the caller --- */
     uint32_t n_cr_ms; /**< Max wait for a consecutive frame during reception */
     uint32_t n_bs_ms; /**< Max wait for flow control after sending a First Frame */
+
+    /* Set when FC.CTS is received; cleared after the first CF is sent.
+     * The first CF after CTS must be sent immediately (ISO 15765-2 §6.5.5.5):
+     * STmin governs the gap between successive CFs only, not before the first. */
+    uint8_t first_cf_after_fc; /**< 1 = first CF pending, skip STmin wait once */
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
