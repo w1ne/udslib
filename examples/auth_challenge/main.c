@@ -134,12 +134,12 @@ static int handle_auth(uds_ctx_t *ctx, uint8_t subfn, const uint8_t *data, uint1
 /* A vendor service that must only run on an authenticated channel. The library
  * enforces this via the fn_auth_required hook (NRC 0x34 otherwise); the handler
  * never even runs until ctx.authenticated is set. */
-static int handle_secure_op(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void handle_secure_op(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) len;
     ctx->config->tx_buffer[0] = (uint8_t) (data[0] + 0x40u);
     ctx->config->tx_buffer[1] = 0xAC; /* "action done" marker */
-    return uds_send_response(ctx, 2u);
+    uds_ok(out, 2u);
 }
 
 static const uds_service_entry_t user_services[] = {

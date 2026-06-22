@@ -15,12 +15,12 @@
 #include "test_helpers.h"
 
 /* Dummy Service Handler */
-int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+void mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_OK;
+    uds_ok(out, 0u);
 }
 
 /* Setup/Teardown */

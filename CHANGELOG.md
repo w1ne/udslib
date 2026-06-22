@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.0.0
+
+### Breaking
+- Service handlers registered via `config.user_services` now use the
+  result-descriptor contract: `void handler(uds_ctx_t*, const uint8_t*, uint16_t,
+  uds_result_t *out)`. The framework owns response emission, suppressPosRsp, and
+  ECUReset response/ordering. Migration:
+  - `return uds_send_response(ctx, n);` → `uds_ok(out, n);`
+  - `return uds_send_nrc(ctx, sid, nrc);` → `uds_nrc(out, nrc);`
+  - `return UDS_PENDING;` → `uds_pending(out);`
+  `uds_send_response` and `uds_send_nrc` remain available as public helpers for
+  application code that needs to emit outside a service handler.
+- `uds_service_entry_t` no longer carries a legacy `handler` (int-returning)
+  field. The `handler` field is now `uds_service_handler_t` (void, out-param).
+  Remove any `NULL` placeholder that occupied the old legacy column when
+  initialising service tables.
+- The temporary `uds_handler_v2_t` typedef has been removed; use
+  `uds_service_handler_t` directly.
+
 ## [Unreleased]
 
 ### Added

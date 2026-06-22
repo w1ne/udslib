@@ -27,13 +27,13 @@ static uint32_t mock_get_time(void)
     return mock_time;
 }
 
-/* Async Handler: returns UDS_PENDING */
-static int async_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+/* Async Handler: sets pending result */
+static void async_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_PENDING;
+    uds_pending(out);
 }
 
 /* 1. Verify Busy Rejection (NRC 0x21) */

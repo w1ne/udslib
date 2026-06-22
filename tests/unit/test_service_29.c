@@ -173,11 +173,11 @@ static void test_auth_cleared_on_session_change(void **state)
 }
 
 /* A custom service gated on authentication via the fn_auth_required hook. */
-static int gated_svc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void gated_svc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) len;
     ctx->config->tx_buffer[0] = (uint8_t) (data[0] + 0x40u);
-    return uds_send_response(ctx, 1u);
+    uds_ok(out, 1u);
 }
 
 static const uds_service_entry_t k_gated_services[] = {

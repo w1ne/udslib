@@ -23,12 +23,12 @@ static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* Dummy Handler */
-static int dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void dummy_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_OK;
+    uds_ok(out, 0u);
 }
 
 static uint32_t mock_get_time(void)

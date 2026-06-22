@@ -32,12 +32,13 @@ static bool mock_is_safe(struct uds_ctx *ctx, uint8_t sid, const uint8_t *data, 
 }
 
 /* Mock Service Handler */
-static int mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void mock_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                 uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_OK;
+    uds_ok(out, 0u);
 }
 
 static const uds_service_entry_t g_user_services[] = {
@@ -111,12 +112,12 @@ static void test_safety_check_passes(void **state)
 }
 
 /* Improved Handler for full logic */
-static int mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void mock_service_handler_full(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out)
 {
-    (void) data;
     (void) len;
-    ctx->config->tx_buffer[0] = data[0] | 0x40;
-    return uds_send_response(ctx, 1);
+    ctx->config->tx_buffer[0] = data[0] | 0x40u;
+    uds_ok(out, 1u);
 }
 
 /* Re-bind in setup */

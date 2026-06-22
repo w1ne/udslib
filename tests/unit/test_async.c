@@ -34,10 +34,13 @@ static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 }
 
 /* --- Async Service Handler --- */
-static int async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void async_service_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                  uds_result_t *out)
 {
-    /* Simulate a service that cannot complete immediately */
-    return UDS_PENDING;
+    (void) ctx;
+    (void) data;
+    (void) len;
+    uds_pending(out);
 }
 
 static const uds_service_entry_t user_services[] = {

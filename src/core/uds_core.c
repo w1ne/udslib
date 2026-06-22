@@ -43,60 +43,55 @@ static const uint8_t mask_sub_83[] = UDS_MASK_SUB_83;
  * Applications add or override entries via config.user_services without
  * editing this table (see examples/custom_service). */
 static const uds_service_entry_t core_services[] = {
-    {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_10, 0u,
-     uds_internal_handle_session_control},
-    {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_11, 0u,
-     uds_internal_handle_ecu_reset},
-    {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u, uds_internal_handle_clear_dtc},
-    {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_19, 0u,
-     uds_internal_handle_read_dtc_info},
-    {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_read_data_by_id},
-    {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_read_memory_by_addr},
-    {UDS_SID_READ_SCALING, 3u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_read_scaling},
-    {UDS_SID_DYNAMIC_DID, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_2C, 0u,
-     uds_internal_handle_dynamic_did},
-    {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_27, 0u,
-     uds_internal_handle_security_access},
-    {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_28, 0u,
-     uds_internal_handle_comm_control},
-    {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_29, 0u,
-     uds_internal_handle_authentication},
-    {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_write_data_by_id},
-    {UDS_SID_ROUTINE_CONTROL, 4u, UDS_SESSION_ALL, 0u, NULL, mask_sub_31, 0u,
-     uds_internal_handle_routine_control},
-    {UDS_SID_REQUEST_DOWNLOAD, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_request_download},
-    {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_transfer_data},
-    {UDS_SID_TRANSFER_EXIT, 1u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_request_transfer_exit},
-    {UDS_SID_REQUEST_FILE_TRANSFER, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_request_file_transfer},
-    {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_write_memory_by_addr},
-    {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_3E, 0u,
-     uds_internal_handle_tester_present},
-    {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_85, 0u,
-     uds_internal_handle_control_dtc_setting},
-    {UDS_SID_READ_BY_PER_ID, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_2A, 0u,
-     uds_internal_handle_periodic_read},
-    {UDS_SID_IO_CONTROL_BY_ID, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_io_control},
-    {UDS_SID_REQUEST_UPLOAD, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_request_upload},
-    {UDS_SID_LINK_CONTROL, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_87, 0u,
-     uds_internal_handle_link_control},
-    {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_83, 0u,
-     uds_internal_handle_access_timing},
-    {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, NULL, NULL, 0u,
-     uds_internal_handle_secured_data},
+    {UDS_SID_SESSION_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_session_control,
+     mask_sub_10, 0u},
+    {UDS_SID_ECU_RESET, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_ecu_reset, mask_sub_11, 0u},
+    {UDS_SID_CLEAR_DTC, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_clear_dtc, NULL, 0u},
+    {UDS_SID_READ_DTC_INFO, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_dtc_info, mask_sub_19,
+     0u},
+    {UDS_SID_READ_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_data_by_id, NULL,
+     0u},
+    {UDS_SID_READ_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_memory_by_addr,
+     NULL, 0u},
+    {UDS_SID_READ_SCALING, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_read_scaling, NULL, 0u},
+    {UDS_SID_DYNAMIC_DID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_dynamic_did, mask_sub_2C,
+     0u},
+    {UDS_SID_SECURITY_ACCESS, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_security_access,
+     mask_sub_27, 0u},
+    {UDS_SID_COMM_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_comm_control, mask_sub_28,
+     0u},
+    {UDS_SID_AUTHENTICATION, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_authentication,
+     mask_sub_29, 0u},
+    {UDS_SID_WRITE_DATA_BY_ID, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_data_by_id, NULL,
+     0u},
+    {UDS_SID_ROUTINE_CONTROL, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_routine_control,
+     mask_sub_31, 0u},
+    {UDS_SID_REQUEST_DOWNLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_download, NULL,
+     0u},
+    {UDS_SID_TRANSFER_DATA, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_transfer_data, NULL, 0u},
+    {UDS_SID_TRANSFER_EXIT, 1u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_transfer_exit,
+     NULL, 0u},
+    {UDS_SID_REQUEST_FILE_TRANSFER, 4u, UDS_SESSION_ALL, 0u,
+     uds_internal_handle_request_file_transfer, NULL, 0u},
+    {UDS_SID_WRITE_MEM_BY_ADDR, 3u, UDS_SESSION_ALL, 0u, uds_internal_handle_write_memory_by_addr,
+     NULL, 0u},
+    {UDS_SID_TESTER_PRESENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_tester_present,
+     mask_sub_3E, 0u},
+    {UDS_SID_CONTROL_DTC_SETTING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_control_dtc_setting,
+     mask_sub_85, 0u},
+    {UDS_SID_READ_BY_PER_ID, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_periodic_read,
+     mask_sub_2A, 0u},
+    {UDS_SID_IO_CONTROL_BY_ID, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_io_control, NULL, 0u},
+    {UDS_SID_REQUEST_UPLOAD, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_request_upload, NULL, 0u},
+    {UDS_SID_LINK_CONTROL, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_link_control, mask_sub_87,
+     0u},
+    {UDS_SID_ACCESS_TIMING, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_access_timing, mask_sub_83,
+     0u},
+    {UDS_SID_SECURED_DATA_TRANS, 4u, UDS_SESSION_ALL, 0u, uds_internal_handle_secured_data, NULL,
+     0u},
 #if (UDS_ROE_MAX_EVENTS > 0)
-    {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, NULL, mask_sub_86, 0u,
-     uds_internal_handle_response_on_event},
+    {UDS_SID_RESPONSE_ON_EVENT, 2u, UDS_SESSION_ALL, 0u, uds_internal_handle_response_on_event,
+     mask_sub_86, 0u},
 #endif
 };
 
@@ -252,52 +247,40 @@ static bool is_subfunction_supported(const uds_service_entry_t *service, uint8_t
 static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, const uint8_t *data,
                             uint16_t len)
 {
-    if (service->handler_v2 != NULL) {
-        uds_result_t r;
-        r.kind = UDS_RESULT_POSITIVE;
-        r.len = 0u;
-        r.nrc = 0u;
-        service->handler_v2(ctx, data, len, &r);
+    uds_result_t r;
+    r.kind = UDS_RESULT_POSITIVE;
+    r.len = 0u;
+    r.nrc = 0u;
+    service->handler(ctx, data, len, &r);
 
-        switch (r.kind) {
-            case UDS_RESULT_PENDING:
-                uds_send_nrc(ctx, data[0], UDS_NRC_RESPONSE_PENDING);
-                ctx->p2_msg_pending = true;
-                ctx->p2_star_active = true;
-                ctx->p2_timer_start = ctx->config->get_time_ms();
-                ctx->server_pending_sid = data[0];
-                break;
-            case UDS_RESULT_NRC:
-                uds_send_nrc(ctx, data[0], r.nrc); /* NRC never suppressed (ISO) */
-                break;
-            case UDS_RESULT_NONE:
-                break; /* emit nothing — e.g. 0x84 when inner response was suppressed */
-            case UDS_RESULT_POSITIVE:
-            default:
-                if (ctx->suppress_pos_resp) {
-                    ctx->suppress_pos_resp = false;
-                    ctx->rcrrp_count = 0u;
-                    ctx->p2_msg_pending = false;
-                    ctx->server_pending_sid = 0u;
-                    if (ctx->secure_capturing) {
-                        ctx->secure_capture_len = 0u;
-                    }
-                }
-                else {
-                    (void) uds_emit_response(ctx, r.len);
-                }
-                break;
-        }
-    }
-    else {
-        int res = service->handler(ctx, data, len); /* legacy: emits internally */
-        if (res == UDS_PENDING) {
+    switch (r.kind) {
+        case UDS_RESULT_PENDING:
             uds_send_nrc(ctx, data[0], UDS_NRC_RESPONSE_PENDING);
             ctx->p2_msg_pending = true;
             ctx->p2_star_active = true;
             ctx->p2_timer_start = ctx->config->get_time_ms();
             ctx->server_pending_sid = data[0];
-        }
+            break;
+        case UDS_RESULT_NRC:
+            uds_send_nrc(ctx, data[0], r.nrc); /* NRC never suppressed (ISO) */
+            break;
+        case UDS_RESULT_NONE:
+            break; /* emit nothing — e.g. 0x84 when inner response was suppressed */
+        case UDS_RESULT_POSITIVE:
+        default:
+            if (ctx->suppress_pos_resp) {
+                ctx->suppress_pos_resp = false;
+                ctx->rcrrp_count = 0u;
+                ctx->p2_msg_pending = false;
+                ctx->server_pending_sid = 0u;
+                if (ctx->secure_capturing) {
+                    ctx->secure_capture_len = 0u;
+                }
+            }
+            else {
+                (void) uds_emit_response(ctx, r.len);
+            }
+            break;
     }
 
     /* Deferred reset runs only after the response is on the wire. */

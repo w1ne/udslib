@@ -49,10 +49,11 @@ static int on_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
  * vendor use). This handler is the ENTIRE integration — no library file is
  * touched. It echoes the sub-function and returns a small vendor payload.
  */
-static int handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     if (len < 2u) {
-        return uds_send_nrc(ctx, 0xBAu, 0x13u); /* incorrectMessageLength */
+        uds_nrc(out, 0x13u); /* incorrectMessageLength */
+        return;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -61,7 +62,7 @@ static int handle_vendor_diag(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     tx[2] = 'V';
     tx[3] = 'N';
     tx[4] = '1'; /* vendor payload */
-    return uds_send_response(ctx, 5u);
+    uds_ok(out, 5u);
 }
 
 /*

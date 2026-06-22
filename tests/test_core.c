@@ -99,12 +99,12 @@ static void test_invalid_sid_nrc(void **state)
     assert_int_equal(g_tx_buf[2], 0x11);
 }
 
-static int custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) data;
     (void) len;
     ctx->config->tx_buffer[0] = 0xAA;
-    return uds_send_response(ctx, 1);
+    uds_ok(out, 1);
 }
 
 static void test_custom_service_registration(void **state)

@@ -33,12 +33,13 @@ static uint32_t get_time_mutable(void)
     return g_osal_time;
 }
 
-static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                 uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_PENDING;
+    uds_pending(out);
 }
 
 static void mock_mutex_lock(void *handle)
