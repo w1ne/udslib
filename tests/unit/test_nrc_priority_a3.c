@@ -116,6 +116,40 @@ static void test_handler_no_result_fails_closed(void **state)
 }
 
 /* ------------------------------------------------------------------ */
+/* Phase 2: per-dispatch scratch does not leak into the next request.   */
+/* A stale suppress/reset flag set before a fresh top-level request must */
+/* be cleared by the scratch reset in uds_input_sdu_addr.               */
+/* ------------------------------------------------------------------ */
+static void test_scratch_does_not_leak_into_next_request(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+
+    /* Simulate stale per-dispatch scratch left over from a prior request. */
+    ctx.scratch.suppress_pos_resp = true;
+    ctx.scratch.reset_pending = true;
+    ctx.scratch.reset_pending_type = 0x01u;
+
+    /* A fresh top-level 0x3E (TesterPresent, sub=0x00) must respond normally:
+     * the stale suppress must NOT silence it, and the stale reset_pending must
+     * NOT survive to trigger the post-emit reset path. */
+    uint8_t req[] = {0x3Eu, 0x00u};
+    will_return(mock_get_time, 1000u);
+    will_return(mock_get_time, 1000u);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2u); /* 7E 00 */
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, req, sizeof(req));
+
+    assert_int_equal(g_tx_buf[0], 0x7Eu);          /* responded, not suppressed */
+    assert_int_equal(g_tx_buf[1], 0x00u);
+    assert_false(ctx.scratch.reset_pending);       /* stale flag was cleared */
+    assert_false(ctx.scratch.suppress_pos_resp);
+}
+
+/* ------------------------------------------------------------------ */
 /* NRC priority item 1(a): wrong-session AND wrong-length              */
 /* Session (0x7F) beats length (0x13)                                  */
 /* Winning condition: handle_request line ~329 (session before len)    */
@@ -640,6 +674,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         /* NRC priority combos */
         cmocka_unit_test(test_handler_no_result_fails_closed),
+        cmocka_unit_test(test_scratch_does_not_leak_into_next_request),
         cmocka_unit_test(test_nrc_session_beats_length),
         cmocka_unit_test(test_nrc_length_beats_sub_when_len_lt2),
         cmocka_unit_test(test_nrc_sub_beats_length_when_len_ge2),

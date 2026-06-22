@@ -18,6 +18,15 @@
   initialising service tables.
 - The temporary `uds_handler_v2_t` typedef has been removed; use
   `uds_service_handler_t` directly.
+- **Internal context fields regrouped into sub-structs** (not API): the runtime
+  `uds_ctx_t` now groups its fields into `session`, `security`, `server`,
+  `client`, and `scratch` sub-structs (e.g. `ctx->active_session` →
+  `ctx->session.active`, `ctx->security_level` → `ctx->security.level`,
+  `ctx->suppress_pos_resp` → `ctx->scratch.suppress_pos_resp`). The field layout
+  was never part of the API contract; this affects only code that read
+  `uds_ctx_t` fields directly. The per-dispatch `scratch` is now reset at the
+  start of every top-level request, so no per-request flag can leak into the
+  next one.
 
 ### Fixed
 - **ECUReset (0x11) now sends the positive response before performing the reset**
