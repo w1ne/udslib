@@ -83,6 +83,18 @@ typedef int (*uds_tp_send_fn)(struct uds_ctx *ctx, const uint8_t *data, uint16_t
 /**
  * @brief ECU Reset Callback (SID 0x11)
  *
+ * Invoked only AFTER the ECUReset positive response has been handed to the
+ * transport, per ISO 14229-1:2013 9.3.2.2 ("the positive response shall be sent
+ * before the reset is executed"). The library guarantees ordering relative to
+ * uds_tp_send_fn, but not that the frame has physically drained from the bus,
+ * nor that a deferred/secured (SID 0x84) or multi-frame response has completed.
+ *
+ * Therefore an implementation that tears down the MCU (e.g. NVIC_SystemReset)
+ * MUST defer the actual reset until the transport reports transmit-complete,
+ * rather than resetting inside this callback. Returning promptly without
+ * resetting, then resetting from the main loop once TX is done, is the
+ * recommended pattern.
+ *
  * @param ctx   Pointer to the UDS context.
  * @param type  The type of reset requested (uds_reset_type_t).
  */

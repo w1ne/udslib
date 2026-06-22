@@ -32,18 +32,26 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
         ctx->suppress_pos_resp = true;
     }
 
-    /* Process Reset */
+    /* ISO 14229-1:2013 9.3.2.2: "The ECUReset positive response message (if
+     * required) shall be sent before the reset is executed in the server(s)."
+     * Emit the response first (uds_send_response honours suppressPosRsp and
+     * sends nothing when set), and only invoke the application reset hook once
+     * the response has been handed to the transport. Resetting first would lose
+     * the response on any fn_reset that reboots the MCU synchronously. */
+    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = sub;
+    int send_ret = uds_send_response(ctx, 2u);
+    if (send_ret != UDS_OK) {
+        /* Could not hand the response to the transport; skip the reset so the
+         * tester is not left desynchronised without a confirmation. */
+        return send_ret;
+    }
+
     if (ctx->config->fn_reset) {
         ctx->config->fn_reset(ctx, sub);
     }
 
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-
-    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
-    ctx->config->tx_buffer[1] = sub;
-    return uds_send_response(ctx, 2u);
+    return UDS_OK;
 }
 
 int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
