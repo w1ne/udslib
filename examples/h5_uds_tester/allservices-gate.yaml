@@ -4,6 +4,6 @@ inputs:
 limits:
   max_steps: 4000000
 assertions:
-  # 14/27 services. 0x85/0x86 (and by extension 0x83/0x84/0x87) are descoped
-  # pending the F-9 high-SID value-corruption fix — see the findings log.
-  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x303EFD, size: 32 }
+  # 18/27 services (phases 1-4). Descoped: 0x31/0x85/0x86 (+later 0x83/0x84/0x87)
+  # F-9 indirect-call value corruption; 0x38 (F-10 incorrectLength). See findings.
+  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x37BEFD, size: 32 }

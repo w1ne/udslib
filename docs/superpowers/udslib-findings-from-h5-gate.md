@@ -298,6 +298,32 @@ sending 0x85 triggers the cascade; 0x86 also arms ROE periodic emission). Marked
 `examples/h5_uds_tester/firmware/main.c`. Gate lands at **14/27** (mask `0x303EFD`).
 0x83/0x84/0x87 (T6) will be descoped on the same basis when reached.
 
+**New evidence (Task 5, RoutineControl 0x31):** the corruption is NOT byte-specific.
+0x31 with the reference routine id `0xFF00` returns NRC `0x31` (requestOutOfRange) —
+the ECU's `fn_routine_control` is reached but sees `id != 0xFF00`. Changing the id to
+a no-high-bit value `0x0100` did NOT fix it (still NRC `0x31`). The routine `id` is the
+**3rd argument** to the indirectly-dispatched `ctx->config->fn_routine_control(...)`,
+which ties this to the **F-1 indirect-call argument-passing** symptom (3rd arg / r2
+lost on struct-pointer BLX). So F-1 and F-9 are very likely **one root cause**: values
+passed through indirect struct-pointer calls (and possibly large-offset struct field
+reads/writes) are corrupted. **This is the single thing to root-cause** — fixing it
+unblocks 0x31/0x83/0x84/0x85/0x86/0x87 at once. 0x31 descoped (`TESTER_SKIP_31_F9`).
+
+## F-10 — RequestFileTransfer (0x38) returns NRC 0x13 (incorrectLength) — NEEDS-CONFIRM
+
+**Status:** NEEDS-CONFIRM. **Discovered:** Task 5, 2026-06-22.
+
+Request `[38 01 00 04 't' 'e' 's' 't']` (mode=AddFile, filePathLen=4, path="test";
+8-byte PDU). All bytes < 0x80, so this is **not** F-9. The ECU returns NRC `0x13`
+(`incorrectMessageLength`): `uds_internal_handle_request_file_transfer` computes
+`4 + path_len > len` (src/services/uds_service_flash.c:168). With `path_len=4` and a
+correctly-received 8-byte PDU this is `8 > 8` = false, so the request *should* pass.
+The NRC implies the ECU received **fewer than 8 bytes** (one short) or parsed
+`path_len` too large. Note 0x34's 11-byte PDU is delivered fine, so generic multi-byte
+ISO-TP works — suspect an 8-byte-PDU boundary in the tester's single-frame framing or a
+transit byte drop. **Action:** descoped (`TESTER_SKIP_38_F10`), excluded from mask.
+Needs a focused repro (dump the exact bytes/len the ECU's 0x38 handler receives).
+
 ---
 
 ## Hand-rolled workarounds currently in the tree (Task 1) — REVERT when emulator fixed

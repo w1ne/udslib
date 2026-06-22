@@ -38,12 +38,21 @@
  *        Phase 3 services tested (2 of 27 — DTC subset):
  *          bit  3  BIT_19  SID 0x19  ReadDTCInformation
  *          bit  2  BIT_14  SID 0x14  ClearDiagnosticInformation
- *        DESCOPED (F-9 high-SID value corruption, SID >= 0x80):
+ *
+ *        Phase 4 services tested (4 of 27 — transfer subset):
+ *          bit 15  BIT_34  SID 0x34  RequestDownload
+ *          bit 17  BIT_36  SID 0x36  TransferData
+ *          bit 18  BIT_37  SID 0x37  RequestTransferExit
+ *          bit 16  BIT_35  SID 0x35  RequestUpload
+ *
+ *        DESCOPED — F-9 indirect-call value corruption (3rd arg / SID >= 0x80):
+ *          bit 14  BIT_31  SID 0x31  RoutineControl (routine-id arg corrupted)
  *          bit 24  BIT_85  SID 0x85  ControlDTCSetting
  *          bit 25  BIT_86  SID 0x86  ResponseOnEvent (setup only)
+ *        DESCOPED — F-10 incorrectLength:
+ *          bit 19  BIT_38  SID 0x38  RequestFileTransfer
  *
- *        Gate expects g_service_results @ 0x20010000 =
- *          0x303EF1 | BIT_19 | BIT_14 = 0x303EFD  (14/27).
+ *        Gate expects g_service_results @ 0x20010000 = 0x37BEFD  (18/27).
  */
 
 #include <stdbool.h>
@@ -917,24 +926,11 @@ int main(void)
         }
     }
 
-    /* Service 16: ResponseOnEvent (0x86) — SETUP sub-function only.
-     *   sub=0x01 (onDTCStatusChange), window=0x02 (infinite),
-     *   DTCStatusMask=0xFF, serviceToRespondTo=19 01 FF.
-     *   Request payload (after SID): 01 02 FF 19 01 FF.
-     *   Positive SETUP response: C6 01 <roe_count> 02 FF 19 01 FF.
-     *     roe_count = 1 (one event stored after setup).
-     *   BIT_86 (1<<25) set on positive setup response (C6 SID).
-     *
-     *   No startResponseOnEvent or trigger is needed; we verify the SETUP
-     *   positive response only, confirming the ECU's ROE engine accepted it. */
+    /* Service 16: ResponseOnEvent (0x86) — DESCOPED, see findings F-9.
+     * Same high-SID value corruption as 0x85; additionally the ROE periodic
+     * emission, once armed, drives the unsolicited-frame NRC cascade.  Not
+     * sent; BIT_86 left clear and excluded from the mask. */
     uart_puts("TESTER_SKIP_86_F9\n");
-    {
-        /* Service 16: ResponseOnEvent (0x86) — DESCOPED, see findings F-9.
-         * Same high-SID value corruption as 0x85; additionally the ROE
-         * periodic emission, once armed, drives the unsolicited-frame NRC
-         * cascade.  Not sent; BIT_86 left clear and excluded from the mask. */
-        (void)0;
-    }
 
     /* ==================================================================
      * Phase 3 result
@@ -948,6 +944,120 @@ int main(void)
             uart_puts("PHASE3 2/2 PASS\n");
         } else {
             uart_puts("PHASE3 FAIL\n");
+        }
+    }
+
+    /* ==================================================================
+     * Phase 4 — programming / transfer services (6 of 27)
+     *   0x31 RoutineControl, 0x34 RequestDownload, 0x36 TransferData,
+     *   0x37 RequestTransferExit, 0x35 RequestUpload, 0x38 RequestFileTransfer.
+     * Request/response bytes mirror tests/integration/test_uds.py
+     * (test_full_sequence "Flash Engine" + upload steps).  All SIDs < 0x80,
+     * so unaffected by F-9.
+     * ================================================================== */
+
+    /* 0x31 RoutineControl — DESCOPED, see findings F-9.
+     * The routine id is the 3rd argument to the indirectly-dispatched
+     * fn_routine_control; it is corrupted/lost on the call (same indirect-call
+     * value-corruption family as F-1/F-9), so the ECU sees id != 0xFF00 and
+     * returns NRC 0x31 (requestOutOfRange).  Confirmed: changing the id to a
+     * no-high-bit value (0x0100) did NOT help, ruling out a byte-specific
+     * strip and implicating the argument-passing path.  Not sent; BIT_31
+     * left clear and excluded from the mask. */
+    uart_puts("TESTER_SKIP_31_F9\n");
+
+    /* 0x34 RequestDownload: 34 00 44 <addr32> <size32> -> 74 20 00 00 04 00 */
+    uart_puts("TESTER_REQ_34\n");
+    {
+        uint8_t payload[] = {0x00u, 0x44u, 0x11u, 0x22u, 0x33u, 0x44u,
+                             0x00u, 0x00u, 0x10u, 0x00u};
+        if (do_request(0x34u, payload, 10u, 1000u)) {
+            if (g_resp_sid == 0x74u) {
+                uart_puts("TESTER_RESP_74_OK\n");
+                g_service_results |= BIT_34;
+            } else {
+                uart_puts("TESTER_RESP_74_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_34\n");
+        }
+    }
+
+    /* 0x36 TransferData: 36 01 AA BB -> 76 01 */
+    uart_puts("TESTER_REQ_36\n");
+    {
+        uint8_t payload[] = {0x01u, 0xAAu, 0xBBu};
+        if (do_request(0x36u, payload, 3u, 1000u)) {
+            if (g_resp_sid == 0x76u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
+                uart_puts("TESTER_RESP_76_OK\n");
+                g_service_results |= BIT_36;
+            } else {
+                uart_puts("TESTER_RESP_76_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_36\n");
+        }
+    }
+
+    /* 0x37 RequestTransferExit: 37 -> 77 */
+    uart_puts("TESTER_REQ_37\n");
+    {
+        uint8_t payload[] = {0x00u}; /* unused; payload_len 0 */
+        if (do_request(0x37u, payload, 0u, 1000u)) {
+            if (g_resp_sid == 0x77u) {
+                uart_puts("TESTER_RESP_77_OK\n");
+                g_service_results |= BIT_37;
+            } else {
+                uart_puts("TESTER_RESP_77_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_37\n");
+        }
+    }
+
+    /* 0x35 RequestUpload: 35 00 44 <addr32> <size32> -> 75 20 00 00 04 00 */
+    uart_puts("TESTER_REQ_35\n");
+    {
+        uint8_t payload[] = {0x00u, 0x44u, 0x11u, 0x22u, 0x33u, 0x44u,
+                             0x00u, 0x00u, 0x10u, 0x00u};
+        if (do_request(0x35u, payload, 10u, 1000u)) {
+            if (g_resp_sid == 0x75u) {
+                uart_puts("TESTER_RESP_75_OK\n");
+                g_service_results |= BIT_35;
+            } else {
+                uart_puts("TESTER_RESP_75_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        } else {
+            uart_puts("TESTER_TIMEOUT_35\n");
+        }
+    }
+
+    /* 0x38 RequestFileTransfer — DESCOPED, see findings F-10.
+     * Request [38 01 00 04 'test'] is well-formed (8-byte PDU, no high-bit
+     * bytes so NOT F-9), yet the ECU returns NRC 0x13 (incorrectLength): the
+     * library computes 4 + path_len > len, implying the received length is
+     * short by one (suspect ISO-TP 8-byte-PDU framing or a transit byte drop).
+     * Not sent; BIT_38 left clear and excluded from the mask. */
+    uart_puts("TESTER_SKIP_38_F10\n");
+
+    /* ==================================================================
+     * Phase 4 result (0x31 + 0x38 descoped -> 4 of 6)
+     * ================================================================== */
+    {
+        uint32_t phase4_bits = BIT_34 | BIT_36 | BIT_37 | BIT_35;
+        uint32_t phase4_got  = g_service_results & phase4_bits;
+        if (phase4_got == phase4_bits) {
+            uart_puts("PHASE4 4/4 PASS\n");
+        } else {
+            uart_puts("PHASE4 FAIL\n");
         }
     }
 

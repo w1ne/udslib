@@ -561,6 +561,22 @@ static int fn_request_upload(struct uds_ctx *ctx, uint32_t addr, uint32_t size)
     return UDS_OK;
 }
 
+static int fn_file_transfer(struct uds_ctx *ctx, uint8_t mode, const uint8_t *path,
+                            uint16_t path_len, const uint8_t *params, uint16_t params_len,
+                            uint8_t *out_buf, uint16_t max_len)
+{
+    (void)ctx;
+    (void)mode;
+    (void)path;
+    (void)path_len;
+    (void)params;
+    (void)params_len;
+    (void)out_buf;
+    (void)max_len;
+    /* Accept the request; no response body (the library frames 78 <mode>). */
+    return 0;
+}
+
 static int fn_periodic_read(struct uds_ctx *ctx, uint8_t periodic_id,
                             uint8_t *out_buf, uint16_t max_len)
 {
@@ -761,6 +777,7 @@ int main(void)
         vcfg->fn_mem_write        = fn_mem_write;
         vcfg->fn_io_control       = fn_io_control;
         vcfg->fn_request_upload   = fn_request_upload;
+        vcfg->fn_file_transfer    = fn_file_transfer;
         vcfg->fn_periodic_read    = fn_periodic_read;
         vcfg->fn_read_scaling     = fn_read_scaling;
         vcfg->fn_dynamic_did      = fn_dynamic_did;
