@@ -28,7 +28,7 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
      * graph (e.g. extended-before-programming) supplies this hook. A rejected
      * transition leaves the active session unchanged. */
     if (ctx->config->fn_session_transition_allowed != NULL &&
-        !ctx->config->fn_session_transition_allowed(ctx, ctx->active_session, sub)) {
+        !ctx->config->fn_session_transition_allowed(ctx, ctx->session.active, sub)) {
         uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
         return;
     }
@@ -36,16 +36,16 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
     /* C-06: Security Reset on Session Transition */
     /* Security shall be re-locked when transitioning from one session to another (or same) */
     /* Note: "Same" session transition usually also resets. ISO says (re-)initialize. */
-    if (ctx->active_session != sub || sub == UDS_SESSION_ID_DEFAULT) {
-        ctx->security_level = 0u;
-        ctx->authenticated = false;
+    if (ctx->session.active != sub || sub == UDS_SESSION_ID_DEFAULT) {
+        ctx->security.level = 0u;
+        ctx->security.authenticated = false;
         /* Drop any outstanding seed: the sequence restarts with the session. */
-        ctx->security_seed_level = 0u;
-        ctx->security_seed_len = 0u;
+        ctx->security.seed_level = 0u;
+        ctx->security.seed_len = 0u;
     }
 
     /* Update Active Session */
-    ctx->active_session = sub;
+    ctx->session.active = sub;
 
     /* Prepare Response */
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_SESSION_CONTROL + UDS_RESPONSE_OFFSET);
@@ -65,7 +65,7 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
 
     /* NVM Persistence: Save State on Change */
     if (ctx->config->fn_nvm_save != NULL) {
-        uint8_t state[2] = {ctx->active_session, ctx->security_level};
+        uint8_t state[2] = {ctx->session.active, ctx->security.level};
         ctx->config->fn_nvm_save(ctx, state, 2u);
     }
 

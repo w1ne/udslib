@@ -21,7 +21,7 @@ static uint8_t roe_count(const uds_ctx_t *ctx)
 {
     uint8_t n = 0u;
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-        if (ctx->roe[i].in_use) {
+        if (ctx->server.roe[i].in_use) {
             n++;
         }
     }
@@ -82,8 +82,8 @@ static void roe_setup(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data, uint16_t
     /* Claim an unused slot. */
     uds_roe_slot_t *slot = NULL;
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-        if (!ctx->roe[i].in_use) {
-            slot = &ctx->roe[i];
+        if (!ctx->server.roe[i].in_use) {
+            slot = &ctx->server.roe[i];
             break;
         }
     }
@@ -126,15 +126,15 @@ void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, 
     if (sub == 0x05u) { /* startResponseOnEvent */
         bool need_time = false;
         for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-            if (ctx->roe[i].in_use && (ctx->roe[i].window_byte != ROE_WINDOW_INFINITE)) {
+            if (ctx->server.roe[i].in_use && (ctx->server.roe[i].window_byte != ROE_WINDOW_INFINITE)) {
                 need_time = true;
             }
         }
         uint32_t now = need_time ? ctx->config->get_time_ms() : 0u;
         for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-            if (ctx->roe[i].in_use) {
-                ctx->roe[i].active = true;
-                ctx->roe[i].window_deadline = (ctx->roe[i].window_byte == ROE_WINDOW_INFINITE)
+            if (ctx->server.roe[i].in_use) {
+                ctx->server.roe[i].active = true;
+                ctx->server.roe[i].window_deadline = (ctx->server.roe[i].window_byte == ROE_WINDOW_INFINITE)
                                                   ? 0u
                                                   : (now + (uint32_t) UDS_ROE_WINDOW_MS);
             }
@@ -142,11 +142,11 @@ void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, 
     }
     else if (sub == 0x00u) { /* stopResponseOnEvent: deactivate, keep stored */
         for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-            ctx->roe[i].active = false;
+            ctx->server.roe[i].active = false;
         }
     }
     else if (sub == 0x06u) { /* clearResponseOnEvent */
-        memset(ctx->roe, 0, sizeof(ctx->roe));
+        memset(ctx->server.roe, 0, sizeof(ctx->server.roe));
     }
     else { /* 0x04 reportActivatedEvents */
         uint8_t *tx = ctx->config->tx_buffer;
@@ -155,8 +155,8 @@ void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, 
         uint16_t pos = 3u;
         uint8_t active = 0u;
         for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-            if (ctx->roe[i].in_use && ctx->roe[i].active) {
-                tx[pos] = ctx->roe[i].event_type;
+            if (ctx->server.roe[i].in_use && ctx->server.roe[i].active) {
+                tx[pos] = ctx->server.roe[i].event_type;
                 pos++;
                 active++;
             }
@@ -211,7 +211,7 @@ static uint32_t roe_rate_to_ms(uint32_t rate)
 void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now)
 {
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-        uds_roe_slot_t *slot = &ctx->roe[i];
+        uds_roe_slot_t *slot = &ctx->server.roe[i];
         if (!slot->in_use || !slot->active) {
             continue;
         }
@@ -244,7 +244,7 @@ int uds_roe_trigger(uds_ctx_t *ctx, uint8_t event_type, uint32_t param)
 
     int emitted = 0;
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-        const uds_roe_slot_t *slot = &ctx->roe[i];
+        const uds_roe_slot_t *slot = &ctx->server.roe[i];
         if (!slot->in_use || !slot->active || (slot->event_type != event_type)) {
             continue;
         }
@@ -295,7 +295,7 @@ int uds_roe_serialize(uds_ctx_t *ctx, uint8_t *buf, uint16_t max)
     uint16_t pos = 2u;
     uint8_t count = 0u;
     for (uint8_t i = 0u; i < (uint8_t) UDS_ROE_MAX_EVENTS; i++) {
-        const uds_roe_slot_t *slot = &ctx->roe[i];
+        const uds_roe_slot_t *slot = &ctx->server.roe[i];
         if (!slot->in_use) {
             continue;
         }
@@ -353,8 +353,8 @@ int uds_roe_deserialize(uds_ctx_t *ctx, const uint8_t *buf, uint16_t len)
         /* Place into the next unused slot; stop if the table is full. */
         uds_roe_slot_t *slot = NULL;
         for (uint8_t j = 0u; j < (uint8_t) UDS_ROE_MAX_EVENTS; j++) {
-            if (!ctx->roe[j].in_use) {
-                slot = &ctx->roe[j];
+            if (!ctx->server.roe[j].in_use) {
+                slot = &ctx->server.roe[j];
                 break;
             }
         }

@@ -38,8 +38,8 @@ void uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t
      * runs the deferred reset — exactly the ordering the canary tests verify. */
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
-    ctx->reset_pending = true;
-    ctx->reset_pending_type = sub;
+    ctx->scratch.reset_pending = true;
+    ctx->scratch.reset_pending_type = sub;
     uds_ok(out, 2u);
 }
 
@@ -88,7 +88,7 @@ void uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint1
         }
     }
 
-    ctx->comm_state = ctrl_type;
+    ctx->session.comm_state = ctrl_type;
     uds_internal_log(ctx, UDS_LOG_INFO, "Communication state changed");
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_COMM_CONTROL + UDS_RESPONSE_OFFSET);

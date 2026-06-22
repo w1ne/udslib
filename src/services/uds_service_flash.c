@@ -87,7 +87,7 @@ void uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, u
     }
 
     /* ISO 14229-1: Reset sequence counter for new transfer */
-    ctx->flash_sequence = 0u;
+    ctx->server.flash_sequence = 0u;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_REQUEST_DOWNLOAD + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] =
@@ -115,7 +115,7 @@ void uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint
     uint8_t sequence = data[1];
 
     /* ISO 14229-1: Server shall track and verify sequence counter */
-    if (ctx->flash_sequence == 0u) {
+    if (ctx->server.flash_sequence == 0u) {
         /* First block must be 0x01 */
         if (sequence != 0x01u) {
             uds_nrc(out, UDS_NRC_REQUEST_SEQUENCE_ERROR);
@@ -124,11 +124,11 @@ void uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint
     }
     else {
         uint8_t expected =
-            (ctx->flash_sequence == 0xFFu) ? 0x00u : (uint8_t) (ctx->flash_sequence + 1u);
+            (ctx->server.flash_sequence == 0xFFu) ? 0x00u : (uint8_t) (ctx->server.flash_sequence + 1u);
         if (sequence != expected) {
             /* Optional interoperability: accept last-block replay without re-processing data. */
             if (ctx->config->transfer_accept_last_block_replay &&
-                (sequence == ctx->flash_sequence)) {
+                (sequence == ctx->server.flash_sequence)) {
                 ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_DATA + UDS_RESPONSE_OFFSET);
                 ctx->config->tx_buffer[1] = sequence;
                 uds_ok(out, 2u);
@@ -145,7 +145,7 @@ void uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint
         return;
     }
 
-    ctx->flash_sequence = sequence;
+    ctx->server.flash_sequence = sequence;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_DATA + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sequence;
@@ -246,7 +246,7 @@ void uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uin
     }
 
     /* Reset sequence counter for new transfer */
-    ctx->flash_sequence = 0u;
+    ctx->server.flash_sequence = 0u;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_REQUEST_UPLOAD + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = 0x20u; /* Length format identifier (4 bytes) */

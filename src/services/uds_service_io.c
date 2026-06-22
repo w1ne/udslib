@@ -37,11 +37,11 @@ void uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_
     }
 
     /* Security/Session check for the DID */
-    if (entry->session_mask != 0u && !((1u << (ctx->active_session - 1u)) & entry->session_mask)) {
+    if (entry->session_mask != 0u && !((1u << (ctx->session.active - 1u)) & entry->session_mask)) {
         uds_nrc(out, UDS_NRC_SERVICE_NOT_SUPP_IN_SESS);
         return;
     }
-    if (entry->security_mask != 0u && !((1u << ctx->security_level) & entry->security_mask)) {
+    if (entry->security_mask != 0u && !((1u << ctx->security.level) & entry->security_mask)) {
         uds_nrc(out, UDS_NRC_SECURITY_ACCESS_DENIED);
         return;
     }

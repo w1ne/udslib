@@ -27,7 +27,7 @@ void uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
             /* C-18: Security & Session Validation per DID */
             /* Session Check */
             if ((entry->session_mask != 0u) &&
-                !(uds_internal_session_bit(ctx->active_session) & entry->session_mask)) {
+                !(uds_internal_session_bit(ctx->session.active) & entry->session_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_REQUEST_OUT_OF_RANGE; /* 0x31 per ISO 14229-1 */
                 break;
@@ -35,7 +35,7 @@ void uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, ui
 
             /* Security Check */
             if ((entry->security_mask != 0u) &&
-                !((1u << ctx->security_level) & entry->security_mask)) {
+                !((1u << ctx->security.level) & entry->security_mask)) {
                 any_error = true;
                 nrc_code = UDS_NRC_SECURITY_ACCESS_DENIED;
                 break;
@@ -178,13 +178,13 @@ void uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, u
     /* C-18: Security & Session Validation per DID */
     /* Session Check */
     if ((entry->session_mask != 0u) &&
-        !(uds_internal_session_bit(ctx->active_session) & entry->session_mask)) {
+        !(uds_internal_session_bit(ctx->session.active) & entry->session_mask)) {
         uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
         return;
     }
 
     /* Security Check */
-    if ((entry->security_mask != 0u) && !((1u << ctx->security_level) & entry->security_mask)) {
+    if ((entry->security_mask != 0u) && !((1u << ctx->security.level) & entry->security_mask)) {
         uds_nrc(out, UDS_NRC_SECURITY_ACCESS_DENIED);
         return;
     }
@@ -233,17 +233,17 @@ void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint
         /* Stop Sending */
         if (len == 2u) {
             /* Stop all */
-            memset(ctx->periodic_ids, 0, sizeof(ctx->periodic_ids));
-            ctx->periodic_count = 0u;
+            memset(ctx->server.periodic_ids, 0, sizeof(ctx->server.periodic_ids));
+            ctx->server.periodic_count = 0u;
         }
         else {
             /* Stop specific IDs */
             for (uint16_t i = 2u; i < len; i++) {
                 uint8_t id = data[i];
                 for (uint8_t j = 0u; j < 8u; j++) {
-                    if (ctx->periodic_ids[j] == id) {
-                        ctx->periodic_ids[j] = 0u;
-                        ctx->periodic_count--;
+                    if (ctx->server.periodic_ids[j] == id) {
+                        ctx->server.periodic_ids[j] = 0u;
+                        ctx->server.periodic_count--;
                     }
                 }
             }
@@ -269,24 +269,24 @@ void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint
         uint8_t id = data[i];
         bool found = false;
         for (uint8_t j = 0u; j < 8u; j++) {
-            if (ctx->periodic_ids[j] == id) {
-                ctx->periodic_rates[j] = mode;
+            if (ctx->server.periodic_ids[j] == id) {
+                ctx->server.periodic_rates[j] = mode;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            if (ctx->periodic_count >= 8u) {
+            if (ctx->server.periodic_count >= 8u) {
                 uds_nrc(out, UDS_NRC_RESPONSE_TOO_LONG);
                 return;
             }
             for (uint8_t j = 0u; j < 8u; j++) {
-                if (ctx->periodic_ids[j] == 0u) {
-                    ctx->periodic_ids[j] = id;
-                    ctx->periodic_rates[j] = mode;
-                    ctx->periodic_timers[j] =
+                if (ctx->server.periodic_ids[j] == 0u) {
+                    ctx->server.periodic_ids[j] = id;
+                    ctx->server.periodic_rates[j] = mode;
+                    ctx->server.periodic_timers[j] =
                         ctx->config->get_time_ms(); /* Start immediately or after interval */
-                    ctx->periodic_count++;
+                    ctx->server.periodic_count++;
                     break;
                 }
             }

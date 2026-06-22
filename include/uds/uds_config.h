@@ -703,106 +703,82 @@ typedef struct
  * Stores the runtime state of the stack.
  * The user allocates this (stack/static), but should treat members as private.
  */
+/* --- Runtime context, grouped by field lifetime/role (Phase 2) --- */
+
+/** Diagnostic session and dynamic timing. */
+typedef struct uds_session_state
+{
+    uint8_t active;         /**< Currently active session (Default, Programming, ...) */
+    uint32_t last_msg_time; /**< Timestamp of last valid message (S3 timer) */
+    uint16_t p2_ms;         /**< Current P2 server timeout */
+    uint32_t p2_star_ms;    /**< Current P2* server timeout */
+    uint8_t comm_state;     /**< CommunicationControl (0x28) state (uds_comm_control_type_t) */
+} uds_session_state_t;
+
+/** SecurityAccess (0x27) / Authentication (0x29) state. */
+typedef struct uds_security_state
+{
+    uint8_t level;      /**< Current security level (0 = Locked) */
+    bool authenticated; /**< 0x29 state: true once fn_auth verifies ownership */
+    uint32_t delay_end; /**< Timestamp when the security delay expires */
+    uint8_t attempts;   /**< Counter for failed security attempts */
+    uint8_t seed_level; /**< Level a seed is currently outstanding for (0 = none) */
+    uint8_t seed_len;   /**< Length of the issued seed cached in seed[] */
+    uint8_t seed[UDS_SECURITY_SEED_MAX]; /**< Copy of the last issued seed */
+} uds_security_state_t;
+
+/** Server-role persistent state: async response engine + per-service state. */
+typedef struct uds_server_state
+{
+    uint32_t p2_timer_start; /**< Start time for P2 performance tracking */
+    bool p2_msg_pending;     /**< True if a service returned UDS_PENDING */
+    bool p2_star_active;     /**< True once the first 0x78 NRC has been sent */
+    uint8_t pending_sid;     /**< SID awaiting an async (0x78) response */
+    uint16_t rcrrp_count;    /**< Counter for NRC 0x78 repetitions (C-07) */
+    uint8_t flash_sequence;  /**< Block Sequence Counter for SID 0x36 */
+    bool link_ctrl_verified; /**< 0x87: a verify sub-function has been accepted */
+    uint32_t link_ctrl_param; /**< 0x87: link parameter latched at verify */
+    uint8_t periodic_ids[8];     /**< Active periodic IDs (SID 0x2A) */
+    uint8_t periodic_rates[8];   /**< Periodic sub-function rates (1-3) */
+    uint32_t periodic_timers[8]; /**< Next periodic transmission deadline */
+    uint8_t periodic_count;      /**< Number of active periodic IDs */
+#if (UDS_ROE_MAX_EVENTS > 0)
+    uds_roe_slot_t roe[UDS_ROE_MAX_EVENTS]; /**< ResponseOnEvent slots (SID 0x86) */
+#endif
+} uds_server_state_t;
+
+/** Client-role state: outstanding request awaiting a response (Phase 3 seam). */
+typedef struct uds_client_state
+{
+    void *cb;            /**< Callback to invoke when the awaited response arrives */
+    uint8_t pending_sid; /**< SID we sent and are awaiting a response for (0 = none) */
+} uds_client_state_t;
+
+/** Per-dispatch scratch: scoped to a single request, not persistent state. */
+typedef struct uds_dispatch_scratch
+{
+    bool suppress_pos_resp;       /**< Centralized suppressPosRsp (bit 7 of sub-function) */
+    uint8_t req_addr_mode;        /**< Addressing mode of the request in flight (UDS_ADDR_*) */
+    bool reset_pending;           /**< 0x11: framework calls fn_reset AFTER emitting */
+    uint8_t reset_pending_type;   /**< resetType for the deferred reset */
+    bool in_secured_session;      /**< Dispatching a request unwrapped from 0x84 */
+    bool secure_capturing;        /**< Capturing the inner response instead of sending */
+    uint8_t *secure_capture_buf;  /**< Capture target (points to caller stack) */
+    uint16_t secure_capture_size; /**< Capacity of secure_capture_buf */
+    uint16_t secure_capture_len;  /**< Bytes captured for the inner response */
+    bool secure_capture_overflow; /**< Inner response exceeded the capture buffer */
+} uds_dispatch_scratch_t;
+
 typedef struct uds_ctx
 {
     /** Config pointer (must remain valid) */
     const uds_config_t *config;
 
-    /* --- State Machine --- */
-    /** Currently active session (Default, Programming, etc.) */
-    uint8_t active_session;
-    /** Current security level (0 = Locked) */
-    uint8_t security_level;
-    /** Addressing mode of the request in flight (UDS_ADDR_*) */
-    uint8_t req_addr_mode;
-    /** Authentication (0x29) state: true once fn_auth verifies ownership.
-     *  Auto-cleared on deAuthenticate, session change, S3 timeout, and reset. */
-    bool authenticated;
-
-    /* --- Timing --- */
-    /** Timestamp of last received valid message (for S3 timer) */
-    uint32_t last_msg_time;
-    /** Start time for P2 performance tracking */
-    uint32_t p2_timer_start;
-    /** True if a service returned UDS_PENDING */
-    bool p2_msg_pending;
-    /** True if we have already sent the first 0x78 NRC */
-    bool p2_star_active;
-
-    /* --- Server role: in-progress asynchronous request --- */
-    /** SID of the request currently awaiting an async (0x78) response */
-    uint8_t server_pending_sid;
-    /** Set by the 0x11 handler; framework calls fn_reset AFTER emitting. */
-    bool reset_pending;
-    /** resetType to pass to fn_reset when reset_pending is consumed. */
-    uint8_t reset_pending_type;
-
-    /* --- Client role: outstanding request awaiting a response --- */
-    /** Callback to invoke when the awaited response arrives */
-    void *client_cb;
-    /** SID of the request we sent and are awaiting a response for (0 = none) */
-    uint8_t client_pending_sid;
-
-    /** Communication control state for SID 0x28 (uds_comm_control_type_t) */
-    uint8_t comm_state;
-
-    /** ISO 14229-1: Centralized Suppression of Positive Response (bit 7 of sub-function) */
-    bool suppress_pos_resp;
-
-    /* --- Dynamic Timing Parameters --- */
-    /** Current P2 server timeout */
-    uint16_t p2_ms;
-    /** Current P2* server timeout */
-    uint32_t p2_star_ms;
-
-    /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
-    uint8_t flash_sequence;
-
-    /* --- Link Control State (SID 0x87) --- */
-    /** True once a verify subfunction (0x01/0x02) has been accepted */
-    bool link_ctrl_verified;
-    /** Link parameter latched at verify, applied on transition (0x03) */
-    uint32_t link_ctrl_param;
-
-    /* --- Security State (C-14, C-15) --- */
-    /** Timestamp when security delay expires */
-    uint32_t security_delay_end;
-    /** Counter for failed security attempts */
-    uint8_t security_attempts;
-    /** Level for which a seed is currently outstanding (0 = none requested) */
-    uint8_t security_seed_level;
-    /** Length of the issued seed cached in security_seed */
-    uint8_t security_seed_len;
-    /** Copy of the last issued seed, passed back to the key verifier */
-    uint8_t security_seed[UDS_SECURITY_SEED_MAX];
-
-    /** ISO 14229-1: Counter for NRC 0x78 repetitions (C-07) */
-    uint16_t rcrrp_count;
-
-    /* --- Periodic Data State (SID 0x2A) --- */
-    uint8_t periodic_ids[8];     /**< Active periodic IDs */
-    uint8_t periodic_rates[8];   /**< Subfunction rates (1-3) */
-    uint32_t periodic_timers[8]; /**< Next transmission deadline */
-    uint8_t periodic_count;      /**< Number of active periodic IDs */
-
-#if (UDS_ROE_MAX_EVENTS > 0)
-    /* --- ResponseOnEvent State (SID 0x86) --- */
-    uds_roe_slot_t roe[UDS_ROE_MAX_EVENTS];
-#endif
-
-    /* --- Secured Data Transmission (SID 0x84) --- */
-    /** True while dispatching a request unwrapped from 0x84 (grants the
-     *  UDS_SESSION_SECURED gate to the inner service). */
-    bool in_secured_session;
-    /** True while the inner response is being captured instead of sent. */
-    bool secure_capturing;
-    /** Capture target for the inner response (points to caller stack). */
-    uint8_t *secure_capture_buf;
-    uint16_t secure_capture_size; /**< Capacity of secure_capture_buf. */
-    uint16_t secure_capture_len;  /**< Bytes captured for the inner response. */
-    /** Set when the inner response exceeds secure_capture_size; causes the outer
-     *  0x84 handler to emit NRC responseTooLong (0x14) instead of a truncated frame. */
-    bool secure_capture_overflow;
+    uds_session_state_t session;
+    uds_security_state_t security;
+    uds_server_state_t server;
+    uds_client_state_t client;
+    uds_dispatch_scratch_t scratch;
 } uds_ctx_t;
 
 #ifdef __cplusplus

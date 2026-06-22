@@ -23,13 +23,13 @@ void uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, ui
     uint32_t now = ctx->config->get_time_ms();
 
     /* C-14: Security Delay Timer Check */
-    if (ctx->security_delay_end != 0u) {
-        if (now < ctx->security_delay_end) {
+    if (ctx->security.delay_end != 0u) {
+        if (now < ctx->security.delay_end) {
             uds_nrc(out, UDS_NRC_REQUIRED_TIME_DELAY);
             return;
         }
         /* Delay expired, reset counter if we want, but ISO says just allow next attempt */
-        ctx->security_delay_end = 0u;
+        ctx->security.delay_end = 0u;
     }
 
     uint8_t sub_raw = data[1];
@@ -57,9 +57,9 @@ void uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, ui
            and arm the requestSeed -> sendKey sequence for this level. */
         uint8_t cache_len =
             (seed_len > (int) UDS_SECURITY_SEED_MAX) ? UDS_SECURITY_SEED_MAX : (uint8_t) seed_len;
-        memcpy(ctx->security_seed, &ctx->config->tx_buffer[2], cache_len);
-        ctx->security_seed_len = cache_len;
-        ctx->security_seed_level = level;
+        memcpy(ctx->security.seed, &ctx->config->tx_buffer[2], cache_len);
+        ctx->security.seed_len = cache_len;
+        ctx->security.seed_level = level;
 
         uds_ok(out, (uint16_t) ((uint16_t) seed_len + 2u));
         return;
@@ -74,24 +74,24 @@ void uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, ui
 
         /* ISO 14229-1: a key must be preceded by a requestSeed for the same
            level, otherwise it is an out-of-sequence request. */
-        if (ctx->security_seed_level == 0u || ctx->security_seed_level != level) {
+        if (ctx->security.seed_level == 0u || ctx->security.seed_level != level) {
             uds_nrc(out, UDS_NRC_REQUEST_SEQUENCE_ERROR);
             return;
         }
 
         /* Standard assumes key is passed in the request after SID and subfn */
-        int res = ctx->config->fn_security_key(ctx, level, ctx->security_seed, &data[2],
+        int res = ctx->config->fn_security_key(ctx, level, ctx->security.seed, &data[2],
                                                (uint16_t) (len - 2u));
         if (res == 0) {
             /* Success! Reset attempts and consume the outstanding seed. */
-            ctx->security_attempts = 0u;
-            ctx->security_seed_level = 0u;
-            ctx->security_seed_len = 0u;
-            ctx->security_level = level;
+            ctx->security.attempts = 0u;
+            ctx->security.seed_level = 0u;
+            ctx->security.seed_len = 0u;
+            ctx->security.level = level;
 
             /* NVM Persistence: Save State */
             if (ctx->config->fn_nvm_save) {
-                uint8_t state[2] = {ctx->active_session, ctx->security_level};
+                uint8_t state[2] = {ctx->session.active, ctx->security.level};
                 ctx->config->fn_nvm_save(ctx, state, 2u);
             }
 
@@ -102,14 +102,14 @@ void uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, ui
         }
         else {
             /* C-15: Attempt Management */
-            ctx->security_attempts++;
+            ctx->security.attempts++;
             uint8_t max_att =
                 ctx->config->security_max_attempts ? ctx->config->security_max_attempts : 3u;
 
-            if (ctx->security_attempts >= max_att) {
+            if (ctx->security.attempts >= max_att) {
                 uint32_t delay =
                     ctx->config->security_delay_ms ? ctx->config->security_delay_ms : 10000u;
-                ctx->security_delay_end = now + delay;
+                ctx->security.delay_end = now + delay;
                 uds_nrc(out, UDS_NRC_EXCEEDED_ATTEMPTS);
                 return;
             }
@@ -133,13 +133,13 @@ void uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uin
     uint8_t sub = (uint8_t) (data[1] & 0x7Fu);
     /* 0x29 never suppresses: override the flag set by the dispatcher so that
      * execute_handler always emits the positive response. */
-    ctx->suppress_pos_resp = false;
+    ctx->scratch.suppress_pos_resp = false;
 
     uint8_t *tx = ctx->config->tx_buffer;
 
     /* deAuthenticate (0x00): handled natively, clears the authenticated state. */
     if (sub == UDS_AUTH_DEAUTHENTICATE) {
-        ctx->authenticated = false;
+        ctx->security.authenticated = false;
         tx[0] = (uint8_t) (UDS_SID_AUTHENTICATION + UDS_RESPONSE_OFFSET);
         tx[1] = sub;
         tx[2] = UDS_ARP_DEAUTHENTICATED;
