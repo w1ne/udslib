@@ -65,9 +65,9 @@ redundant.
 
 | Sub-struct | Type | Fields (final names) |
 |---|---|---|
-| `session` | `uds_session_state` | `active`, `last_msg_time`, `p2_ms`, `p2_star_ms`, `p2_server_max`, `p2_star_server_max`, `comm_state` |
+| `session` | `uds_session_state` | `active`, `last_msg_time`, `p2_ms`, `p2_star_ms`, `comm_state` |
 | `security` | `uds_security_state` | `level`, `authenticated`, `attempts`, `delay_end`, `seed_level`, `seed_len`, `seed[UDS_SECURITY_SEED_MAX]` |
-| `server` | `uds_server_state` | `p2_timer_start`, `p2_msg_pending`, `p2_star_active`, `pending_sid`, `rcrrp_count`, `flash_sequence`, `link_ctrl_verified`, `link_ctrl_param`, `periodic_ids[8]`, `periodic_rates[8]`, `periodic_timers[8]`, `periodic_count` |
+| `server` | `uds_server_state` | `p2_timer_start`, `p2_msg_pending`, `p2_star_active`, `pending_sid`, `rcrrp_count`, `flash_sequence`, `link_ctrl_verified`, `link_ctrl_param`, `periodic_ids[8]`, `periodic_rates[8]`, `periodic_timers[8]`, `periodic_count`, `roe[UDS_ROE_MAX_EVENTS]` (when `UDS_ROE_MAX_EVENTS > 0`) |
 | `client` | `uds_client_state` | `cb` (`void *`), `pending_sid` |
 | `scratch` | `uds_dispatch_scratch` | `suppress_pos_resp`, `req_addr_mode`, `reset_pending`, `reset_pending_type`, `in_secured_session`, `secure_capturing`, `secure_capture_buf`, `secure_capture_size`, `secure_capture_len`, `secure_capture_overflow` |
 
