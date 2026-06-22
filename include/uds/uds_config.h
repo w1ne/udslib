@@ -83,6 +83,21 @@ typedef int (*uds_tp_send_fn)(struct uds_ctx *ctx, const uint8_t *data, uint16_t
 /**
  * @brief ECU Reset Callback (SID 0x11)
  *
+ * Invoked only AFTER the ECUReset positive response has been handed to the
+ * transport, per ISO 14229-1 (§ ECUReset: the positive response shall be sent
+ * before the reset is executed). This holds even when the 0x11 is wrapped in a
+ * SecuredDataTransmission (0x84): the call is deferred until the outer secured
+ * response is sent, not the captured inner one. It is also skipped entirely if
+ * the response could not be handed to the transport.
+ *
+ * The library guarantees this ordering relative to uds_tp_send_fn, but cannot
+ * guarantee the frame has physically drained from the bus — fn_tp_send returning
+ * means "queued", not "transmitted", on most drivers. An implementation that
+ * tears down the MCU (e.g. NVIC_SystemReset) should therefore still defer the
+ * actual reset until the transport reports transmit-complete: return promptly,
+ * then reset from the main loop once TX is done. A synchronous reset here is
+ * safe only if fn_tp_send blocks until the frame has fully left the bus.
+ *
  * @param ctx   Pointer to the UDS context.
  * @param type  The type of reset requested (uds_reset_type_t).
  */
@@ -760,6 +775,14 @@ typedef struct uds_ctx
     uint8_t *secure_capture_buf;
     uint16_t secure_capture_size; /**< Capacity of secure_capture_buf. */
     uint16_t secure_capture_len;  /**< Bytes captured for the inner response. */
+
+    /* --- ECU Reset (SID 0x11) deferred execution --- */
+    /** True when an ECUReset hook must fire once its positive response has been
+     *  transmitted. Lets a 0x11 wrapped in SecuredDataTransmission (0x84) defer
+     *  fn_reset until the outer secured response is on the wire, not just the
+     *  captured inner one. ISO 14229-1 (§ ECUReset). */
+    bool reset_pending;
+    uint8_t reset_pending_type; /**< resetType to pass to fn_reset when fired. */
 } uds_ctx_t;
 
 #ifdef __cplusplus

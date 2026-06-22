@@ -228,6 +228,98 @@ static void test_ecu_reset_rapid_shutdown_power_down_time(void **state)
     assert_int_equal(g_last_reset_type, 0x04);
 }
 
+/* Reversible test "crypto" for the 0x84 secured wrapper: decode XORs 0xFF,
+ * encode XORs 0xAA (mirrors tests/unit/test_service_84.c). */
+static int xor_decode(uds_ctx_t *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                      uint8_t *out, uint16_t out_max)
+{
+    (void) ctx;
+    (void) apar;
+    assert_true(in_len <= out_max);
+    for (uint16_t i = 0u; i < in_len; i++) {
+        out[i] = (uint8_t) (in[i] ^ 0xFFu);
+    }
+    return (int) in_len;
+}
+
+static int xor_encode(uds_ctx_t *ctx, uint16_t apar, const uint8_t *in, uint16_t in_len,
+                      uint8_t *out, uint16_t out_max)
+{
+    (void) ctx;
+    (void) apar;
+    assert_true(in_len <= out_max);
+    for (uint16_t i = 0u; i < in_len; i++) {
+        out[i] = (uint8_t) (in[i] ^ 0xAAu);
+    }
+    return (int) in_len;
+}
+
+/* A failing transport: a reset must NOT run if the response could not be sent. */
+static int failing_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    return -1;
+}
+
+static void test_ecu_reset_no_reset_when_send_fails(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = failing_tp_send;
+    cfg.fn_reset = mock_reset_cb;
+    g_reset_called = 0;
+
+    uint8_t request[] = {0x11, 0x01};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    assert_int_equal(g_reset_called, 0);
+}
+
+/* ECUReset wrapped in SecuredDataTransmission (0x84): the response the tester
+ * receives is the OUTER secured frame, sent after the inner 0x51 is captured.
+ * The reset must fire only after that outer frame is on the wire — proving the
+ * reset is deferred, not run during inner dispatch. */
+static void test_ecu_reset_secured_defers_until_outer_response(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = order_tp_send; /* record send vs reset order */
+    cfg.fn_reset = order_reset_cb;
+    cfg.fn_secure_decode = xor_decode;
+    cfg.fn_secure_encode = xor_encode;
+    g_order_seq = 0;
+    g_send_order = 0;
+    g_reset_order = 0;
+
+    /* inner = {0x11, 0x01}; secured payload = inner ^ 0xFF = {0xEE, 0xFE}. */
+    uint8_t req[] = {0x84, 0x12, 0x34, 0xEE, 0xFE};
+
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+
+    uds_input_sdu(&ctx, req, sizeof(req));
+
+    /* Outer secured positive response on the wire: 0xC4 APAR(0x1234) +
+     * (inner {0x51,0x01} ^ 0xAA) = {0xFB, 0xAB}. */
+    assert_int_equal(g_tx_buf[0], 0xC4);
+    assert_int_equal(g_tx_buf[3], 0xFB);
+    assert_int_equal(g_tx_buf[4], 0xAB);
+    /* Exactly one real transmit (the inner 0x51 was captured, not sent). */
+    assert_int_equal(g_send_order, 1);
+    /* Reset fired strictly after the outer secured response was sent. */
+    assert_int_not_equal(g_reset_order, 0);
+    assert_true(g_send_order < g_reset_order);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -237,6 +329,8 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
         cmocka_unit_test(test_ecu_reset_suppress_does_not_leak),
         cmocka_unit_test(test_ecu_reset_rapid_shutdown_power_down_time),
+        cmocka_unit_test(test_ecu_reset_no_reset_when_send_fails),
+        cmocka_unit_test(test_ecu_reset_secured_defers_until_outer_response),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -32,8 +32,21 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
      * required) shall be sent before the reset is executed in the server(s)."
      * A real reset reboots the MCU inside fn_reset and never returns, so the
      * response must be on the wire first — otherwise the tester sees no answer.
-     * Emit the response (or honour suppressPosRsp), then perform the reset. */
+     * Emit the response (or honour suppressPosRsp), then perform the reset.
+     *
+     * When this 0x11 is the inner request of a SecuredDataTransmission (0x84),
+     * uds_send_response only captures the inner 0x51 — the response the tester
+     * actually receives is the outer secured frame, sent later by the 0x84
+     * handler. Queue the reset and let that handler run it after the outer send,
+     * so a synchronous fn_reset cannot reboot before the tester is answered. */
+    bool captured = ctx->secure_capturing;
     int rc = UDS_OK;
+
+    if (ctx->config->fn_reset != NULL) {
+        ctx->reset_pending = true;
+        ctx->reset_pending_type = sub;
+    }
+
     if (suppress_pos_resp) {
         ctx->suppress_pos_resp = true;
     }
@@ -49,11 +62,19 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
             resp_len = 3u;
         }
         rc = uds_send_response(ctx, resp_len);
+        if (rc != UDS_OK) {
+            /* Could not hand the response to the transport; skip the reset so
+             * the tester is not left desynchronised without a confirmation. */
+            ctx->reset_pending = false;
+            return rc;
+        }
     }
 
-    /* Perform the reset only after the response has been handed to transport. */
-    if (ctx->config->fn_reset) {
-        ctx->config->fn_reset(ctx, sub);
+    /* For a normal (or suppressed) reset the wire transaction is complete, so
+     * run the reset now. For a captured (0x84) reset, leave it pending for the
+     * secured handler to run after the outer response is sent. */
+    if (!captured) {
+        uds_internal_run_pending_reset(ctx);
     }
 
     return rc;
