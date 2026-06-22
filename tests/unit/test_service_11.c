@@ -198,6 +198,36 @@ static void test_ecu_reset_suppress_does_not_leak(void **state)
     assert_int_equal(g_tx_buf[0], 0x54);
 }
 
+/* ISO 14229-1: the enableRapidPowerShutDown (0x11 sub 0x04) positive response
+ * carries an extra powerDownTime byte -> {0x51, 0x04, powerDownTime} (3 bytes),
+ * sourced from cfg.power_down_time. Other reset types stay 2 bytes. */
+static void test_ecu_reset_rapid_shutdown_power_down_time(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_reset = mock_reset_cb;
+    cfg.power_down_time = 0x05u;
+    g_reset_called = 0;
+
+    uint8_t request[] = {0x11, 0x04};
+
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 51 04 <powerDownTime> */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_tx_buf[1], 0x04);
+    assert_int_equal(g_tx_buf[2], 0x05);
+    assert_int_equal(g_reset_called, 1);
+    assert_int_equal(g_last_reset_type, 0x04);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -206,6 +236,7 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
         cmocka_unit_test(test_ecu_reset_suppress_does_not_leak),
+        cmocka_unit_test(test_ecu_reset_rapid_shutdown_power_down_time),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

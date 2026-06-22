@@ -163,6 +163,48 @@ static void test_safety_gate_rejection(void **state)
     assert_int_equal(g_tx_buf[2], 0x22); /* ConditionsNotCorrect */
 }
 
+/* A handler that asks to send more than the TX buffer can hold. The core must
+ * answer the tester with ResponseTooLong (0x14), not silently drop the frame. */
+static int oversize_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) data;
+    (void) len;
+    ctx->config->tx_buffer[0] = (uint8_t) (0x66u + 0x40u); /* positive-response SID */
+    return uds_send_response(ctx, (uint16_t) (ctx->config->tx_buffer_size + 1u));
+}
+
+static void test_response_too_long_nrc(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uint8_t tx_buf[10];
+    uds_service_entry_t user_services[] = {
+        {0x66, 1, UDS_SESSION_ALL, 0, oversize_handler, NULL, 0u}};
+    uds_config_t cfg = {.get_time_ms = mock_get_time,
+                        .fn_tp_send = mock_tp_send,
+                        .rx_buffer = g_rx_buf,
+                        .rx_buffer_size = 10,
+                        .tx_buffer = tx_buf,
+                        .tx_buffer_size = 10,
+                        .user_services = user_services,
+                        .user_service_count = 1,
+                        .p2_ms = 50,
+                        .p2_star_ms = 5000};
+    uds_init(&ctx, &cfg);
+
+    uint8_t req[] = {0x66};
+    will_return(mock_get_time, 1000); /* input_sdu */
+    will_return(mock_get_time, 1000); /* dispatcher */
+    expect_value(mock_tp_send, data, tx_buf);
+    expect_value(mock_tp_send, len, 3); /* 7F 66 14 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 1);
+    assert_int_equal(tx_buf[0], 0x7F);
+    assert_int_equal(tx_buf[1], 0x66);
+    assert_int_equal(tx_buf[2], 0x14); /* ResponseTooLong */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -171,6 +213,7 @@ int main(void)
         cmocka_unit_test(test_invalid_sid_nrc),
         cmocka_unit_test(test_custom_service_registration),
         cmocka_unit_test(test_safety_gate_rejection),
+        cmocka_unit_test(test_response_too_long_nrc),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

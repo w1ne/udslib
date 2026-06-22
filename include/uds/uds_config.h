@@ -233,6 +233,11 @@ typedef struct
     /** Optional: ECU Reset callback for SID 0x11 */
     uds_reset_fn fn_reset;
 
+    /** powerDownTime (seconds) appended to the enableRapidPowerShutDown
+     *  (0x11 sub-function 0x04) positive response, per ISO 14229-1. 0xFF means
+     *  "failure / time not available". Ignored for other reset types. */
+    uint8_t power_down_time;
+
     /**
      * @brief Optional: Communication Control callback (SID 0x28)
      * @param ctx  UDS Context
@@ -708,6 +713,10 @@ typedef struct uds_ctx
 
     /** ISO 14229-1: Block Sequence Counter for SID 0x36 */
     uint8_t flash_sequence;
+    /** True between a RequestDownload/Upload (0x34/0x35) and its TransferExit
+     *  (0x37). TransferData (0x36) is rejected with requestSequenceError (0x24)
+     *  unless a transfer is active. */
+    bool transfer_active;
 
     /* --- Link Control State (SID 0x87) --- */
     /** True once a verify subfunction (0x01/0x02) has been accepted */

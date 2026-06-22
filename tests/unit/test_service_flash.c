@@ -60,18 +60,20 @@ static void test_transfer_data_sequence_error(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_transfer_data = mock_transfer_data;
 
-    /* C-13: Sequence counter starts at 0x01. If 0x02 received first -> NRC 0x24 */
+    /* Sequence counter starts at 0x01. If 0x02 received first (inside an active
+     * transfer) -> NRC 0x73 wrongBlockSequenceCounter (ISO 14229-1). */
     uint8_t req[] = {0x36, 0x02, 0xDE, 0xAD};
+    ctx.transfer_active = true; /* as if RequestDownload already accepted */
     ctx.flash_sequence = 0;
 
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 3); /* 7F 36 24 */
+    expect_value(mock_tp_send, len, 3); /* 7F 36 73 */
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req, 4);
-    assert_int_equal(g_tx_buf[2], 0x24);
+    assert_int_equal(g_tx_buf[2], 0x73);
 }
 
 static void test_transfer_data_last_block_replay(void **state)
@@ -83,6 +85,7 @@ static void test_transfer_data_last_block_replay(void **state)
 
     /* First block (0x01) */
     uint8_t req1[] = {0x36, 0x01, 0xDE, 0xAD};
+    ctx.transfer_active = true; /* as if RequestDownload already accepted */
     ctx.flash_sequence = 0;
 
     will_return(mock_get_time, 1000);
@@ -108,12 +111,97 @@ static void test_transfer_data_last_block_replay(void **state)
     assert_int_equal(ctx.flash_sequence, 0x01);
 }
 
+static int mock_transfer_exit(struct uds_ctx *ctx)
+{
+    (void) ctx;
+    return UDS_OK;
+}
+
+/* TransferData (0x36) before any RequestDownload/Upload must be rejected with
+ * requestSequenceError (0x24) and must not reach the application callback. */
+static void test_transfer_data_requires_active_transfer(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_transfer_data = mock_transfer_data;
+
+    uint8_t req[] = {0x36, 0x01, 0xDE, 0xAD};
+    g_transfer_seq = 0xFFu; /* sentinel: callback must not run */
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 36 24 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 4);
+    assert_int_equal(g_tx_buf[0], 0x7F);
+    assert_int_equal(g_tx_buf[1], 0x36);
+    assert_int_equal(g_tx_buf[2], 0x24);
+    assert_int_equal(g_transfer_seq, 0xFFu); /* fn_transfer_data not invoked */
+}
+
+/* RequestDownload arms the transfer; TransferExit disarms it, so a subsequent
+ * TransferData is again rejected with 0x24. */
+static void test_transfer_exit_disarms_transfer(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_request_download = mock_request_download;
+    cfg.fn_transfer_data = mock_transfer_data;
+    cfg.fn_transfer_exit = mock_transfer_exit;
+
+    /* RequestDownload (ALFID 0x11: 1-byte addr + 1-byte size) */
+    uint8_t dl[] = {0x34, 0x00, 0x11, 0x20, 0x10};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 6);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, dl, sizeof(dl));
+    assert_int_equal(g_tx_buf[0], 0x74);
+    assert_true(ctx.transfer_active);
+
+    /* First TransferData block accepted */
+    uint8_t td[] = {0x36, 0x01, 0xDE, 0xAD};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, td, sizeof(td));
+    assert_int_equal(g_tx_buf[0], 0x76);
+
+    /* TransferExit disarms */
+    uint8_t te[] = {0x37};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 1);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, te, sizeof(te));
+    assert_int_equal(g_tx_buf[0], 0x77);
+    assert_false(ctx.transfer_active);
+
+    /* TransferData after exit -> 0x24 again */
+    uint8_t td2[] = {0x36, 0x02, 0xBE, 0xEF};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, td2, sizeof(td2));
+    assert_int_equal(g_tx_buf[2], 0x24);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_request_download_alfid_invalid),
         cmocka_unit_test(test_transfer_data_sequence_error),
         cmocka_unit_test(test_transfer_data_last_block_replay),
+        cmocka_unit_test(test_transfer_data_requires_active_transfer),
+        cmocka_unit_test(test_transfer_exit_disarms_transfer),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

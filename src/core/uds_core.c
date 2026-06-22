@@ -508,6 +508,7 @@ void uds_process(uds_ctx_t *ctx)
             ctx->authenticated = false;
             ctx->security_seed_level = 0u;
             ctx->security_seed_len = 0u;
+            ctx->transfer_active = false; /* abort any in-progress block transfer */
             uds_internal_log(ctx, UDS_LOG_INFO, "S3 Timeout: Reverted to Default Session");
         }
     }
@@ -696,7 +697,20 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len)
     }
 
     if (len > ctx->config->tx_buffer_size) {
-        return UDS_ERR_BUFFER_TOO_SMALL;
+        /* The response does not fit the TX buffer. When sending on the wire,
+         * answer the tester with ResponseTooLong (0x14) instead of silently
+         * dropping it. While capturing an inner 0x84/0x86 response there is no
+         * wire to answer on, so keep the internal error for the wrapper to
+         * handle. The handler has already written the positive-response SID to
+         * tx_buffer[0], so recover the request SID from it. */
+        if (ctx->secure_capturing) {
+            return UDS_ERR_BUFFER_TOO_SMALL;
+        }
+        uint8_t resp_sid = ctx->config->tx_buffer[0];
+        uint8_t req_sid = (resp_sid >= UDS_RESPONSE_OFFSET)
+                              ? (uint8_t) (resp_sid - UDS_RESPONSE_OFFSET)
+                              : resp_sid;
+        return uds_send_nrc(ctx, req_sid, UDS_NRC_RESPONSE_TOO_LONG);
     }
 
     ctx->p2_msg_pending = false;

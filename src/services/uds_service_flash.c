@@ -77,8 +77,9 @@ int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, ui
         return uds_send_nrc(ctx, UDS_SID_REQUEST_DOWNLOAD, (uint8_t) - (int32_t) res);
     }
 
-    /* ISO 14229-1: Reset sequence counter for new transfer */
+    /* ISO 14229-1: Reset sequence counter and arm the transfer for new download */
     ctx->flash_sequence = 0u;
+    ctx->transfer_active = true;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_REQUEST_DOWNLOAD + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] =
@@ -100,28 +101,28 @@ int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint1
         return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_CONDITIONS_NOT_CORRECT);
     }
 
+    /* ISO 14229-1: TransferData is only valid inside an active transfer started
+     * by RequestDownload/RequestUpload; otherwise requestSequenceError (0x24). */
+    if (!ctx->transfer_active) {
+        return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_REQUEST_SEQUENCE_ERROR);
+    }
+
     uint8_t sequence = data[1];
 
-    /* ISO 14229-1: Server shall track and verify sequence counter */
-    if (ctx->flash_sequence == 0u) {
-        /* First block must be 0x01 */
-        if (sequence != 0x01u) {
-            return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_REQUEST_SEQUENCE_ERROR);
+    /* ISO 14229-1: Server shall track and verify the blockSequenceCounter. After
+     * RequestDownload/Upload flash_sequence is 0, so the first expected block is
+     * 0x01; thereafter it increments and wraps 0xFF -> 0x00. A mismatch is
+     * wrongBlockSequenceCounter (0x73), distinct from "no transfer" (0x24). */
+    uint8_t expected =
+        (ctx->flash_sequence == 0xFFu) ? 0x00u : (uint8_t) (ctx->flash_sequence + 1u);
+    if (sequence != expected) {
+        /* Optional interoperability: accept last-block replay without re-processing data. */
+        if (ctx->config->transfer_accept_last_block_replay && (sequence == ctx->flash_sequence)) {
+            ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_DATA + UDS_RESPONSE_OFFSET);
+            ctx->config->tx_buffer[1] = sequence;
+            return uds_send_response(ctx, 2u);
         }
-    }
-    else {
-        uint8_t expected =
-            (ctx->flash_sequence == 0xFFu) ? 0x00u : (uint8_t) (ctx->flash_sequence + 1u);
-        if (sequence != expected) {
-            /* Optional interoperability: accept last-block replay without re-processing data. */
-            if (ctx->config->transfer_accept_last_block_replay &&
-                (sequence == ctx->flash_sequence)) {
-                ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_DATA + UDS_RESPONSE_OFFSET);
-                ctx->config->tx_buffer[1] = sequence;
-                return uds_send_response(ctx, 2u);
-            }
-            return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_REQUEST_SEQUENCE_ERROR);
-        }
+        return uds_send_nrc(ctx, UDS_SID_TRANSFER_DATA, UDS_NRC_WRONG_BLOCK_SEQUENCE_COUNTER);
     }
 
     int res = ctx->config->fn_transfer_data(ctx, sequence, &data[2], (uint16_t) (len - 2u));
@@ -149,6 +150,9 @@ int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *dat
     if (res < 0) {
         return uds_send_nrc(ctx, UDS_SID_TRANSFER_EXIT, (uint8_t) - (int32_t) res);
     }
+
+    /* Transfer complete: further TransferData needs a new RequestDownload/Upload. */
+    ctx->transfer_active = false;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_TRANSFER_EXIT + UDS_RESPONSE_OFFSET);
     return uds_send_response(ctx, 1u);
@@ -216,8 +220,9 @@ int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint
         return uds_send_nrc(ctx, UDS_SID_REQUEST_UPLOAD, (uint8_t) - (int32_t) res);
     }
 
-    /* Reset sequence counter for new transfer */
+    /* Reset sequence counter and arm the transfer for new upload */
     ctx->flash_sequence = 0u;
+    ctx->transfer_active = true;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_REQUEST_UPLOAD + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = 0x20u; /* Length format identifier (4 bytes) */

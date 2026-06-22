@@ -28,6 +28,7 @@
 #define UDS_NRC_INVALID_KEY 0x35u
 #define UDS_NRC_EXCEEDED_ATTEMPTS 0x36u
 #define UDS_NRC_REQUIRED_TIME_DELAY 0x37u
+#define UDS_NRC_WRONG_BLOCK_SEQUENCE_COUNTER 0x73u
 #define UDS_NRC_RESPONSE_PENDING 0x78u
 #define UDS_NRC_SUBFUNC_NOT_SUPP_IN_SESS 0x7Eu
 #define UDS_NRC_SERVICE_NOT_SUPP_IN_SESS 0x7Fu
@@ -93,9 +94,11 @@
     {                                                      \
         0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
+/* Allowed 0x11 sub-functions: 0x3E = 0x01..0x05 (hardReset/keyOffOnReset/
+ * softReset/enableRapidPowerShutDown/disableRapidPowerShutDown). */
 #define UDS_MASK_SUB_11                                    \
     {                                                      \
-        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+        0x3Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
     }
 /* Allowed 0x19 subfunctions: all standard sub-functions 0x00–0x19 plus 0x42 and 0x55.
  * byte0 0xFF = 0x00–0x07; byte1 0xFF = 0x08–0x0F; byte2 0xFF = 0x10–0x17;

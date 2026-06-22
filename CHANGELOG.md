@@ -24,6 +24,12 @@
 - **`uds_auth_type_t` renumbered to ISO 14229-1:2020** (BREAKING): the Authentication (0x29) sub-function enum was off by one (`deAuthenticate` was 0x01). It now matches the standard — `UDS_AUTH_DEAUTHENTICATE = 0x00`, `VERIFY_CERT_UNI = 0x01`, `VERIFY_CERT_BI = 0x02`, `PROOF_OF_OWNERSHIP = 0x03`, `TRANSMIT_CERT = 0x04`, `REQUEST_CHALLENGE = 0x05` (was `REQUEST_TOKEN = 0x06`), plus new `VERIFY_PROOF_UNI = 0x06`, `VERIFY_PROOF_BI = 0x07`, `CONFIGURATION = 0x08`. Update any code/wire that used the old values.
 - **ISO-TP frame padding default is now `0xCC`** (was `0x00`): transmitted SF/FF/CF/FC frames pad unused bytes with `0xCC` per ISO 15765-2:2016 instead of `0x00`. This changes only the on-wire fill of otherwise-identical frames; protocol behavior is unchanged. Call `uds_tp_isotp_set_pad_byte(&iso, 0x00)` to restore the previous fill. (#67)
 
+### Fixed
+- **ECUReset enableRapidPowerShutDown (0x11 sub 0x04) was incomplete**: the sub-function was rejected by the 0x11 sub-function mask (which only admitted 0x01–0x03), and even when reached the response omitted the mandatory `powerDownTime` byte. The mask now admits 0x01–0x05, and the 0x04 positive response is `{0x51, 0x04, powerDownTime}` sourced from the new `cfg.power_down_time`. `uds_reset_type_t` gains `UDS_RESET_ENABLE_RAPID_SHUTDOWN` (0x04) and `UDS_RESET_DISABLE_RAPID_SHUTDOWN` (0x05). (ISO 14229-1)
+- **TransferData (0x36) wrong block sequence returned NRC 0x24 instead of 0x73**: a mismatched blockSequenceCounter now returns `wrongBlockSequenceCounter (0x73)` per ISO 14229-1, distinct from `requestSequenceError (0x24)`.
+- **TransferData (0x36) accepted before RequestDownload/Upload**: a transfer must now be armed by a successful RequestDownload (0x34) or RequestUpload (0x35); TransferData outside an active transfer is rejected with `requestSequenceError (0x24)` and never reaches `fn_transfer_data`. The transfer is disarmed by RequestTransferExit (0x37) and aborted on S3 session timeout. New `transfer_active` context state.
+- **Responses exceeding the TX buffer were dropped silently**: `uds_send_response()` returned an internal error and sent nothing when a response was larger than `tx_buffer_size`, leaving the tester to time out. It now emits `responseTooLong (NRC 0x14)` for on-the-wire responses (captured inner 0x84/0x86 responses still surface the internal error to their wrapper).
+
 ## [1.19.0] - 2026-06-19
 
 ### Added
