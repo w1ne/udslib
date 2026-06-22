@@ -40,7 +40,7 @@ jobs:
         # fixes this gate uncovered (PRs #328/#329/#331). Switch to a released
         # binary/image once that work lands on main + a tagged release.
         env:
-          LABWIRED_CORE_REF: 26413c3d56cb12c65e4d85bdbe6650e23d45eb54
+          LABWIRED_CORE_REF: f167a250310dd22118e5a93290806f0676eb133d
         run: |
           git clone https://github.com/w1ne/labwired-core.git /tmp/labwired-core
           cd /tmp/labwired-core
