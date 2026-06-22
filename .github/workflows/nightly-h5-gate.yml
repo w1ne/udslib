@@ -48,6 +48,14 @@ jobs:
           cargo build --release -p labwired-cli
           echo "LABWIRED=/tmp/labwired-core/target/release/labwired" >> "$GITHUB_ENV"
 
+      - name: Provide the chip descriptor to the example
+        # The H5 chip config ships with labwired; copy it next to each node's
+        # system.yaml (which references it relatively as "stm32h563.yaml").
+        run: |
+          CHIP=/tmp/labwired-core/configs/chips/stm32h563.yaml
+          cp "$CHIP" examples/h5_uds_tester/stm32h563.yaml
+          cp "$CHIP" examples/h5_uds_ecu_full/stm32h563.yaml
+
       - name: Run the all-services gate (headless, asserts 27/27)
         run: |
           "$LABWIRED" test --script examples/h5_uds_tester/allservices-gate.yaml
