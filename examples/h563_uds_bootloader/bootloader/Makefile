@@ -31,7 +31,7 @@ LDFLAGS := $(CPUFLAGS) --specs=nano.specs --specs=nosys.specs -nostartfiles \
            -T bootloader.ld -Wl,--gc-sections \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map
 
-APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c
+APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c boot_state.c
 SEC_CMAC_SRC := sec_cmac.c
 UDS_SRCS := \
   $(UDSLIB_DIR)/src/core/uds_core.c \
@@ -117,7 +117,16 @@ image-test: $(BUILD_DIR)
 	gcc $(IMAGE_TEST_CFLAGS) $(IMAGE_TEST_SRCS) -o $(BUILD_DIR)/image_test
 	$(BUILD_DIR)/image_test
 
+# Host unit test: validates the pure boot_state_decide() decision function.
+# boot_state_stub.c provides no-op flash shims so boot_state.c links on host.
+BOOTSTATE_TEST_SRCS  := boot_state_test.c boot_state.c boot_state_stub.c
+BOOTSTATE_TEST_CFLAGS := -O2 -g -I. -Wall -Wextra -Werror
+
+bootstate-test: $(BUILD_DIR)
+	gcc $(BOOTSTATE_TEST_CFLAGS) $(BOOTSTATE_TEST_SRCS) -o $(BUILD_DIR)/bootstate_test
+	$(BUILD_DIR)/bootstate_test
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all check-udslib clean cmac-test image-test
+.PHONY: all check-udslib clean cmac-test image-test bootstate-test

@@ -1,12 +1,14 @@
 # Copyright (c) 2026 Andrii Shylenko
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 #
-# Makefile — build App A and App B demo payloads for the H563 OTA bootloader.
+# Makefile — build App A, App B, and App B-bad demo payloads.
 #
 # Usage:
 #   make APP=A          → app_a.elf, app_a.bin, app_a_image.bin
 #   make APP=B          → app_b.elf, app_b.bin, app_b_image.bin
-#   make both           → builds both variants
+#   make APP=Bbad       → app_bbad.elf, app_bbad.bin, app_bbad_image.bin
+#   make both           → builds A and B variants
+#   make all-three      → builds A, B, and Bbad variants
 #   make image-verify   → host cross-check: validates app_b_image.bin via
 #                         the bootloader's ota_crc.c + ota_image.h logic
 #   make clean
@@ -21,12 +23,29 @@ BUILD_DIR := build
 
 CPUFLAGS := -mcpu=cortex-m33 -mthumb
 
+# APP_VARIANT mapping:
+#   A    → 1 (App A, confirms)
+#   B    → 2 (App B-good, confirms)
+#   Bbad → 3 (App B-bad, does NOT confirm → triggers rollback demo)
+ifeq ($(APP),A)
+  APP_VARIANT_NUM := 1
+  VERSION         := 0x00010000
+else ifeq ($(APP),B)
+  APP_VARIANT_NUM := 2
+  VERSION         := 0x00020000
+else ifeq ($(APP),Bbad)
+  APP_VARIANT_NUM := 3
+  VERSION         := 0x00020000
+else
+  $(error APP must be A, B, or Bbad)
+endif
+
 CFLAGS := $(CPUFLAGS) \
           -Os -g \
           -ffreestanding \
           -ffunction-sections -fdata-sections \
           -Wall -Wextra -Werror \
-          -DAPP_VARIANT=$(if $(filter A,$(APP)),1,2)
+          -DAPP_VARIANT=$(APP_VARIANT_NUM)
 
 LDFLAGS := $(CPUFLAGS) \
            -ffreestanding \
@@ -34,33 +53,33 @@ LDFLAGS := $(CPUFLAGS) \
            -T app.ld \
            -Wl,--gc-sections
 
-SRCS := startup.c main.c
+SRCS := startup.c main.c boot_confirm.c
 OBJS := $(patsubst %.c,$(BUILD_DIR)/$(APP)/%.o,$(SRCS))
 
-ifeq ($(APP),A)
-  VERSION := 0x00010000
-else ifeq ($(APP),B)
-  VERSION := 0x00020000
-else
-  $(error APP must be A or B)
-endif
+# Lowercase APP name for output file naming (A→a, B→b, Bbad→bbad).
+APP_LOWER := $(shell echo $(APP) | tr A-Z a-z)
 
-ELF   := $(BUILD_DIR)/app_$(shell echo $(APP) | tr A-Z a-z).elf
-BIN   := $(BUILD_DIR)/app_$(shell echo $(APP) | tr A-Z a-z).bin
-IMAGE := $(BUILD_DIR)/app_$(shell echo $(APP) | tr A-Z a-z)_image.bin
+ELF   := $(BUILD_DIR)/app_$(APP_LOWER).elf
+BIN   := $(BUILD_DIR)/app_$(APP_LOWER).bin
+IMAGE := $(BUILD_DIR)/app_$(APP_LOWER)_image.bin
 
 # Convenience aliases in the current directory (for easier testing).
-ELF_LINK   := app_$(shell echo $(APP) | tr A-Z a-z).elf
-BIN_LINK   := app_$(shell echo $(APP) | tr A-Z a-z).bin
-IMAGE_LINK := app_$(shell echo $(APP) | tr A-Z a-z)_image.bin
+ELF_LINK   := app_$(APP_LOWER).elf
+BIN_LINK   := app_$(APP_LOWER).bin
+IMAGE_LINK := app_$(APP_LOWER)_image.bin
 
-.PHONY: all both image-verify clean
+.PHONY: all both all-three image-verify clean
 
 all: $(IMAGE_LINK)
 
 both:
 	$(MAKE) APP=A
 	$(MAKE) APP=B
+
+all-three:
+	$(MAKE) APP=A
+	$(MAKE) APP=B
+	$(MAKE) APP=Bbad
 
 $(IMAGE_LINK): $(BIN_LINK)
 	$(PYTHON) mkimage.py $< $@ --version $(VERSION)
@@ -141,4 +160,5 @@ image-verify: app_b_image.bin $(BUILD_DIR)/image_verify
 clean:
 	rm -rf $(BUILD_DIR) image_verify.c \
 	       app_a.elf app_a.bin app_a_image.bin \
-	       app_b.elf app_b.bin app_b_image.bin
+	       app_b.elf app_b.bin app_b_image.bin \
+	       app_bbad.elf app_bbad.bin app_bbad_image.bin

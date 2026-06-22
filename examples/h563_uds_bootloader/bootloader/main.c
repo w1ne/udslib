@@ -53,6 +53,7 @@
 #include <string.h>
 
 #include "app_jump.h"
+#include "boot_state.h"
 #include "fdcan.h"
 #include "flash_h5.h"
 #include "ota_crc.h"
@@ -455,7 +456,21 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
     }
 
     if (id == 0xFF02u) {
-        /* ActivateSoftware: swap banks and reset — does not return. */
+        /*
+         * ActivateSoftware: mark the inactive bank as pending confirmation,
+         * then swap banks and reset.  The pending flag ensures the bootloader
+         * will roll back if the newly-activated app never calls boot_confirm().
+         *
+         * Order matters: boot_state_mark_pending() MUST complete before
+         * flash_set_swap_and_reset() so the flag is visible on the next boot.
+         * A power loss after mark_pending but before swap keeps the CURRENT
+         * bank active; the inactive bank's pending flag is benign there
+         * (it is never the active bank until a successful swap).
+         */
+        uint8_t  active    = flash_active_bank();
+        uint32_t inactive_base = 0x08000000UL + (uint32_t)(!active) * 0x100000UL;
+        uart_puts("BL: marking inactive bank pending\n");
+        boot_state_mark_pending(inactive_base);
         uart_puts("BL: activate software\n");
         flash_set_swap_and_reset();
         /* flash_set_swap_and_reset() issues a system reset; this line is unreachable. */
@@ -499,24 +514,55 @@ int main(void)
     uart_puts("BL-START\n");
 
     /*
-     * Boot decision: validate the active bank's app image and jump to it
-     * if valid; otherwise stay in recovery (UDS server loop).
+     * Boot decision with confirmation and automatic rollback.
      *
-     * Active bank is where the CPU is currently executing from.  The app
-     * image lives at bank_base + 0x18000 (above the 96 KB bootloader region).
-     * Power-loss safety: if the inactive bank was corrupted mid-download,
-     * its header check will fail on the NEXT boot (after ActivateSoftware
-     * swaps banks) and the bootloader will recover automatically.
+     * After ActivateSoftware swaps banks the newly-active bank is "pending":
+     * it must confirm itself (by erasing its boot-state sector) within
+     * MAX_BOOT_ATTEMPTS attempts.  A freshly-activated app that reboots
+     * without confirming is rolled back to the previous (known-good) bank.
      *
-     * TODO (Task 6): add an explicit boot-confirmation flag in a dedicated
-     * flash sector so a bad app that resets before confirming triggers an
-     * automatic rollback to the previous bank.
+     * State machine (boot_state_decide() in boot_state.h):
+     *   JUMP         — bank confirmed or no record; validate image and jump.
+     *   BUMP_AND_JUMP — bank on-trial; increment attempt counter, then jump.
+     *   ROLLBACK     — attempt limit reached; clear pending flag, swap back.
+     *
+     * Safety properties:
+     *   - Power-loss during download: inactive bank header check fails on
+     *     next boot → BL-RECOVERY (existing behaviour, unchanged).
+     *   - Power-loss after erase but before boot-state program: sector reads
+     *     as all-0xFF → magic mismatch → pending=0 → JUMP (safe default).
+     *   - Rolled-back-to bank must not be pending: ActivateSoftware only
+     *     marks the INACTIVE bank before swapping, so the prior known-good
+     *     bank never has its boot-state touched.
      */
     {
         uint8_t  active_bank     = flash_active_bank();
-        uint32_t active_app_base = 0x08000000UL +
-                                   (uint32_t) active_bank * 0x100000UL +
-                                   0x18000UL;
+        uint32_t active_base     = 0x08000000UL + (uint32_t) active_bank * 0x100000UL;
+        uint32_t active_app_base = active_base + 0x18000UL;
+
+        boot_state_t bs;
+        boot_state_read(active_base, &bs);
+
+        boot_decision_t decision = boot_state_decide(&bs, MAX_BOOT_ATTEMPTS);
+
+        if (decision == BOOT_DECISION_ROLLBACK) {
+            uart_puts("BL-ROLLBACK\n");
+            /* Clear the pending flag BEFORE swapping so the active bank is
+             * clean; if we lose power here the bank stays current and the
+             * next boot restarts the rollback decision (safe: rollback again). */
+            boot_state_clear(active_base);
+            /* Swap back to the other bank (the known-good one). */
+            flash_set_swap_and_reset(); /* does not return */
+            for (;;) {}
+        }
+
+        if (decision == BOOT_DECISION_BUMP_AND_JUMP) {
+            /* Count this attempt before jumping so a crash/watchdog reset
+             * is recorded even if the app never runs. */
+            boot_state_bump_attempts(active_base);
+        }
+
+        /* Validate the image header + CRC before jumping. */
         if (app_is_valid(active_app_base)) {
             uart_puts("BL-JUMP\n");
             app_jump(active_app_base); /* does not return */
