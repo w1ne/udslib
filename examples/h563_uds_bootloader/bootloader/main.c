@@ -25,7 +25,7 @@
  *   - SID 0x31 RoutineControl:
  *       0xFF00 EraseMemory       — erase the inactive-bank app sectors (alt path).
  *       0xFF01 CheckProgramming  — validates image header + CRC-32 over payload.
- *       0xFF02 ActivateSoftware  — flash_set_swap_and_reset() (does not return).
+ *       0xFF02 ActivateSoftware  — flash_swap_to_bank_and_reset(inactive) (no return).
  *       0xFF03 PerformRollback   — tester-commanded revert to the other bank;
  *                                  validates the other bank before swapping (does not return).
  *
@@ -378,7 +378,7 @@ static int bl_transfer_exit(uds_ctx_t *ctx)
  * Routine IDs (matching Vector CANdela naming conventions):
  *   0xFF00  EraseMemory              — erase inactive-bank app sectors
  *   0xFF01  CheckProgrammingDependencies — validate OTA header + CRC-32 over payload
- *   0xFF02  ActivateSoftware         — flash_set_swap_and_reset() (no return)
+ *   0xFF02  ActivateSoftware         — flash_swap_to_bank_and_reset(inactive) (no return)
  *   0xFF03  PerformRollback          — tester-commanded revert to the other bank (no return)
  */
 static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data,
@@ -478,18 +478,25 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * will roll back if the newly-activated app never calls boot_confirm().
          *
          * Order matters: boot_state_mark_pending() MUST complete before
-         * flash_set_swap_and_reset() so the flag is visible on the next boot.
+         * the swap+reset so the flag is visible on the next boot.
          * A power loss after mark_pending but before swap keeps the CURRENT
          * bank active; the inactive bank's pending flag is benign there
          * (it is never the active bank until a successful swap).
+         *
+         * Use flash_swap_to_bank_and_reset(target) — which SETS/CLEARS
+         * SWAP_BANK to select the target explicitly — rather than the OR-only
+         * flash_set_swap_and_reset(), so activation works from EITHER bank
+         * (the 2nd OTA activates from bank 1 → bank 0, which the OR form
+         * cannot express).
          */
         uint8_t  active    = flash_active_bank();
-        uint32_t inactive_base = 0x08000000UL + (uint32_t)(!active) * 0x100000UL;
+        uint8_t  inactive  = active ? 0u : 1u;
+        uint32_t inactive_base = 0x08000000UL + (uint32_t) inactive * 0x100000UL;
         uart_puts("BL: marking inactive bank pending\n");
         boot_state_mark_pending(inactive_base);
         uart_puts("BL: activate software\n");
-        flash_set_swap_and_reset();
-        /* flash_set_swap_and_reset() issues a system reset; this line is unreachable. */
+        flash_swap_to_bank_and_reset(inactive);
+        /* flash_swap_to_bank_and_reset() issues a system reset; unreachable below. */
         for (;;) {
         }
     }
