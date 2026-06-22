@@ -21,6 +21,7 @@ static uint8_t g_nvm_storage[2] = {0x00, 0x00};
 /* Mock NVM Save */
 static int mock_nvm_save(struct uds_ctx *ctx, const uint8_t *state, uint16_t len)
 {
+    (void) ctx;
     if (len == 2) {
         g_nvm_storage[0] = state[0];
         g_nvm_storage[1] = state[1];
@@ -32,6 +33,7 @@ static int mock_nvm_save(struct uds_ctx *ctx, const uint8_t *state, uint16_t len
 /* Mock NVM Load */
 static int mock_nvm_load(struct uds_ctx *ctx, uint8_t *state, uint16_t len)
 {
+    (void) ctx;
     if (len == 2) {
         state[0] = g_nvm_storage[0];
         state[1] = g_nvm_storage[1];

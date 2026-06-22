@@ -28,6 +28,7 @@ static uint32_t mock_get_time(void)
 
 static int mock_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
+    (void) ctx;
     check_expected(data);
     check_expected(len);
     return 0;
@@ -49,6 +50,7 @@ static const uds_service_entry_t user_services[] = {
 
 static void setup_test(void **state)
 {
+    (void) state;
     memset(&cfg, 0, sizeof(cfg));
     cfg.get_time_ms = mock_get_time;
     cfg.fn_tp_send = mock_tp_send;

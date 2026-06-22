@@ -42,6 +42,7 @@ static void svc_ok(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_r
 static void svc_nrc22(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) ctx;
+    (void) data;
     (void) len;
     uds_nrc(out, 0x22u); /* conditionsNotCorrect */
 }
