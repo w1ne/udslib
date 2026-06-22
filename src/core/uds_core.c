@@ -397,8 +397,10 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     ctx->secure_capture_buf = NULL;
     ctx->secure_capture_size = 0u;
 
-    /* Inner response suppressed -> nothing to secure or send. */
+    /* Inner response suppressed -> nothing to secure or send. A reset deferred
+     * by the inner 0x11 has no outer response to wait for, so fire it now. */
     if (captured_len == 0u) {
+        uds_internal_run_pending_reset(ctx);
         return UDS_OK;
     }
 
@@ -408,13 +410,24 @@ int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16
     int sec_out =
         ctx->config->fn_secure_encode(ctx, apar, captured, captured_len, &tx[hdr], out_max);
     if (sec_out < 0) {
+        /* The secured response cannot be built; do not reset (the tester would
+         * get an NRC, not its confirmation). */
+        ctx->reset_pending = false;
         return uds_send_nrc(ctx, UDS_SID_SECURED_DATA_TRANS, (uint8_t) - (int32_t) sec_out);
     }
 
     tx[0] = (uint8_t) (UDS_SID_SECURED_DATA_TRANS + UDS_RESPONSE_OFFSET);
     tx[1] = (uint8_t) ((apar >> 8) & 0xFFu);
     tx[2] = (uint8_t) (apar & 0xFFu);
-    return uds_send_response(ctx, (uint16_t) ((uint16_t) sec_out + hdr));
+    int sec_ret = uds_send_response(ctx, (uint16_t) ((uint16_t) sec_out + hdr));
+    if (sec_ret == UDS_OK) {
+        /* Outer secured 0x51 is now on the wire; safe to run a deferred reset. */
+        uds_internal_run_pending_reset(ctx);
+    }
+    else {
+        ctx->reset_pending = false;
+    }
+    return sec_ret;
 }
 
 int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
@@ -437,6 +450,12 @@ int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_
     ctx->secure_capturing = false;
     ctx->secure_capture_buf = NULL;
     ctx->secure_capture_size = 0u;
+
+    /* A captured ROE (0x86) inner dispatch must never trigger an ECU reset:
+     * the response is emitted asynchronously as a 0xC6 event, not a reset
+     * confirmation. Drop any reset the inner request may have queued. */
+    ctx->reset_pending = false;
+
     return (int) ctx->secure_capture_len;
 }
 
@@ -687,6 +706,17 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
 
     if (ctx->config->fn_mutex_unlock != NULL) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+    }
+}
+
+void uds_internal_run_pending_reset(uds_ctx_t *ctx)
+{
+    if (!ctx->reset_pending) {
+        return;
+    }
+    ctx->reset_pending = false;
+    if (ctx->config->fn_reset != NULL) {
+        ctx->config->fn_reset(ctx, ctx->reset_pending_type);
     }
 }
 
