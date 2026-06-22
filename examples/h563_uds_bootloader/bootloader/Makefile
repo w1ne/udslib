@@ -17,12 +17,29 @@ CC        := arm-none-eabi-gcc
 # build is portable to any checkout / CI machine).
 MBEDTLS_DIR ?= $(UDSLIB_DIR)/zephyr-workspace/modules/crypto/mbedtls-3.6
 
+# STM32H5 vendor sources (CMSIS device header + LL drivers). Located the same
+# way mbedTLS is: under the udslib zephyr workspace, derived from UDSLIB_DIR so
+# the build is portable to any checkout / CI machine. Override CUBE_DIR /
+# CMSIS_DIR to point at a different matched set if needed.
+ZEPHYR_WS  ?= $(UDSLIB_DIR)/zephyr-workspace
+CUBE_DIR   ?= $(ZEPHYR_WS)/modules/hal/stm32/stm32cube/stm32h5xx
+CMSIS_DIR  ?= $(ZEPHYR_WS)/modules/hal/cmsis_6/CMSIS/Core/Include
+
+# Include paths + device select for the ST CMSIS device header and LL drivers.
+# -DSTM32H563xx selects stm32h563xx.h from the umbrella; -DUSE_FULL_LL_DRIVER
+# is the LL convention (the RNG/bus inline helpers used here do not strictly
+# require it, but the define keeps the LL headers in their full configuration).
+STM32_CFLAGS := -I$(CMSIS_DIR) \
+                -I$(CUBE_DIR)/soc \
+                -I$(CUBE_DIR)/drivers/include \
+                -DSTM32H563xx -DUSE_FULL_LL_DRIVER
+
 # Cortex-M33, real newlib-nano libc: NO -ffreestanding / -fno-builtin, NO shim
 # include path. Standard headers + functions come from newlib.
 CPUFLAGS      := -mcpu=cortex-m33 -mthumb
 COMMON_CFLAGS := $(CPUFLAGS) -Os -g -ffunction-sections -fdata-sections \
                  -I. -I$(UDSLIB_DIR)/include -I$(UDSLIB_DIR)/src/core
-APP_CFLAGS   := $(COMMON_CFLAGS) -Wall -Wextra -Werror
+APP_CFLAGS   := $(COMMON_CFLAGS) $(STM32_CFLAGS) -Wall -Wextra -Werror
 UDS_CFLAGS   := $(COMMON_CFLAGS) -Wall -Wextra -Werror -Wno-unused-parameter \
                 -Wno-missing-field-initializers
 # mbedTLS: relaxed warnings, no -Werror; needs its own include paths + config.

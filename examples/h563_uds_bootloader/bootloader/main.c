@@ -61,6 +61,9 @@
 #include "ota_crc.h"
 #include "ota_image.h"
 #include "sec_cmac.h"
+#include "stm32h563xx.h"
+#include "stm32h5xx_ll_bus.h"
+#include "stm32h5xx_ll_rng.h"
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
 #ifdef SIM_OTA_TESTER
@@ -85,16 +88,6 @@
 /* H563 reset core clock: HSI = 32 MHz (undivided in the reset RCC config). */
 #define CORE_CLOCK_HZ 32000000u
 
-/* Cortex-M33 SysTick / SCS registers (System Control Space @ 0xE000E010). */
-#define SYST_CSR  (*(volatile uint32_t *) 0xE000E010u) /* control and status */
-#define SYST_RVR  (*(volatile uint32_t *) 0xE000E014u) /* reload value       */
-#define SYST_CVR  (*(volatile uint32_t *) 0xE000E018u) /* current value      */
-
-/* SYST_CSR bit fields. */
-#define SYST_CSR_ENABLE    (1u << 0) /* counter enabled                       */
-#define SYST_CSR_TICKINT   (1u << 1) /* assert SysTick exception on count-to-0 */
-#define SYST_CSR_CLKSOURCE (1u << 2) /* clock source = processor clock        */
-
 static volatile uint32_t g_now_ms;
 
 /* SysTick exception (#15): advance the millisecond time base. */
@@ -103,12 +96,15 @@ void SysTick_Handler(void)
     ++g_now_ms;
 }
 
-/* Configure SysTick for a 1 ms tick from the processor clock. */
+/* Configure SysTick for a 1 ms tick from the processor clock.
+ *
+ * CMSIS SysTick_Config(ticks) programs the SysTick (SCS) registers via the
+ * CMSIS core_cm33.h SysTick struct: RVR = ticks - 1, CVR = 0, and CSR =
+ * CLKSOURCE | TICKINT | ENABLE — exactly the 1 ms period and processor-clock
+ * source used here. */
 static void systick_init(void)
 {
-    SYST_RVR = (CORE_CLOCK_HZ / 1000u) - 1u; /* reload for a 1 ms period */
-    SYST_CVR = 0u;                           /* clear current count + COUNTFLAG */
-    SYST_CSR = SYST_CSR_CLKSOURCE | SYST_CSR_TICKINT | SYST_CSR_ENABLE;
+    (void) SysTick_Config(CORE_CLOCK_HZ / 1000u);
 }
 
 static uint32_t get_time_ms(void)
@@ -151,30 +147,19 @@ static const uint8_t DEMO_SECRET[16] = {
 };
 
 /* ---------------------------------------------------------------------------
- * H563 RNG (TRNG) — RM0481
+ * H563 RNG (TRNG) — RM0481, accessed via the STM32H5 LL driver
  *
- * RNG block base = 0x420C0800 (AHB2; per stm32h563.svd):
- *   RNG_CR @ +0x00  control;   RNGEN = bit 2 enables the generator
- *   RNG_SR @ +0x04  status;    DRDY  = bit 0 set when RNG_DR holds fresh data
- *   RNG_DR @ +0x08  data;      32-bit random word (reading clears DRDY)
+ * The RNG control/status/data registers are reached through the CMSIS RNG
+ * instance and the LL RNG inline helpers (LL_RNG_Enable, LL_RNG_IsActiveFlag_
+ * DRDY, LL_RNG_ReadRandData32).  No register addresses are hand-typed.
  *
- * The RNG kernel clock is on AHB2 (RCC_AHB2ENR.RNGEN = bit 26).  The firmware
- * otherwise leaves RCC at reset; we enable just this one clock-gate bit so the
- * peripheral is fed on real silicon.  The simulator models the RNG as always
- * clocked, so this write is a harmless no-op there.  The DRDY poll below is
- * bounded by RNG_DRDY_POLL_MAX, so a stuck/unclocked RNG cannot hang the
+ * The RNG kernel clock is on AHB2; LL_AHB2_GRP1_EnableClock(...PERIPH_RNG)
+ * sets the one RCC clock-gate bit so the peripheral is fed on real silicon.
+ * The firmware otherwise leaves RCC at reset.  The simulator models the RNG as
+ * always clocked, so this write is a harmless no-op there.  The DRDY poll below
+ * is bounded by RNG_DRDY_POLL_MAX, so a stuck/unclocked RNG cannot hang the
  * bootloader — bl_security_seed returns conditionsNotCorrect instead.
  * ------------------------------------------------------------------------- */
-#define RNG_BASE        0x420C0800u
-#define RNG_CR          (*(volatile uint32_t *) (RNG_BASE + 0x00u))
-#define RNG_SR          (*(volatile uint32_t *) (RNG_BASE + 0x04u))
-#define RNG_DR          (*(volatile uint32_t *) (RNG_BASE + 0x08u))
-#define RNG_CR_RNGEN    (1u << 2)  /* generator enable */
-#define RNG_SR_DRDY     (1u << 0)  /* data ready        */
-
-/* RCC AHB2 peripheral clock enable (RCC base 0x44020C00, AHB2ENR @ +0x8C). */
-#define RCC_AHB2ENR     (*(volatile uint32_t *) (0x44020C00u + 0x8Cu))
-#define RCC_AHB2ENR_RNGEN (1u << 26)
 
 /* Bound on the per-word DRDY poll so an unclocked/stuck RNG never hangs the
  * bootloader.  At the 32 MHz reset clock the RNG produces a word every few
@@ -200,8 +185,8 @@ static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len)
 static int rng_read_word(uint32_t *out)
 {
     for (uint32_t i = 0u; i < RNG_DRDY_POLL_MAX; i++) {
-        if ((RNG_SR & RNG_SR_DRDY) != 0u) {
-            *out = RNG_DR; /* reading RNG_DR clears DRDY */
+        if (LL_RNG_IsActiveFlag_DRDY(RNG) != 0u) {
+            *out = LL_RNG_ReadRandData32(RNG); /* reading DR clears DRDY */
             return 1;
         }
     }
@@ -218,8 +203,8 @@ static int bl_security_seed(uds_ctx_t *ctx, uint8_t level, uint8_t *seed_buf, ui
 
     /* Enable the RNG kernel clock (AHB2) and the generator. Idempotent: a second
      * requestSeed simply re-asserts the already-set bits. */
-    RCC_AHB2ENR |= RCC_AHB2ENR_RNGEN;
-    RNG_CR |= RNG_CR_RNGEN;
+    LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_RNG);
+    LL_RNG_Enable(RNG);
 
     /* Draw a fresh 16-byte nonce, one TRNG word at a time, polling DRDY with a
      * timeout so a stuck RNG cannot hang the SecurityAccess handshake. */

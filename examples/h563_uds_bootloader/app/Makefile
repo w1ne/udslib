@@ -26,6 +26,16 @@ BUILD_DIR := build
 
 CPUFLAGS := -mcpu=cortex-m33 -mthumb
 
+# STM32H5 vendor sources (CMSIS device header). boot_confirm.c reaches the
+# FLASH registers through the ST CMSIS FLASH_TypeDef instead of hand-typed
+# addresses. Located the same way the bootloader build locates them: under the
+# udslib zephyr workspace, three levels up from this app dir.
+UDSLIB_DIR ?= $(abspath $(CURDIR)/../../..)
+ZEPHYR_WS  ?= $(UDSLIB_DIR)/zephyr-workspace
+CUBE_DIR   ?= $(ZEPHYR_WS)/modules/hal/stm32/stm32cube/stm32h5xx
+CMSIS_DIR  ?= $(ZEPHYR_WS)/modules/hal/cmsis_6/CMSIS/Core/Include
+STM32_CFLAGS := -I$(CMSIS_DIR) -I$(CUBE_DIR)/soc -DSTM32H563xx
+
 # APP_VARIANT mapping:
 #   A    → 1 (App A, confirms)
 #   B    → 2 (App B-good, confirms)
@@ -54,6 +64,7 @@ CFLAGS := $(CPUFLAGS) \
           -Os -g \
           -ffreestanding \
           -ffunction-sections -fdata-sections \
+          $(STM32_CFLAGS) \
           -Wall -Wextra -Werror \
           -DAPP_VARIANT=$(APP_VARIANT_NUM)
 
