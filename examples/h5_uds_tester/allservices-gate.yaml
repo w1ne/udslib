@@ -1,0 +1,11 @@
+schema_version: "1.0"
+inputs:
+  env: "./twonode-env.yaml"
+limits:
+  max_steps: 4000000
+assertions:
+  # The deterministic oracle: the TESTER node's 27-bit results bitmap. Each bit
+  # is set only when that service's request crossed the virtual CAN bus AND the
+  # ECU's real response came back and matched — a genuine cross-node, all-services
+  # check. 0x07FFFFFF == all 27 ISO-14229 services passed.
+  - memory_value: { node: tester, address: 0x20010000, expected_value: 0x07FFFFFF, size: 32 }

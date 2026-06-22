@@ -1,0 +1,16 @@
+name: "h5-uds-twonode"
+# Two virtual STM32H5 nodes wired by a virtual FDCAN bus. Paths are relative to
+# this file so the gate is portable (local + CI). The tester runs the udslib
+# CLIENT, the ecu runs the udslib SERVER (all 27 services).
+nodes:
+  - id: "tester"
+    system: "system.yaml"
+    firmware: "firmware/build/h5_uds_tester.elf"
+  - id: "ecu"
+    system: "../h5_uds_ecu_full/system.yaml"
+    firmware: "../h5_uds_ecu_full/firmware/build/h5_uds_ecu_full.elf"
+interconnects:
+  - type: "can_bus"
+    nodes: ["tester", "ecu"]
+    config:
+      peripheral: "fdcan1"
