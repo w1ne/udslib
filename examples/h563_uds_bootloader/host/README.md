@@ -8,7 +8,9 @@ SocketCAN CAN-FD host tool for the STM32H563 dual-bank UDS OTA bootloader.
 make -C examples/h563_uds_bootloader/host UDSLIB_DIR=/path/to/udslib
 ```
 
-Requires `libmbedtls-dev` (Debian/Ubuntu: `sudo apt install libmbedtls-dev`).
+Requires the mbedTLS development package (Debian/Ubuntu: `sudo apt install
+libmbedtls-dev`), which provides `libmbedcrypto`. The tool links it via
+`-lmbedcrypto` (see `Makefile`).
 
 ## Usage
 
