@@ -474,6 +474,7 @@ int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_
     ctx->secure_capture_buf = out;
     ctx->secure_capture_size = out_size;
     ctx->secure_capture_len = 0u;
+    ctx->secure_capture_overflow = false; /* reset so any prior overflow cannot leak in */
 
     /* Inner/captured dispatch must always be treated as physical (design spec §2):
      * save and force UDS_ADDR_PHYSICAL so a stale functional req_addr_mode from
@@ -487,6 +488,15 @@ int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_
     ctx->secure_capturing = false;
     ctx->secure_capture_buf = NULL;
     ctx->secure_capture_size = 0u;
+
+    /* Overflow: the inner response did not fit in the caller's buffer.
+     * Return a negative sentinel so the caller can react explicitly rather than
+     * treating a truncated/empty capture as a normal empty response. */
+    if (ctx->secure_capture_overflow) {
+        ctx->secure_capture_overflow = false;
+        return UDS_ERR_BUFFER_TOO_SMALL;
+    }
+
     return (int) ctx->secure_capture_len;
 }
 
@@ -772,6 +782,7 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len) /* public compat shim */
         ctx->rcrrp_count = 0u;
         if (ctx->secure_capturing) {
             ctx->secure_capture_len = 0u;
+            ctx->secure_capture_overflow = false; /* stale overflow must not leak */
         }
         ctx->p2_msg_pending = false;
         ctx->server_pending_sid = 0u;

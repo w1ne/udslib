@@ -179,6 +179,11 @@ static void roe_emit_slot(uds_ctx_t *ctx, const uds_roe_slot_t *slot)
     uint8_t captured[UDS_ROE_STR_MAX + 8u];
     int cap = uds_internal_dispatch_captured(ctx, slot->str, slot->str_len, captured,
                                              (uint16_t) sizeof(captured));
+    /* Negative return means the inner response overflowed the capture buffer.
+     * ROE emits are asynchronous (no live request to answer with an NRC), so the
+     * correct action is a safe silent drop — emitting a truncated or garbage 0xC6
+     * frame would be worse than no frame at all.  Zero means empty capture (e.g.
+     * suppressed positive response), which is also a no-op. */
     if (cap <= 0) {
         return;
     }

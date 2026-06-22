@@ -584,6 +584,60 @@ static void test_roe_serialize_overflow(void **state)
     assert_int_equal(uds_roe_serialize(&ctx, small, sizeof(small)), UDS_ERR_BUFFER_TOO_SMALL);
 }
 
+/* ROE capture overflow: when the inner service response is larger than the
+ * roe_emit_slot capture buffer (UDS_ROE_STR_MAX + 8 = 16 bytes), the captured
+ * dispatch now returns UDS_ERR_BUFFER_TOO_SMALL (<= 0), and roe_emit_slot must
+ * NOT emit a truncated 0xC6 frame.  The test asserts silence by registering no
+ * mock_tp_send expectation for the trigger call — cmocka will fail if send fires. */
+static int mock_did_read_large(struct uds_ctx *ctx, uint16_t did, uint8_t *buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) did;
+    /* 14 data bytes -> inner response 62 F1 90 + 14 = 17 bytes > 16-byte cap buffer */
+    uint16_t fill = (max_len < 14u) ? max_len : 14u;
+    memset(buf, 0xAB, fill);
+    return (int) fill;
+}
+
+static const uds_did_entry_t k_dids_large[] = {
+    {0xF190u, 14u, 0u, 0u, mock_did_read_large, NULL, NULL},
+};
+
+static uds_did_table_t k_did_table_large = {k_dids_large, 1u};
+
+static void test_roe_capture_overflow_drops_frame(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.did_table = k_did_table_large;
+
+    /* Setup onChangeOfDataIdentifier(0xF190) -> serviceToRespondTo = 22 F1 90. */
+    uint8_t setup[] = {0x86, 0x03, 0x02, 0xF1, 0x90, 0x22, 0xF1, 0x90};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 9);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, setup, 8);
+
+    uint8_t start[] = {0x86, 0x05};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, start, 2);
+
+    /* Trigger: inner 22 F1 90 -> 62 F1 90 + 14 bytes = 17 bytes, overflows the
+     * 16-byte capture buffer.  uds_internal_dispatch_captured returns
+     * UDS_ERR_BUFFER_TOO_SMALL; roe_emit_slot must drop silently.
+     * No mock_tp_send expectation -> test fails if any frame is transmitted. */
+    int emitted = uds_roe_trigger(&ctx, 0x03, 0xF190u);
+    /* The slot matched and ran (emitted counter incremented in uds_roe_trigger),
+     * but no frame should have been put on the bus. */
+    assert_int_equal(emitted, 1);
+}
+
 /* Deserialize argument / version / truncation guards
  * (uds_service_roe.c:320-324, :332-333, :343-345). */
 static void test_roe_deserialize_guards(void **state)
@@ -662,6 +716,7 @@ int main(void)
         cmocka_unit_test(test_roe_dtc_status_change_match),
         cmocka_unit_test(test_roe_trigger_null),
         cmocka_unit_test(test_roe_emit_empty_capture),
+        cmocka_unit_test(test_roe_capture_overflow_drops_frame),
         cmocka_unit_test(test_roe_serialize_guards),
         cmocka_unit_test(test_roe_serialize_overflow),
         cmocka_unit_test(test_roe_deserialize_guards),
