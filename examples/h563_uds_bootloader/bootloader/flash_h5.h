@@ -144,9 +144,31 @@ int flash_erase_sector(uint8_t bank, uint32_t sector);
  * immediately; on real silicon the reset in step 5 is what applies the swap.
  * Both paths are correct with this full sequence.
  *
+ * NOTE: This function always SETS SWAP_BANK (activates bank 1 from bank 0).
+ * Use flash_swap_to_bank_and_reset() when the target bank must be specified
+ * explicitly (e.g. tester-commanded rollback from bank 1 back to bank 0).
+ *
  * Does not return.
  */
 void flash_set_swap_and_reset(void);
+
+/**
+ * flash_swap_to_bank_and_reset() — Set OPTSR_PRG.SWAP_BANK to select
+ * @p target_bank and issue a system reset.
+ *
+ * Unlike flash_set_swap_and_reset() which always sets the bit (only safe when
+ * the current bank is 0), this function explicitly writes the bit value that
+ * selects @p target_bank:
+ *   target_bank == 0 → SWAP_BANK cleared (bank 1 mapped at 0x08000000)
+ *   target_bank == 1 → SWAP_BANK set    (bank 2 mapped at 0x08000000)
+ *
+ * Used by 0xFF03 PerformRollback to revert to the other bank regardless of
+ * which bank is currently active.
+ *
+ * @param target_bank  0 or 1.
+ * Does not return.
+ */
+void flash_swap_to_bank_and_reset(uint8_t target_bank);
 
 /**
  * flash_active_bank() — Return the currently active boot bank.

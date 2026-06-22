@@ -125,6 +125,45 @@ void flash_set_swap_and_reset(void)
 }
 
 /* ---------------------------------------------------------------------------
+ * flash_swap_to_bank_and_reset
+ *
+ * Sets OPTSR_PRG.SWAP_BANK to the value that selects target_bank, then issues
+ * a system reset.  This is the explicit-target variant used by the 0xFF03
+ * PerformRollback routine: calling flash_set_swap_and_reset() from bank 1
+ * would be a no-op (bit already set), so we must write the exact desired value.
+ *
+ *   target_bank == 0 → clear SWAP_BANK  (bank 1 / 0x08000000 becomes active)
+ *   target_bank == 1 → set   SWAP_BANK  (bank 2 / 0x08100000 becomes active)
+ *
+ * RM0481 §7.3.3 / stm32h563.svd OPTKEYR 0x0C, OPTSR_PRG 0x54, OPTCR 0x1C.
+ * ------------------------------------------------------------------------- */
+void flash_swap_to_bank_and_reset(uint8_t target_bank)
+{
+    /* Step 1: Unlock option bytes */
+    FLASH_OPTKEYR = FLASH_OPTKEY1;
+    FLASH_OPTKEYR = FLASH_OPTKEY2;
+
+    /* Step 2: Write the desired SWAP_BANK value explicitly (set or clear) */
+    if (target_bank != 0u) {
+        FLASH_OPTSR_PRG |= OPTSR_SWAP_BANK;
+    } else {
+        FLASH_OPTSR_PRG &= ~OPTSR_SWAP_BANK;
+    }
+
+    /* Step 3: Commit the option byte write */
+    FLASH_OPTCR |= OPTCR_OPTSTRT;
+
+    /* Step 4: Wait for the option byte write to complete */
+    while (FLASH_NSSR & NSSR_BSY) {}
+
+    /* Step 5: System reset — swap takes effect on next boot. */
+    SCB_AIRCR = AIRCR_RESET_KEY;
+
+    /* Should not reach here */
+    for (;;) {}
+}
+
+/* ---------------------------------------------------------------------------
  * flash_active_bank
  *
  * Reads OPTSR_CUR.SWAP_BANK (bit 31) to determine the currently active bank.

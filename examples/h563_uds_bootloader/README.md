@@ -53,6 +53,45 @@ bootloader reads `FLASH->OPTSR_CUR.SWAP_BANK` at runtime via
 `flash_active_bank()` to locate both the active-bank application (to jump
 to) and the inactive-bank application region (the OTA download target).
 
+## RoutineControl IDs (SID 0x31)
+
+All routines require programming session (0x10 02) and security access (0x27).
+
+| Routine ID | Name | Description |
+|---|---|---|
+| 0xFF00 | EraseMemory | Erase the inactive-bank app sectors (alternative to the erase done in RequestDownload). |
+| 0xFF01 | CheckProgrammingDependencies | Validate OTA image header + CRC-32 over payload; returns `0x01` on pass. |
+| 0xFF02 | ActivateSoftware | Mark inactive bank pending, then `flash_set_swap_and_reset()` — does not return. |
+| 0xFF03 | PerformRollback | Tester-commanded revert to the other (currently inactive) bank — see note below. |
+
+### Automatic vs tester-commanded rollback
+
+The bootloader has **two independent rollback mechanisms**:
+
+1. **Automatic boot-confirm rollback** — fires entirely without tester
+   involvement.  When ActivateSoftware (0xFF02) swaps to a new image, the
+   bootloader marks that bank *pending*.  If the new app fails to call
+   `boot_confirm()` within `MAX_BOOT_ATTEMPTS` boot attempts (e.g. it crashes
+   or hangs before confirming), the bootloader automatically swaps back to the
+   previous known-good bank on the next boot.
+
+2. **Tester-commanded rollback (0xFF03 PerformRollback)** — a diagnostic
+   tool explicitly asks the ECU to revert.  This is useful when the newly
+   activated app *did* confirm itself (automatic rollback will not trigger),
+   but the tester still needs to revert — for example, a field recall or a
+   verification failure discovered after boot.
+
+   The routine first validates the other bank's image via `app_is_valid()`;
+   if the other bank holds no valid image the request is rejected with
+   `0x22 conditionsNotCorrect` to prevent bricking.  If valid, the other
+   bank's boot-state is cleared (confirmed), and `flash_swap_to_bank_and_reset()`
+   selects that bank and resets.
+
+   The host flash tool supports this mode:
+   ```sh
+   host/flash_tool can0 --rollback
+   ```
+
 ## OTA Sequence
 
 The host flash tool (`host/flash_tool`) drives these nine UDS steps:

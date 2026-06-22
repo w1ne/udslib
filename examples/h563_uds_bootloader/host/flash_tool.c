@@ -7,9 +7,11 @@
  * @file flash_tool.c
  * @brief Linux SocketCAN CAN-FD host flash tool for STM32H563 UDS OTA bootloader.
  *
- * Usage: flash_tool <can-iface> <image.bin>
+ * Usage:
+ *   flash_tool <can-iface> <image.bin>   — full OTA download + activate
+ *   flash_tool <can-iface> --rollback    — tester-commanded rollback (0xFF03)
  *
- * Sequence:
+ * Flash sequence (normal):
  *   1. 0x10 02  DiagnosticSessionControl(programming)
  *   2. 0x22 F1A0 ReadDataByIdentifier(active-bank DID)
  *   3. 0x27 01  SecurityAccess(requestSeed)
@@ -19,6 +21,12 @@
  *   7. 0x37     RequestTransferExit
  *   8. 0x31 01 FF01 CheckProgrammingDependencies
  *   9. 0x31 01 FF02 ActivateSoftware (bank swap + reset)
+ *
+ * Rollback sequence (--rollback):
+ *   1. 0x10 02  DiagnosticSessionControl(programming)
+ *   2. 0x27 01  SecurityAccess(requestSeed)
+ *   3. 0x27 02  SecurityAccess(sendKey) — AES-128-CMAC of seed
+ *   4. 0x31 01 FF03 PerformRollback (revert to other bank + reset)
  *
  * ISO-TP FD is hand-rolled (SF/FF/CF/FC) for minimal footprint.
  */
@@ -551,11 +559,112 @@ static void print_hex(const char *label, const uint8_t *data, uint16_t len)
 int main(int argc, char **argv)
 {
     if (argc != 3) {
-        fprintf(stderr, "Usage: %s <can-iface> <image.bin>\n", argv[0]);
+        fprintf(stderr, "Usage:\n"
+                "  %s <can-iface> <image.bin>  — full OTA download + activate\n"
+                "  %s <can-iface> --rollback   — tester-commanded rollback (0xFF03)\n",
+                argv[0], argv[0]);
         return 1;
     }
     const char *iface    = argv[1];
     const char *img_path = argv[2];
+
+    /* --rollback mode: open session, authenticate, send 0xFF03, done. */
+    if (strcmp(img_path, "--rollback") == 0) {
+        int sock = open_can_socket(iface);
+        if (sock < 0) {
+            return 1;
+        }
+        printf("[flash_tool] Rollback mode on %s\n", iface);
+
+        uint8_t  resp[512];
+        uint16_t resp_len;
+
+        /* Step 1: DiagnosticSessionControl(programming) */
+        printf("\n[1/4] DiagnosticSessionControl(programming)...\n");
+        {
+            uint8_t req[] = {0x10u, 0x02u};
+            if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
+                fprintf(stderr, "FAIL: no response to 0x10 02\n");
+                close(sock);
+                return 1;
+            }
+            print_hex("   resp", resp, resp_len);
+            if (resp_len < 2u || resp[0] != 0x50u || resp[1] != 0x02u) {
+                fprintf(stderr, "FAIL: expected 0x50 0x02\n");
+                close(sock);
+                return 1;
+            }
+            printf("   OK\n");
+        }
+
+        /* Step 2: SecurityAccess(requestSeed) */
+        printf("\n[2/4] SecurityAccess(requestSeed)...\n");
+        uint8_t seed[16];
+        {
+            uint8_t req[] = {0x27u, 0x01u};
+            if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
+                fprintf(stderr, "FAIL: no response to 0x27 01\n");
+                close(sock);
+                return 1;
+            }
+            print_hex("   resp", resp, resp_len);
+            if (resp_len < 18u || resp[0] != 0x67u || resp[1] != 0x01u) {
+                fprintf(stderr, "FAIL: expected 0x67 0x01 + 16 seed bytes\n");
+                close(sock);
+                return 1;
+            }
+            memcpy(seed, &resp[2], 16u);
+            print_hex("   seed", seed, 16u);
+            printf("   OK\n");
+        }
+
+        /* Step 3: SecurityAccess(sendKey) */
+        printf("\n[3/4] SecurityAccess(sendKey)...\n");
+        {
+            uint8_t key[16];
+            if (compute_key(seed, 16u, key) != 0) {
+                fprintf(stderr, "FAIL: AES-CMAC key computation\n");
+                close(sock);
+                return 1;
+            }
+            print_hex("   key ", key, 16u);
+
+            uint8_t req[18];
+            req[0] = 0x27u;
+            req[1] = 0x02u;
+            memcpy(&req[2], key, 16u);
+            if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
+                fprintf(stderr, "FAIL: no response to 0x27 02\n");
+                close(sock);
+                return 1;
+            }
+            print_hex("   resp", resp, resp_len);
+            if (resp_len < 2u || resp[0] != 0x67u || resp[1] != 0x02u) {
+                fprintf(stderr, "FAIL: SecurityAccess rejected\n");
+                close(sock);
+                return 1;
+            }
+            printf("   OK — security unlocked\n");
+        }
+
+        /* Step 4: PerformRollback — 0x31 01 FF03 (triggers reset, no response) */
+        printf("\n[4/4] PerformRollback (0x31 01 FF03) — ECU will reset...\n");
+        {
+            uint8_t req[] = {0x31u, 0x01u, 0xFFu, 0x03u};
+            /* Best-effort send; ECU resets and may not respond */
+            if (isotp_send(sock, TESTER_ID, ECU_ID, req, sizeof(req)) != 0) {
+                fprintf(stderr, "WARN: send of 0x31 01 FF03 failed\n");
+            }
+            /* Wait briefly for optional response */
+            uint16_t dummy_len;
+            isotp_recv(sock, ECU_ID, TESTER_ID, resp, &dummy_len, sizeof(resp), 500);
+            printf("   ECU rollback triggered\n");
+        }
+
+        printf("\n[flash_tool] Rollback complete. ECU will run the other bank after reset.\n");
+        close(sock);
+        return 0;
+    }
 
     /* Load image file */
     FILE *f = fopen(img_path, "rb");

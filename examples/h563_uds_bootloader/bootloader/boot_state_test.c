@@ -180,6 +180,48 @@ static int test_full_rollback_sequence(void)
 }
 
 /* ---------------------------------------------------------------------------
+ * Test: 0xFF03 PerformRollback boot-state semantics
+ *
+ * The routine clears the other bank's boot-state before swapping.
+ * After boot_state_clear() the sector is all-0xFF, so boot_state_decide()
+ * returns BOOT_DECISION_JUMP (confirmed / no pending flag).
+ *
+ * This test validates the post-rollback invariant: the bank we rolled back
+ * to must not appear pending to the next boot decision.
+ * ------------------------------------------------------------------------- */
+static int test_perform_rollback_bootstate_invariant(void)
+{
+    /*
+     * Simulate the other bank's boot-state as erased (all-0xFF), which is
+     * what boot_state_clear() leaves behind.  The next boot on that bank
+     * must decide JUMP — not ROLLBACK or BUMP_AND_JUMP.
+     */
+    boot_state_t st = make_erased();
+    CHECK(boot_state_decide(&st, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_JUMP,
+          "0xFF03: cleared other-bank boot-state → JUMP on next boot");
+
+    /*
+     * Also verify the case where the other bank was previously confirmed
+     * (magic present, pending=0) — also safe, also JUMP.
+     */
+    boot_state_t st2 = make_confirmed();
+    CHECK(boot_state_decide(&st2, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_JUMP,
+          "0xFF03: confirmed other-bank boot-state → JUMP on next boot");
+
+    /*
+     * Guard: if somehow the other bank's state appears pending (should not
+     * happen after a clean rollback path, but test the FSM correctness), the
+     * bootloader would detect it and roll back again rather than boot-looping
+     * silently.
+     */
+    boot_state_t st3 = make_pending(MAX_BOOT_ATTEMPTS);
+    CHECK(boot_state_decide(&st3, MAX_BOOT_ATTEMPTS) == BOOT_DECISION_ROLLBACK,
+          "0xFF03 guard: pending+exhausted other-bank still → ROLLBACK (FSM correct)");
+
+    return 0;
+}
+
+/* ---------------------------------------------------------------------------
  * Entry point
  * ------------------------------------------------------------------------- */
 int main(void)
@@ -192,6 +234,7 @@ int main(void)
     rc |= test_pending_exhausted_rollback();
     rc |= test_pending_over_max_rollback();
     rc |= test_full_rollback_sequence();
+    rc |= test_perform_rollback_bootstate_invariant();
 
     if (rc == 0) {
         printf("\nAll bootstate-test cases PASS\n");

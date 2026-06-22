@@ -26,6 +26,8 @@
  *       0xFF00 EraseMemory       — erase the inactive-bank app sectors (alt path).
  *       0xFF01 CheckProgramming  — validates image header + CRC-32 over payload.
  *       0xFF02 ActivateSoftware  — flash_set_swap_and_reset() (does not return).
+ *       0xFF03 PerformRollback   — tester-commanded revert to the other bank;
+ *                                  validates the other bank before swapping (does not return).
  *
  * Flash layout (dual-bank, 1 MB per bank, 8 KB sectors):
  *   Bank 0 base: 0x08000000   Bank 1 base: 0x08100000
@@ -377,6 +379,7 @@ static int bl_transfer_exit(uds_ctx_t *ctx)
  *   0xFF00  EraseMemory              — erase inactive-bank app sectors
  *   0xFF01  CheckProgrammingDependencies — validate OTA header + CRC-32 over payload
  *   0xFF02  ActivateSoftware         — flash_set_swap_and_reset() (no return)
+ *   0xFF03  PerformRollback          — tester-commanded revert to the other bank (no return)
  */
 static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data,
                                uint16_t len, uint8_t *out_buf, uint16_t max_len)
@@ -487,6 +490,56 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         uart_puts("BL: activate software\n");
         flash_set_swap_and_reset();
         /* flash_set_swap_and_reset() issues a system reset; this line is unreachable. */
+        for (;;) {
+        }
+    }
+
+    if (id == 0xFF03u) {
+        /*
+         * PerformRollback: tester-commanded revert to the other (currently
+         * inactive) bank.
+         *
+         * This is distinct from the automatic boot-confirm rollback:
+         *   - Automatic rollback fires when an unconfirmed app exhausts its
+         *     MAX_BOOT_ATTEMPTS budget; the bootloader decides entirely on its
+         *     own.
+         *   - PerformRollback is explicitly commanded by a tester/diagnostic
+         *     tool over UDS, e.g. to undo a successful activation and revert to
+         *     the previously-known-good image on demand.
+         *
+         * Safety guard: validate the other bank before swapping.  Refusing to
+         * roll back into an empty or corrupt bank prevents bricking the device
+         * on a malformed tester command.
+         *
+         * Boot-state handling: the other bank is the previously-active
+         * known-good bank; it was never marked pending by ActivateSoftware
+         * (which only marks the INACTIVE bank).  Its boot-state sector is
+         * therefore already confirmed (or erased = safe default).  We clear it
+         * explicitly here to guarantee a clean state, mirroring the automatic
+         * rollback path (boot_state_clear before flash_set_swap_and_reset in
+         * the auto-rollback path in main()).
+         *
+         * Order: clear other-bank boot state → print milestone → swap+reset.
+         * A power loss after clear but before swap leaves the current bank
+         * active; on the next boot the tester can retry.
+         */
+        uint8_t  active     = flash_active_bank();
+        uint8_t  other      = active ? 0u : 1u;
+        uint32_t other_base = 0x08000000UL + (uint32_t) other * 0x100000UL;
+        uint32_t other_app  = other_base + BL_REGION_SIZE;
+
+        /* Refuse rollback if the other bank does not hold a bootable image. */
+        if (!app_is_valid(other_app)) {
+            uart_puts("BL: rollback refused — other bank invalid\n");
+            return -(int) 0x22; /* conditionsNotCorrect */
+        }
+
+        /* Clear the other bank's boot-state so it is treated as confirmed. */
+        boot_state_clear(other_base);
+
+        uart_puts("BL: perform rollback\n");
+        flash_swap_to_bank_and_reset(other);
+        /* flash_swap_to_bank_and_reset() issues a system reset; unreachable. */
         for (;;) {
         }
     }

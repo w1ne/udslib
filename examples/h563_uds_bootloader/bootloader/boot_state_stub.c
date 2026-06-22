@@ -46,3 +46,11 @@ void flash_set_swap_and_reset(void)
     /* Should not be called in host test context. */
     for (;;) {}
 }
+
+/* Host stub: no-op explicit-bank swap+reset (should never be called from tests). */
+void flash_swap_to_bank_and_reset(uint8_t target_bank)
+{
+    (void) target_bank;
+    /* Should not be called in host test context. */
+    for (;;) {}
+}
