@@ -76,4 +76,50 @@ typedef struct {
  */
 #define OTA_IMAGE_MAX_PAYLOAD  (0xE8000u - OTA_IMAGE_HDR_SIZE)
 
+/* ---------------------------------------------------------------------------
+ * Anti-rollback policy (configurable)
+ *
+ * Monotonic version enforcement: an OTA candidate whose header.version is LESS
+ * than the currently-active app's header.version is a DOWNGRADE and is rejected,
+ * preventing a forced revert to an older (possibly vulnerable) image.  Equal and
+ * higher versions are always allowed.
+ *
+ * Compile-time switch OTA_ANTIROLLBACK_ENFORCE:
+ *   1 (default) — enforce: downgrades rejected.
+ *   0           — allow downgrades (override with -DOTA_ANTIROLLBACK_ENFORCE=0
+ *                 at compile time, e.g. for field-recovery / lab reflash).
+ *
+ * Storage of the "minimum acceptable version": this example derives it from the
+ * currently-active app's own header (read live at enforcement time) rather than
+ * a dedicated monotonic counter sector.  Limitation: if the active bank holds no
+ * valid image (recovery mode) there is no current version to compare against, so
+ * enforcement is skipped and the candidate is allowed — recovery must never be
+ * bricked by anti-rollback.  A production design would back the minimum version
+ * with a one-way counter in protected flash / OTP so it cannot regress even when
+ * both banks are reflashed.
+ * ------------------------------------------------------------------------- */
+#ifndef OTA_ANTIROLLBACK_ENFORCE
+#define OTA_ANTIROLLBACK_ENFORCE 1
+#endif
+
+/**
+ * ota_version_allows() — pure anti-rollback decision (no flash I/O, host-testable).
+ *
+ * @param candidate  Version of the image being activated.
+ * @param current    Version currently installed/active (the floor).
+ * @param enforce    Non-zero to enforce monotonicity (reject downgrades);
+ *                   zero to allow any version.
+ * @return 1 if activation is permitted, 0 if it must be rejected as a rollback.
+ *
+ * When enforce==0, always returns 1.  When enforce!=0, returns 1 iff
+ * candidate >= current (upgrade or reinstall), 0 for a strict downgrade.
+ */
+static inline int ota_version_allows(uint32_t candidate, uint32_t current, int enforce)
+{
+    if (enforce == 0) {
+        return 1; /* policy disabled: any version accepted */
+    }
+    return (candidate >= current) ? 1 : 0;
+}
+
 #endif /* OTA_IMAGE_H */

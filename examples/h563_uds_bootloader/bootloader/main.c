@@ -136,8 +136,10 @@ static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t
  *
  * DEMO_SECRET is a fixed 16-byte example key only.  On a production ECU this
  * must NOT reside in flash: replace with a key handle into the HSM/SHE, making
- * aes_cmac() an HSM call.  A fixed seed is used for deterministic simulation;
- * production firmware MUST use a TRNG-derived per-attempt nonce.
+ * aes_cmac() an HSM call.  The seed is a fresh per-attempt nonce drawn from the
+ * H563 hardware TRNG (RNG peripheral, see bl_security_seed): each requestSeed
+ * returns 16 random bytes, so a captured (seed,key) pair cannot be replayed —
+ * the next attempt's seed, and therefore its expected AES-CMAC key, differ.
  * ------------------------------------------------------------------------- */
 #define SEC_SEED_LEN 16u
 #define SEC_KEY_LEN  16u
@@ -148,11 +150,36 @@ static const uint8_t DEMO_SECRET[16] = {
     0x71, 0xCC, 0x3A, 0x8F, 0x52, 0x0B, 0xE4, 0x96
 };
 
-/* Fixed demo seed — replace with TRNG output in production. */
-static const uint8_t DEMO_SEED[SEC_SEED_LEN] = {
-    0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80,
-    0x91, 0xA2, 0xB3, 0xC4, 0xD5, 0xE6, 0xF7, 0x08
-};
+/* ---------------------------------------------------------------------------
+ * H563 RNG (TRNG) — RM0481
+ *
+ * RNG block base = 0x420C0800 (AHB2; per stm32h563.svd):
+ *   RNG_CR @ +0x00  control;   RNGEN = bit 2 enables the generator
+ *   RNG_SR @ +0x04  status;    DRDY  = bit 0 set when RNG_DR holds fresh data
+ *   RNG_DR @ +0x08  data;      32-bit random word (reading clears DRDY)
+ *
+ * The RNG kernel clock is on AHB2 (RCC_AHB2ENR.RNGEN = bit 26).  The firmware
+ * otherwise leaves RCC at reset; we enable just this one clock-gate bit so the
+ * peripheral is fed on real silicon.  The simulator models the RNG as always
+ * clocked, so this write is a harmless no-op there.  The DRDY poll below is
+ * bounded by RNG_DRDY_POLL_MAX, so a stuck/unclocked RNG cannot hang the
+ * bootloader — bl_security_seed returns conditionsNotCorrect instead.
+ * ------------------------------------------------------------------------- */
+#define RNG_BASE        0x420C0800u
+#define RNG_CR          (*(volatile uint32_t *) (RNG_BASE + 0x00u))
+#define RNG_SR          (*(volatile uint32_t *) (RNG_BASE + 0x04u))
+#define RNG_DR          (*(volatile uint32_t *) (RNG_BASE + 0x08u))
+#define RNG_CR_RNGEN    (1u << 2)  /* generator enable */
+#define RNG_SR_DRDY     (1u << 0)  /* data ready        */
+
+/* RCC AHB2 peripheral clock enable (RCC base 0x44020C00, AHB2ENR @ +0x8C). */
+#define RCC_AHB2ENR     (*(volatile uint32_t *) (0x44020C00u + 0x8Cu))
+#define RCC_AHB2ENR_RNGEN (1u << 26)
+
+/* Bound on the per-word DRDY poll so an unclocked/stuck RNG never hangs the
+ * bootloader.  At the 32 MHz reset clock the RNG produces a word every few
+ * microseconds; this loop bound is generous yet finite. */
+#define RNG_DRDY_POLL_MAX  200000u
 
 /* Constant-time comparison to avoid leaking how many bytes matched. */
 static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len)
@@ -164,6 +191,23 @@ static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len)
     return diff == 0;
 }
 
+/*
+ * rng_read_word — read one 32-bit TRNG word with a bounded DRDY poll.
+ *
+ * Returns 1 on success (*out holds a fresh random word), 0 if DRDY never
+ * asserted within RNG_DRDY_POLL_MAX iterations (stuck/unclocked RNG).
+ */
+static int rng_read_word(uint32_t *out)
+{
+    for (uint32_t i = 0u; i < RNG_DRDY_POLL_MAX; i++) {
+        if ((RNG_SR & RNG_SR_DRDY) != 0u) {
+            *out = RNG_DR; /* reading RNG_DR clears DRDY */
+            return 1;
+        }
+    }
+    return 0; /* timed out — caller treats as conditionsNotCorrect */
+}
+
 static int bl_security_seed(uds_ctx_t *ctx, uint8_t level, uint8_t *seed_buf, uint16_t max_len)
 {
     (void) ctx;
@@ -171,7 +215,21 @@ static int bl_security_seed(uds_ctx_t *ctx, uint8_t level, uint8_t *seed_buf, ui
     if (max_len < SEC_SEED_LEN) {
         return -(int) 0x22; /* conditionsNotCorrect */
     }
-    memcpy(seed_buf, DEMO_SEED, SEC_SEED_LEN);
+
+    /* Enable the RNG kernel clock (AHB2) and the generator. Idempotent: a second
+     * requestSeed simply re-asserts the already-set bits. */
+    RCC_AHB2ENR |= RCC_AHB2ENR_RNGEN;
+    RNG_CR |= RNG_CR_RNGEN;
+
+    /* Draw a fresh 16-byte nonce, one TRNG word at a time, polling DRDY with a
+     * timeout so a stuck RNG cannot hang the SecurityAccess handshake. */
+    for (uint16_t off = 0u; off < SEC_SEED_LEN; off += 4u) {
+        uint32_t word;
+        if (!rng_read_word(&word)) {
+            return -(int) 0x22; /* conditionsNotCorrect: RNG not producing data */
+        }
+        memcpy(&seed_buf[off], &word, sizeof(word));
+    }
     return (int) SEC_SEED_LEN;
 }
 
@@ -232,6 +290,27 @@ static struct {
 static uint32_t bank_base(uint8_t bank)
 {
     return 0x08000000UL + (uint32_t) bank * BANK_SIZE;
+}
+
+/*
+ * active_app_version — version of the image in the currently-active bank, or 0
+ * if that bank holds no valid image (e.g. first flash / recovery mode).
+ *
+ * This is the anti-rollback "floor": a candidate image whose version is below
+ * this is a downgrade.  Returning 0 when the active bank is invalid disables
+ * enforcement for that activation (recovery must not be bricked) — see the
+ * OTA_ANTIROLLBACK_ENFORCE note in ota_image.h.
+ */
+static uint32_t active_app_version(void)
+{
+    uint8_t  active        = flash_active_bank();
+    uint32_t active_app    = bank_base(active) + BL_REGION_SIZE;
+    if (!app_is_valid(active_app)) {
+        return 0u; /* no current version to compare against */
+    }
+    const ota_image_header_t *hdr =
+        (const ota_image_header_t *) (uintptr_t) active_app;
+    return hdr->version;
 }
 
 /* Flush any accumulated bytes in g_flash_state.stage to flash (pad with 0xFF). */
@@ -545,6 +624,22 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * divergence. */
         uint8_t pass = app_is_valid(g_flash_state.dl_addr) ? 0x01u : 0x00u;
 
+        /*
+         * Anti-rollback (configurable, OTA_ANTIROLLBACK_ENFORCE):
+         * reject a candidate whose version is below the currently-active app's
+         * version.  Enforced here (CheckProgramming) so a downgrade is refused
+         * before ActivateSoftware ever runs; 0xFF02 re-checks as defense in
+         * depth.  Upgrades (>=) always pass.  See ota_image.h.
+         */
+        if (pass) {
+            uint32_t current   = active_app_version();
+            uint32_t candidate = hdr->version;
+            if (!ota_version_allows(candidate, current, OTA_ANTIROLLBACK_ENFORCE)) {
+                uart_puts("BL: rollback blocked\n");
+                return -(int) 0x22; /* conditionsNotCorrect: downgrade refused */
+            }
+        }
+
         if (max_len < 1u) {
             return -(int) 0x14;
         }
@@ -594,6 +689,18 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         if (!app_is_valid(inactive_app)) {
             uart_puts("BL: activate refused — inactive image invalid\n");
             return -(int) 0x22; /* conditionsNotCorrect */
+        }
+
+        /* Anti-rollback re-check (defense in depth, see 0xFF01 and ota_image.h):
+         * refuse to swap to an image older than the currently-active one. */
+        {
+            const ota_image_header_t *cand =
+                (const ota_image_header_t *) (uintptr_t) inactive_app;
+            if (!ota_version_allows(cand->version, active_app_version(),
+                                    OTA_ANTIROLLBACK_ENFORCE)) {
+                uart_puts("BL: rollback blocked\n");
+                return -(int) 0x22; /* conditionsNotCorrect: downgrade refused */
+            }
         }
 
         uart_puts("BL: marking inactive bank pending\n");
@@ -802,7 +909,9 @@ int main(void)
     uart_puts("BL: UDS server ready\n");
 
 #ifdef SIM_OTA_TESTER
-    sim_tester_init(DEMO_SECRET, DEMO_SEED);
+    /* The tester reads the per-attempt seed from the server's 0x67 01 response
+     * and computes the key live, so no static seed is passed (NULL). */
+    sim_tester_init(DEMO_SECRET, NULL);
 #endif
 
     /* Polling loop — no NVIC IRQs. */

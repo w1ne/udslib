@@ -27,11 +27,12 @@ static const uint8_t rfc4493_mac1[16] = {
 };
 
 /*
- * Demo SecurityAccess credentials — must match bootloader/main.c DEMO_SECRET
- * and DEMO_SEED.  The sim tester computes the SecurityAccess key LIVE as
- * aes_cmac(DEMO_SECRET, DEMO_SEED, 16); this vector asserts that live result
- * equals the known-good key the bootloader verifies against, so the smoke
- * exercises the real handshake rather than a baked constant.
+ * Demo SecurityAccess credentials.  demo_secret matches bootloader/main.c
+ * DEMO_SECRET.  The seed is now drawn per-attempt from the H563 TRNG, so this
+ * fixed demo_seed is a deterministic AES-CMAC test vector only: it asserts that
+ * aes_cmac(demo_secret, demo_seed, 16) equals the known-good value below,
+ * proving the same one-shot the bootloader and tester run agrees with a
+ * reference key for a known seed.
  */
 static const uint8_t demo_secret[16] = {
     0xA3, 0xF1, 0x7C, 0x28, 0xB6, 0x4E, 0xD9, 0x05,

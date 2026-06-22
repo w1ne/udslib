@@ -192,7 +192,15 @@ bootstate-test: $(BUILD_DIR)
 	gcc $(BOOTSTATE_TEST_CFLAGS) $(BOOTSTATE_TEST_SRCS) -o $(BUILD_DIR)/bootstate_test
 	$(BUILD_DIR)/bootstate_test
 
+# Host unit test: validates the pure ota_version_allows() anti-rollback function.
+OTAVERSION_TEST_SRCS  := ota_version_test.c
+OTAVERSION_TEST_CFLAGS := -O2 -g -I. -Wall -Wextra -Werror
+
+otaversion-test: $(BUILD_DIR)
+	gcc $(OTAVERSION_TEST_CFLAGS) $(OTAVERSION_TEST_SRCS) -o $(BUILD_DIR)/otaversion_test
+	$(BUILD_DIR)/otaversion_test
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all check-udslib clean cmac-test rsa-test image-test bootstate-test
+.PHONY: all check-udslib clean cmac-test rsa-test image-test bootstate-test otaversion-test
