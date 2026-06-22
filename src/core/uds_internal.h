@@ -180,11 +180,16 @@ int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uin
 int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
 
 /* Maintenance Services (0x11, 0x14, 0x19, 0x28, 0x85) */
-int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                   uds_result_t *out);
+void uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
+void uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                   uds_result_t *out);
+void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
+void uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                             uds_result_t *out);
 
 /* Flash Services (0x31, 0x34, 0x36, 0x37) */
 int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
