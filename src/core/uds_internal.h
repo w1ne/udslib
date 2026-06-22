@@ -159,6 +159,7 @@ const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id);
 bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr,
                                  uint32_t *size);
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
+int uds_emit_response(uds_ctx_t *ctx, uint16_t len);
 
 /* --- Core Service Handlers --- */
 

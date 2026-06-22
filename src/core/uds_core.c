@@ -689,30 +689,17 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
     }
 }
 
-int uds_send_response(uds_ctx_t *ctx, uint16_t len)
+int uds_emit_response(uds_ctx_t *ctx, uint16_t len)
 {
     if (!ctx || !ctx->config || !ctx->config->tx_buffer) {
         return UDS_ERR_NOT_INIT;
     }
-
     if (len > ctx->config->tx_buffer_size) {
         return UDS_ERR_BUFFER_TOO_SMALL;
     }
-
     ctx->p2_msg_pending = false;
     ctx->server_pending_sid = 0u;
 
-    if (ctx->suppress_pos_resp) {
-        ctx->suppress_pos_resp = false;
-        ctx->rcrrp_count = 0u;
-        if (ctx->secure_capturing) {
-            ctx->secure_capture_len = 0u; /* inner response suppressed */
-        }
-        return UDS_OK;
-    }
-
-    /* When unwrapping SecuredDataTransmission (0x84), the inner response is
-     * captured here instead of being sent, so the 0x84 handler can secure it. */
     if (ctx->secure_capturing) {
         uint16_t n = (len <= ctx->secure_capture_size) ? len : ctx->secure_capture_size;
         memcpy(ctx->secure_capture_buf, ctx->config->tx_buffer, n);
@@ -720,9 +707,23 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len)
         ctx->rcrrp_count = 0u;
         return UDS_OK;
     }
-
     ctx->rcrrp_count = 0u;
     return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
+}
+
+int uds_send_response(uds_ctx_t *ctx, uint16_t len) /* public compat shim */
+{
+    if (ctx && ctx->suppress_pos_resp) {
+        ctx->suppress_pos_resp = false;
+        ctx->rcrrp_count = 0u;
+        if (ctx->secure_capturing) {
+            ctx->secure_capture_len = 0u;
+        }
+        ctx->p2_msg_pending = false;
+        ctx->server_pending_sid = 0u;
+        return UDS_OK;
+    }
+    return uds_emit_response(ctx, len);
 }
 
 int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)

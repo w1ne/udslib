@@ -176,6 +176,36 @@ typedef struct
 #define UDS_SESSION_SAFETY (1 << 4)
 #define UDS_SESSION_ALL (0xFF)
 
+/** Outcome a service handler asks the framework to emit. */
+typedef enum
+{
+    UDS_RESULT_POSITIVE, /**< tx_buffer[0..len-1] holds the positive response */
+    UDS_RESULT_NRC,      /**< emit negative response with .nrc                */
+    UDS_RESULT_PENDING   /**< async: framework emits 0x78 and tracks P2*      */
+} uds_result_kind_t;
+
+typedef struct
+{
+    uds_result_kind_t kind;
+    uint16_t len; /**< payload length in tx_buffer (POSITIVE) */
+    uint8_t nrc;  /**< NRC code (NRC)                         */
+} uds_result_t;
+
+static inline void uds_ok(uds_result_t *out, uint16_t len)
+{
+    out->kind = UDS_RESULT_POSITIVE;
+    out->len = len;
+}
+static inline void uds_nrc(uds_result_t *out, uint8_t nrc)
+{
+    out->kind = UDS_RESULT_NRC;
+    out->nrc = nrc;
+}
+static inline void uds_pending(uds_result_t *out)
+{
+    out->kind = UDS_RESULT_PENDING;
+}
+
 /**
  * @brief Service Handler Function Signature
  *
@@ -687,6 +717,10 @@ typedef struct uds_ctx
     /* --- Server role: in-progress asynchronous request --- */
     /** SID of the request currently awaiting an async (0x78) response */
     uint8_t server_pending_sid;
+    /** Set by the 0x11 handler; framework calls fn_reset AFTER emitting. */
+    bool reset_pending;
+    /** resetType to pass to fn_reset when reset_pending is consumed. */
+    uint8_t reset_pending_type;
 
     /* --- Client role: outstanding request awaiting a response --- */
     /** Callback to invoke when the awaited response arrives */
