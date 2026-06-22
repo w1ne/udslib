@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-06-22
+
 ### Added
 - **ISO-TP configurable frame padding**: `uds_tp_isotp_set_pad_byte()` sets the byte used to fill unused bytes in every transmitted frame (SF, FF, CF, FC). The default is now `0xCC` (`ISOTP_PAD_BYTE_DEFAULT`), the value ISO 15765-2:2016 recommends to minimize stuff-bit insertions on the wire; override per channel (e.g. `0xAA`, or `0x00` to restore the previous fill). (#67)
 - **ISO-TP physical/functional addressing**: a channel can now recognise a functional (broadcast) RX ID via `uds_tp_isotp_set_functional_id()`; requests are tagged physical/functional and delivered through the new `uds_input_sdu_addr()` (`uds_input_sdu()` stays as a physical-default wrapper). Services gate on a new `address_mode` field in `uds_service_entry_t` (0 = both). Functional addressing is Single-Frame only, and functionally addressed requests suppress NRC 0x11/0x12/0x7E/0x7F/0x31 per ISO 14229-1. Completes #42.
