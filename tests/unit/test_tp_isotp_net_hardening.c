@@ -164,6 +164,8 @@ static void test_half_duplex_ff_aborts_tx(void **state)
     /* TX must be aborted */
     assert_int_equal(iso.tx_state, ISOTP_TX_IDLE);
     assert_int_equal(iso.timer_n_bs, 0u);
+    /* No FC.CTS was received here, so this was already 0; the assert locks the
+     * defensive clear in the FF-abort path rather than a 1->0 transition. */
     assert_int_equal(iso.first_cf_after_fc, 0u);
 
     /* RX must be active (waiting for CFs) */
@@ -417,6 +419,7 @@ static void test_tx_stmin_microsecond_band_0xf1(void **state)
 static void test_n_cr_refresh_on_cf(void **state)
 {
     (void) state;
+    reset_captures(); /* Part A asserts absolute timestamps; don't inherit prior g_time */
 
     /* --- Part A: CFs within N_Cr each → full completion --- */
     {
