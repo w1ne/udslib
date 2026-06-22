@@ -160,6 +160,11 @@ bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t form
                                  uint32_t *size);
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
 
+/* Execute a deferred ECUReset (0x11) hook if one is pending, then clear the
+ * flag. Called once the positive response — inner 0x51 for an unsecured reset,
+ * or the outer 0x84 secured response for a wrapped one — is on the wire. */
+void uds_internal_run_pending_reset(uds_ctx_t *ctx);
+
 /* --- Core Service Handlers --- */
 
 /* Session Services (0x10, 0x3E) */

@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
-- **ECUReset (0x11) sent the positive response after the reset hook**: `uds_internal_handle_ecu_reset` invoked `fn_reset` before transmitting the `0x51` response, so any `fn_reset` that reboots the MCU synchronously (e.g. `NVIC_SystemReset()`) lost the response and the tester saw a timeout. The response is now handed to the transport before `fn_reset` runs, per ISO 14229-1:2013 §9.3.2.2; if the response cannot be sent the reset is skipped. The `uds_reset_fn` contract is documented to defer the physical reset until transmit-complete for async/secured/multi-frame transports. (#76)
+- **ECUReset (0x11) sent the positive response after the reset hook**: `uds_internal_handle_ecu_reset` invoked `fn_reset` before transmitting the `0x51` response, so any `fn_reset` that reboots the MCU synchronously (e.g. `NVIC_SystemReset()`) lost the response and the tester saw a timeout. The response is now handed to the transport before `fn_reset` runs, per ISO 14229-1:2013 §9.3.2.2; if the response cannot be sent the reset is skipped. When the 0x11 is wrapped in a SecuredDataTransmission (0x84) the reset is deferred until the **outer** secured response is sent, not the captured inner one (and skipped if securing fails). The `uds_reset_fn` contract still documents deferring the physical reset until transmit-complete on non-blocking transports. (#76)
 
 ### Added
 - **ISO-TP configurable frame padding**: `uds_tp_isotp_set_pad_byte()` sets the byte used to fill unused bytes in every transmitted frame (SF, FF, CF, FC). The default is now `0xCC` (`ISOTP_PAD_BYTE_DEFAULT`), the value ISO 15765-2:2016 recommends to minimize stuff-bit insertions on the wire; override per channel (e.g. `0xAA`, or `0x00` to restore the previous fill). (#67)

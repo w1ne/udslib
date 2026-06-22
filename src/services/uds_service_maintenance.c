@@ -28,6 +28,8 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
         return uds_send_nrc(ctx, UDS_SID_ECU_RESET, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
     }
 
+    bool captured = ctx->secure_capturing;
+
     if (suppress_pos_resp) {
         ctx->suppress_pos_resp = true;
     }
@@ -38,17 +40,29 @@ int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
      * sends nothing when set), and only invoke the application reset hook once
      * the response has been handed to the transport. Resetting first would lose
      * the response on any fn_reset that reboots the MCU synchronously. */
+    if (ctx->config->fn_reset != NULL) {
+        ctx->reset_pending = true;
+        ctx->reset_pending_type = sub;
+    }
+
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
     int send_ret = uds_send_response(ctx, 2u);
     if (send_ret != UDS_OK) {
         /* Could not hand the response to the transport; skip the reset so the
          * tester is not left desynchronised without a confirmation. */
+        ctx->reset_pending = false;
         return send_ret;
     }
 
-    if (ctx->config->fn_reset) {
-        ctx->config->fn_reset(ctx, sub);
+    /* When this 0x11 is the inner request of a SecuredDataTransmission (0x84),
+     * uds_send_response only captured the inner 0x51 — the secured response the
+     * tester actually receives is sent later by the 0x84 handler. Leave the
+     * reset pending so it fires after that outer send, not before it. For a
+     * normal (unsecured) reset, or a suppressed one, the wire transaction is
+     * already complete, so fire now. */
+    if (!captured) {
+        uds_internal_run_pending_reset(ctx);
     }
 
     return UDS_OK;
