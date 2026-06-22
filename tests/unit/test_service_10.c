@@ -163,6 +163,42 @@ static void test_hook_allows_permitted_transition(void **state)
     assert_int_equal(g_tx_buf[1], 0x02);
 }
 
+/* --- Session-change NVM persistence --- */
+
+static int g_nvm_saved;
+static uint8_t g_nvm_state[2];
+
+static int mock_nvm_save(uds_ctx_t *c, const uint8_t *s, uint16_t n)
+{
+    (void) c;
+    if (n >= 2u) {
+        g_nvm_state[0] = s[0];
+        g_nvm_state[1] = s[1];
+    }
+    g_nvm_saved++;
+    return 0;
+}
+
+static void test_session_change_persists_state(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_nvm_save = mock_nvm_save;
+    g_nvm_saved = 0;
+
+    uint8_t req[] = {0x10, 0x03};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 6); /* 50 03 P2 P2 P2* P2* */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, sizeof(req));
+
+    assert_int_equal(g_nvm_saved, 1);
+    assert_int_equal(g_nvm_state[0], 0x03); /* extended session active */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -172,6 +208,7 @@ int main(void)
         cmocka_unit_test(test_no_hook_allows_default_to_programming),
         cmocka_unit_test(test_hook_rejects_disallowed_transition),
         cmocka_unit_test(test_hook_allows_permitted_transition),
+        cmocka_unit_test(test_session_change_persists_state),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
