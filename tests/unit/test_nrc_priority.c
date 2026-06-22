@@ -61,7 +61,7 @@ static void test_nrc_priority_sub_vs_security(void **state)
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
-    ctx.security_level = 0; /* Security is locked */
+    ctx.security.level = 0; /* Security is locked */
 
     /* Case A: Request with VALID subfunction (0x01), but LOCKED security */
     /* Expect NRC 0x33 (Security Access Denied) */

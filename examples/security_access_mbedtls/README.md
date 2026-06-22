@@ -30,7 +30,7 @@ udslib owns all of the 0x27 **plumbing** and bundles **no cipher**:
   0x24, requestSequenceError),
 - the failed-attempt counter and the lockout delay timer (NRC 0x36
   exceededNumberOfAttempts / 0x37 requiredTimeDelayNotExpired),
-- NRC framing, and gating services by `ctx.security_level`.
+- NRC framing, and gating services by `ctx.security.level`.
 
 The application owns the **crypto**, behind exactly two hooks:
 
@@ -40,7 +40,7 @@ static int on_security_seed(uds_ctx_t *ctx, uint8_t level,
                             uint8_t *seed_buf, uint16_t max_len);
 
 /* sendKey: derive AES-128-CMAC(level_secret, seed) and constant-time compare.
- * Return 0 to unlock (library sets ctx.security_level = level), or a -NRC. */
+ * Return 0 to unlock (library sets ctx.security.level = level), or a -NRC. */
 static int on_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed,
                            const uint8_t *key, uint16_t key_len);
 ```
@@ -99,10 +99,10 @@ The Authentication (0x29) `fn_auth` hook and the SecuredDataTransmission (0x84)
 requestSeed level 1   (0x27 0x01)        -> server returns a 16-byte seed
 sendKey level 1       (0x27 0x02)        -> client returns AES-CMAC(secret_l1, seed),
                                             server recomputes & compares (constant
-                                            time) -> ctx.security_level = 1
+                                            time) -> ctx.security.level = 1
 (gated service 0xBA after unlock)        -> allowed
 sendKey level 2 with a WRONG key         -> NRC 0x35 invalidKey, attempt counter++
-sendKey level 2 with the right key       -> ctx.security_level = 2
+sendKey level 2 with the right key       -> ctx.security.level = 2
 ```
 
 The library auto-relocks (`security_level = 0`) on session change and reset.
@@ -149,7 +149,7 @@ Expected output (identical for both back-ends):
 === 3. sendKey level 1 with AES-128-CMAC(secret_l1, seed) -> unlock ===
 -> request: 27 02 27 DB ED 0B FB F3 C0 4C FA 52 5E E2 EC FD 5F EA
   <- response: 67 02
-   ctx.security_level = 1
+   ctx.security.level = 1
 
 === 4. Gated service 0xBA after unlock -> allowed ===
 -> request: BA
@@ -166,5 +166,5 @@ Expected output (identical for both back-ends):
   <- response: 67 03 80 81 82 83 84 85 86 87 88 89 8A 8B 8C 8D 8E 8F
 -> request: 27 04 4B 00 2F B0 5A 2B 50 10 1F DD AB 3B 40 6D 70 36
   <- response: 67 04
-   ctx.security_level = 2
+   ctx.security.level = 2
 ```

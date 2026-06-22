@@ -58,7 +58,7 @@ static void test_server_async_does_not_swallow_later_request(void **state)
     expect_value(mock_tp_send, len, 3); /* 7F 31 78 */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, req31, sizeof(req31));
-    assert_true(ctx.p2_msg_pending);
+    assert_true(ctx.server.p2_msg_pending);
 
     /* B. Application finishes the routine with a positive response (0x71). */
     ctx.config->tx_buffer[0] = 0x71;
@@ -67,7 +67,7 @@ static void test_server_async_does_not_swallow_later_request(void **state)
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
     uds_send_response(&ctx, 2);
-    assert_false(ctx.p2_msg_pending);
+    assert_false(ctx.server.p2_msg_pending);
 
     /* C. A brand-new request whose SID is (0x31 | 0x40) == 0x71 must be handled
           as a server request -- no such service -> NRC 0x11 -- not consumed as

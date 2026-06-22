@@ -107,7 +107,7 @@ static void test_session_violation(void **state)
     /* Default session is 0x01. Service 0xA1 requires Extended (0x02) */
 
     /* Ensure we are in default session */
-    g_ctx.active_session = UDS_SESSION_DEFAULT;
+    g_ctx.session.active = UDS_SESSION_DEFAULT;
 
     uint8_t req[] = {0xA1};
 
@@ -126,7 +126,7 @@ static void test_security_violation(void **state)
 {
     (void) state;
     /* Service 0xA2 requires Security Level 1. Context init is Level 0 (Locked). */
-    g_ctx.security_level = 0;
+    g_ctx.security.level = 0;
 
     uint8_t req[] = {0xA2};
 

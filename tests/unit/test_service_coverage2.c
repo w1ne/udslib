@@ -133,7 +133,7 @@ static void test_periodic_stop_all(void **state)
     expect_value(mock_tp_send, len, 1);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, add, sizeof(add));
-    assert_int_equal(ctx.periodic_count, 1u);
+    assert_int_equal(ctx.server.periodic_count, 1u);
 
     /* Re-add the same ID at a different rate -> update existing (data.c:272-274). */
     uint8_t readd[] = {0x2A, 0x02, 0x55};
@@ -143,7 +143,7 @@ static void test_periodic_stop_all(void **state)
     expect_value(mock_tp_send, len, 1);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, readd, sizeof(readd));
-    assert_int_equal(ctx.periodic_count, 1u); /* still one slot */
+    assert_int_equal(ctx.server.periodic_count, 1u); /* still one slot */
 
     /* Stop all. */
     uint8_t stop[] = {0x2A, 0x04};
@@ -153,7 +153,7 @@ static void test_periodic_stop_all(void **state)
     expect_value(mock_tp_send, len, 1);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, stop, sizeof(stop));
-    assert_int_equal(ctx.periodic_count, 0u);
+    assert_int_equal(ctx.server.periodic_count, 0u);
 }
 
 /* Adding a ninth periodic ID overflows the table -> responseTooLong (data.c:279-281). */
@@ -174,7 +174,7 @@ static void test_periodic_table_full(void **state)
     expect_value(mock_tp_send, len, 1);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, fill, sizeof(fill));
-    assert_int_equal(ctx.periodic_count, 8u);
+    assert_int_equal(ctx.server.periodic_count, 8u);
 
     /* A 9th unique ID cannot fit. */
     uint8_t over[] = {0x2A, 0x01, 9};
@@ -232,7 +232,7 @@ static void test_link_transition_callback_error(void **state)
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, verify, sizeof(verify));
-    assert_true(ctx.link_ctrl_verified);
+    assert_true(ctx.server.link_ctrl_verified);
 
     /* transition (0x03) now fails in the callback. */
     uint8_t trans[] = {0x87, 0x03};
@@ -246,8 +246,8 @@ static void test_access_timing_readback(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    ctx.p2_ms = 0x0032;      /* 50 */
-    ctx.p2_star_ms = 0x1388; /* 5000 -> /10 = 500 = 0x01F4 */
+    ctx.session.p2_ms = 0x0032;      /* 50 */
+    ctx.session.p2_star_ms = 0x1388; /* 5000 -> /10 = 500 = 0x01F4 */
 
     uint8_t req[] = {0x83, 0x03};
     will_return(mock_get_time, 1000);
@@ -450,7 +450,7 @@ static void test_session_safety(void **state)
     uds_input_sdu(&ctx, req, sizeof(req));
     assert_int_equal(g_tx_buf[0], 0x50);
     assert_int_equal(g_tx_buf[1], 0x04);
-    assert_int_equal(ctx.active_session, 0x04u);
+    assert_int_equal(ctx.session.active, 0x04u);
 
     /* Now a service in this session goes through is_session_supported with the
      * SAFETY bit set: a TesterPresent succeeds. */

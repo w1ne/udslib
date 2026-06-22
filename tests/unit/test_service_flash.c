@@ -62,7 +62,7 @@ static void test_transfer_data_sequence_error(void **state)
 
     /* C-13: Sequence counter starts at 0x01. If 0x02 received first -> NRC 0x24 */
     uint8_t req[] = {0x36, 0x02, 0xDE, 0xAD};
-    ctx.flash_sequence = 0;
+    ctx.server.flash_sequence = 0;
 
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
@@ -83,7 +83,7 @@ static void test_transfer_data_last_block_replay(void **state)
 
     /* First block (0x01) */
     uint8_t req1[] = {0x36, 0x01, 0xDE, 0xAD};
-    ctx.flash_sequence = 0;
+    ctx.server.flash_sequence = 0;
 
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
@@ -92,7 +92,7 @@ static void test_transfer_data_last_block_replay(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req1, 4);
-    assert_int_equal(ctx.flash_sequence, 0x01);
+    assert_int_equal(ctx.server.flash_sequence, 0x01);
 
     /* Repeat block (0x01) - Should be accepted without re-invoking callback increment or sequence
      * error */
@@ -105,7 +105,7 @@ static void test_transfer_data_last_block_replay(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req2, 4);
-    assert_int_equal(ctx.flash_sequence, 0x01);
+    assert_int_equal(ctx.server.flash_sequence, 0x01);
 }
 
 int main(void)

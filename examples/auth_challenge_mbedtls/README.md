@@ -14,7 +14,7 @@ bytes-out, so the back-end is interchangeable.
 ## What changes vs. the placeholder example — and what does not
 
 Only the application's crypto changes. udslib is identical: it still owns the
-0x29 plumbing (sub-function validation, the `ctx.authenticated` state machine,
+0x29 plumbing (sub-function validation, the `ctx.security.authenticated` state machine,
 NRC framing, service gating via `fn_auth_required`) and still bundles **no
 cipher**. The library is never recompiled or relinked against mbedTLS.
 
@@ -80,13 +80,13 @@ verifyCertificateUnidirectional   (0x29 0x01) -> evaluation status
 requestChallengeForAuthentication (0x29 0x05) -> server returns a 16-byte challenge
 proofOfOwnership                  (0x29 0x03) -> client returns AES-CMAC_key(challenge),
                                                  server recomputes & compares (constant
-                                                 time) -> ctx.authenticated
-proofOfOwnership with a wrong tag             -> NRC 0x34, ctx.authenticated cleared
+                                                 time) -> ctx.security.authenticated
+proofOfOwnership with a wrong tag             -> NRC 0x34, ctx.security.authenticated cleared
 (gated service 0xBA after re-auth)            -> allowed
 ```
 
 `deAuthenticate` (0x29 0x00) and `authenticationConfiguration` (0x08) are handled
-natively. The library auto-clears `ctx.authenticated` on deAuthenticate, session
+natively. The library auto-clears `ctx.security.authenticated` on deAuthenticate, session
 change, S3 timeout, and reset.
 
 ## Real crypto, two honest shortcuts
@@ -133,14 +133,14 @@ Expected output (identical for both back-ends):
 === 4. proofOfOwnership with real AES-128-CMAC(challenge) -> verified ===
 -> request: 29 03 42 9D 47 49 3E 8B 9C FF 84 1E 73 5D E0 07 71 FC
   <- response: 69 03 02
-   ctx.authenticated = true
+   ctx.security.authenticated = true
 
 === 5. proofOfOwnership with a WRONG tag -> NRC 0x34 ===
 -> request: 29 05
   <- response: 69 05 11 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F
 -> request: 29 03 BD 9D 47 49 3E 8B 9C FF 84 1E 73 5D E0 07 71 FC
   <- response: 7F 29 34
-   ctx.authenticated = false
+   ctx.security.authenticated = false
 
 === 6. Re-authenticate, then gated service 0xBA -> allowed ===
 -> request: 29 05

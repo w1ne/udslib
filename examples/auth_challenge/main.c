@@ -115,13 +115,13 @@ static int handle_auth(uds_ctx_t *ctx, uint8_t subfn, const uint8_t *data, uint1
             uint32_t got = (uint32_t) (((uint32_t) data[0] << 24) | ((uint32_t) data[1] << 16) |
                                        ((uint32_t) data[2] << 8) | (uint32_t) data[3]);
             if (got != expected) {
-                ctx->authenticated = false;
+                ctx->security.authenticated = false;
                 return -(int) 0x34; /* authenticationFailed (ISO 14229-1:2020) */
             }
             /* Mark the channel authenticated. The library auto-clears this on
              * deAuthenticate, session change, S3 timeout, and reset, and gates
              * services selected by the fn_auth_required hook. */
-            ctx->authenticated = true;
+            ctx->security.authenticated = true;
             out[0] = AUTH_RET_OWNERSHIP_VERIFIED;
             return 1;
         }
@@ -133,7 +133,7 @@ static int handle_auth(uds_ctx_t *ctx, uint8_t subfn, const uint8_t *data, uint1
 
 /* A vendor service that must only run on an authenticated channel. The library
  * enforces this via the fn_auth_required hook (NRC 0x34 otherwise); the handler
- * never even runs until ctx.authenticated is set. */
+ * never even runs until ctx.security.authenticated is set. */
 static void handle_secure_op(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) len;
@@ -207,7 +207,7 @@ int main(void)
                                 (uint8_t) (tag >> 8),
                                 (uint8_t) tag};
     send_request(&ctx, proof_ok, sizeof(proof_ok)); /* 69 03 02 */
-    printf("   ctx.authenticated = %s\n", ctx.authenticated ? "true" : "false");
+    printf("   ctx.security.authenticated = %s\n", ctx.security.authenticated ? "true" : "false");
 
     printf("\n=== 5. Gated service 0xBA AFTER auth -> allowed ===\n");
     send_request(&ctx, gated, sizeof(gated)); /* FA AC */

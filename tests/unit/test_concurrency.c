@@ -67,8 +67,8 @@ static void test_concurrent_request_rejection(void **state)
 
     mock_time = 1000;
     uds_input_sdu(&ctx, req1, 2);
-    assert_true(ctx.p2_msg_pending);
-    assert_int_equal(ctx.server_pending_sid, 0x31);
+    assert_true(ctx.server.p2_msg_pending);
+    assert_int_equal(ctx.server.pending_sid, 0x31);
 
     /* 2. Send second request while first is still pending. */
     /* Expect NRC 0x21 (Busy) */
@@ -81,9 +81,9 @@ static void test_concurrent_request_rejection(void **state)
     uds_input_sdu(&ctx, req2, 3);
 
     /* 3. Verify first operation is still alive/pending */
-    assert_true(ctx.p2_msg_pending);
-    assert_int_equal(ctx.server_pending_sid, 0x31);
-    assert_int_equal(ctx.p2_timer_start,
+    assert_true(ctx.server.p2_msg_pending);
+    assert_int_equal(ctx.server.pending_sid, 0x31);
+    assert_int_equal(ctx.server.p2_timer_start,
                      1000); /* Timer should NOT have been reset by the rejected request */
 
     /* 4. Complete first request */
@@ -94,7 +94,7 @@ static void test_concurrent_request_rejection(void **state)
     ctx.config->tx_buffer[0] = 0x71;
     ctx.config->tx_buffer[1] = 0x01;
     uds_send_response(&ctx, 2);
-    assert_false(ctx.p2_msg_pending);
+    assert_false(ctx.server.p2_msg_pending);
 }
 
 int main(void)

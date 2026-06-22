@@ -31,7 +31,7 @@ static int mock_auth_callback(struct uds_ctx *ctx, uint8_t subfn, const uint8_t 
     }
 
     if (subfn == UDS_AUTH_PROOF_OF_OWNERSHIP) {
-        ctx->authenticated = true; /* app's crypto verified ownership */
+        ctx->security.authenticated = true; /* app's crypto verified ownership */
         out_buf[0] = 0x02;         /* ARP: ownershipVerified */
         return 1;
     }
@@ -44,7 +44,7 @@ static void test_auth_deauthenticate_native(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    ctx.authenticated = true;
+    ctx.security.authenticated = true;
 
     uint8_t req[] = {0x29, UDS_AUTH_DEAUTHENTICATE};
     will_return(mock_get_time, 1000);
@@ -57,7 +57,7 @@ static void test_auth_deauthenticate_native(void **state)
     assert_int_equal(g_tx_buf[0], 0x69);
     assert_int_equal(g_tx_buf[1], 0x00);
     assert_int_equal(g_tx_buf[2], 0x10);
-    assert_false(ctx.authenticated);
+    assert_false(ctx.security.authenticated);
 }
 
 /* authenticationConfiguration (0x08) reports the configured byte natively. */
@@ -99,7 +99,7 @@ static void test_auth_verify_cert_uni_success(void **state)
     assert_int_equal(g_tx_buf[2], 0x01);
 }
 
-/* proofOfOwnership (0x03): the app verifies and sets ctx.authenticated. */
+/* proofOfOwnership (0x03): the app verifies and sets ctx.security.authenticated. */
 static void test_auth_proof_sets_state(void **state)
 {
     (void) state;
@@ -116,7 +116,7 @@ static void test_auth_proof_sets_state(void **state)
     uds_input_sdu(&ctx, req, 3);
     assert_int_equal(g_tx_buf[1], 0x03);
     assert_int_equal(g_tx_buf[2], 0x02);
-    assert_true(ctx.authenticated);
+    assert_true(ctx.security.authenticated);
 }
 
 /* A delegated sub-function with no fn_auth -> NRC 0x22. */
@@ -159,7 +159,7 @@ static void test_auth_cleared_on_session_change(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    ctx.authenticated = true;
+    ctx.security.authenticated = true;
 
     uint8_t req[] = {0x10, 0x03}; /* -> Extended session */
     will_return(mock_get_time, 1000);
@@ -169,7 +169,7 @@ static void test_auth_cleared_on_session_change(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req, 2);
-    assert_false(ctx.authenticated);
+    assert_false(ctx.security.authenticated);
 }
 
 /* A custom service gated on authentication via the fn_auth_required hook. */
@@ -219,7 +219,7 @@ static void test_auth_gated_service_allowed(void **state)
     cfg.user_services = k_gated_services;
     cfg.user_service_count = 1u;
     cfg.fn_auth_required = gate_0xBB;
-    ctx.authenticated = true;
+    ctx.security.authenticated = true;
 
     uint8_t req[] = {0xBB};
     will_return(mock_get_time, 1000);

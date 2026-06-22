@@ -136,7 +136,7 @@ static void test_comm_control_suppress_pos_resp(void **state)
 
     uds_input_sdu(&ctx, req, sizeof(req));
 
-    assert_int_equal(ctx.comm_state, 0x01);
+    assert_int_equal(ctx.session.comm_state, 0x01);
 }
 
 static void test_comm_control_enhanced_passes_node_id(void **state)

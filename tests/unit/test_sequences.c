@@ -105,7 +105,7 @@ static void test_seq_security_blocked_unlock_allowed(void **state)
 
     /* 1b. Seed + key unlock */
     do_unlock(&ctx);
-    assert_int_equal(ctx.security_level, 1);
+    assert_int_equal(ctx.security.level, 1);
 
     /* 1c. Request secured DID while unlocked -> positive response */
     will_return(mock_get_time, 2000);
@@ -142,7 +142,7 @@ static void test_seq_session_change_relocks(void **state)
 
     /* Unlock */
     do_unlock(&ctx);
-    assert_int_equal(ctx.security_level, 1);
+    assert_int_equal(ctx.security.level, 1);
 
     /* Switch to programming session -> security_level cleared */
     uint8_t prog_req[] = {0x10, 0x02};
@@ -152,7 +152,7 @@ static void test_seq_session_change_relocks(void **state)
     expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, prog_req, sizeof(prog_req));
-    assert_int_equal(ctx.security_level, 0);
+    assert_int_equal(ctx.security.level, 0);
 
     /* Request secured DID -> NRC 0x33 */
     uint8_t rdbi_req[] = {0x22, 0x12, 0x34};
@@ -188,13 +188,13 @@ static void test_seq_s3_timeout_relocks(void **state)
 
     /* Unlock at T=0 */
     do_unlock(&ctx);
-    assert_int_equal(ctx.security_level, 1);
+    assert_int_equal(ctx.security.level, 1);
 
     /* Advance clock past S3 (5000 ms) and fire uds_process */
     will_return(mock_get_time, 6001u);
     uds_process(&ctx);
     /* S3 fires: session resets to default, security_level cleared */
-    assert_int_equal(ctx.security_level, 0);
+    assert_int_equal(ctx.security.level, 0);
 
     /* Request secured DID -> NRC 0x33 */
     uint8_t rdbi_req[] = {0x22, 0x12, 0x34};
@@ -227,7 +227,7 @@ static void test_seq_seed_session_key_is_0x24(void **state)
     expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, seed_req, sizeof(seed_req));
-    assert_int_not_equal(ctx.security_seed_level, 0);
+    assert_int_not_equal(ctx.security.seed_level, 0);
 
     /* 4b. Session change: clears security_seed_level */
     uint8_t sess_req[] = {0x10, 0x01};
@@ -237,7 +237,7 @@ static void test_seq_seed_session_key_is_0x24(void **state)
     expect_value(mock_tp_send, len, 6);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, sess_req, sizeof(sess_req));
-    assert_int_equal(ctx.security_seed_level, 0);
+    assert_int_equal(ctx.security.seed_level, 0);
 
     /* 4c. Send key -> NRC 0x24 (requestSequenceError: no pending seed) */
     uint8_t key_req[] = {0x27, 0x02, 0xDF, 0xAE, 0xBF, 0xF0};
@@ -286,7 +286,7 @@ static void test_seq_rcrrp_recovery(void **state)
     expect_value(mock_tp_send, len, 3); /* 7F 31 78 */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, req, sizeof(req));
-    assert_true(ctx.p2_msg_pending);
+    assert_true(ctx.server.p2_msg_pending);
 
     /* 5b. Complete the async response */
     ctx.config->tx_buffer[0] = 0x71;
@@ -297,7 +297,7 @@ static void test_seq_rcrrp_recovery(void **state)
     expect_value(mock_tp_send, len, 4);
     will_return(mock_tp_send, 0);
     uds_send_response(&ctx, 4);
-    assert_false(ctx.p2_msg_pending);
+    assert_false(ctx.server.p2_msg_pending);
 
     /* 5c. Send 3E 00 -> must get 7E 00 (NOT NRC 0x21 busy) */
     uint8_t tp_req[] = {0x3E, 0x00};
@@ -348,8 +348,8 @@ static void test_seq_nvm_warmstart_gated_works(void **state)
     uds_init(&ctx, &cfg);
 
     /* NVM restored: session=0x03, level=1 */
-    assert_int_equal(ctx.active_session, 0x03);
-    assert_int_equal(ctx.security_level, 1);
+    assert_int_equal(ctx.session.active, 0x03);
+    assert_int_equal(ctx.security.level, 1);
 
     /* Request secured DID -> positive response (level=1 satisfies security_mask=2u) */
     uint8_t rdbi_req[] = {0x22, 0x12, 0x34};
@@ -390,7 +390,7 @@ static void test_seq_auth_deauth_gated_denied(void **state)
     cfg.user_services = k_auth_svcs;
     cfg.user_service_count = 1u;
     cfg.fn_auth_required = gate_0xCC;
-    ctx.authenticated = true;
+    ctx.security.authenticated = true;
 
     /* 7a. deAuthenticate (0x29 0x00) -> 69 00 10 */
     uint8_t deauth_req[] = {0x29, 0x00};
@@ -400,7 +400,7 @@ static void test_seq_auth_deauth_gated_denied(void **state)
     expect_value(mock_tp_send, len, 3); /* 69 00 10 */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, deauth_req, sizeof(deauth_req));
-    assert_false(ctx.authenticated);
+    assert_false(ctx.security.authenticated);
 
     /* 7b. Request gated service -> NRC 0x34 (authenticationRequired) */
     uint8_t svc_req[] = {0xCC};
@@ -471,7 +471,7 @@ static void test_seq_suppress_pos_rsp_2A(void **state)
     will_return(mock_get_time, 1000);
     /* No mock_tp_send expectation: must not emit */
     uds_input_sdu(&ctx, per_req, sizeof(per_req));
-    assert_int_equal(ctx.periodic_count, 1u); /* subscription registered despite suppress */
+    assert_int_equal(ctx.server.periodic_count, 1u); /* subscription registered despite suppress */
 
     /* Next service (3E 00) must respond normally */
     uint8_t tp_req[] = {0x3E, 0x00};

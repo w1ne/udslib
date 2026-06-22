@@ -82,7 +82,7 @@ static void test_security_access_key_success(void **state)
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(ctx.security_level, 1);
+    assert_int_equal(ctx.security.level, 1);
     assert_int_equal(g_tx_buf[0], 0x67);
     assert_int_equal(g_tx_buf[1], 0x02);
 }
@@ -162,7 +162,7 @@ static void test_security_access_delay_timer(void **state)
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, request_fail, sizeof(request_fail));
     assert_int_equal(g_tx_buf[2], 0x36);
-    assert_int_equal(ctx.security_delay_end, 2000);
+    assert_int_equal(ctx.security.delay_end, 2000);
 
     /* 2. Try again before delay expires */
     will_return(mock_get_time, 1500);
@@ -208,7 +208,7 @@ static void test_security_access_key_without_seed_rejected(void **state)
     assert_int_equal(g_tx_buf[0], 0x7F);
     assert_int_equal(g_tx_buf[1], 0x27);
     assert_int_equal(g_tx_buf[2], 0x24);
-    assert_int_equal(ctx.security_level, 0);
+    assert_int_equal(ctx.security.level, 0);
 }
 
 int main(void)

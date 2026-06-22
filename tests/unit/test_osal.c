@@ -137,7 +137,7 @@ static void test_osal_unlocks_on_rcrrp_limit(void **state)
     /* Start the async request: handler returns UDS_PENDING -> first 0x78. */
     uint8_t req[] = {0x99};
     uds_input_sdu(&ctx, req, 1);
-    assert_true(ctx.p2_msg_pending);
+    assert_true(ctx.server.p2_msg_pending);
 
     /* First P2* expiry: sends a repeated 0x78, rcrrp_count -> 1. */
     g_osal_time = 200;

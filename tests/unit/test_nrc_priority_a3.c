@@ -85,8 +85,8 @@ static void send_and_expect_nrc(uds_service_entry_t *svcs, uint16_t svc_count, u
     setup_ctx(&ctx, &cfg);
     cfg.user_services = svcs;
     cfg.user_service_count = svc_count;
-    ctx.active_session = session;
-    ctx.security_level = security_level;
+    ctx.session.active = session;
+    ctx.security.level = security_level;
 
     will_return(mock_get_time, 1000u);
     will_return(mock_get_time, 1000u);
@@ -304,7 +304,7 @@ static void test_36_mid_transfer_seq_mismatch(void **state)
     expect_value(mock_tp_send, len, 2u); /* 76 01 */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, req1, sizeof(req1));
-    assert_int_equal(ctx.flash_sequence, 0x01u);
+    assert_int_equal(ctx.server.flash_sequence, 0x01u);
 
     /* Step 2: Send block 0x03 (expected 0x02) -> NRC 0x24 (requestSequenceError).
      * Locking: uds_service_flash.c line ~136 (else branch, sequence != expected). */
@@ -331,7 +331,7 @@ static void test_36_sequence_wrap_ff_to_00(void **state)
     cfg.fn_transfer_data = mock_transfer_data_a3;
 
     /* Directly set flash_sequence to 0xFF to simulate being at the wrap point */
-    ctx.flash_sequence = 0xFFu;
+    ctx.server.flash_sequence = 0xFFu;
 
     /* Send block 0x00 (expected after 0xFF wrap) -> positive response */
     uint8_t req[] = {0x36u, 0x00u, 0xCCu, 0xDDu};
@@ -343,7 +343,7 @@ static void test_36_sequence_wrap_ff_to_00(void **state)
     uds_input_sdu(&ctx, req, sizeof(req));
     assert_int_equal(g_tx_buf[0], 0x76u); /* positive response */
     assert_int_equal(g_tx_buf[1], 0x00u);
-    assert_int_equal(ctx.flash_sequence, 0x00u);
+    assert_int_equal(ctx.server.flash_sequence, 0x00u);
 }
 
 /* ------------------------------------------------------------------ */
@@ -356,7 +356,7 @@ static void test_36_sequence_wrap_mismatch(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_transfer_data = mock_transfer_data_a3;
 
-    ctx.flash_sequence = 0xFFu;
+    ctx.server.flash_sequence = 0xFFu;
 
     uint8_t req[] = {0x36u, 0x01u, 0xCCu, 0xDDu}; /* expected 0x00, got 0x01 */
     will_return(mock_get_time, 1000u);
@@ -375,7 +375,7 @@ static void test_36_sequence_wrap_mismatch(void **state)
 /*                                                                      */
 /* When the inner handler calls uds_pending(), execute_handler() at    */
 /* line ~257-262 sends NRC 0x78 via uds_send_nrc(). uds_send_nrc      */
-/* detects ctx->secure_capturing == true and stores the 3-byte NRC     */
+/* detects ctx->scratch.secure_capturing == true and stores the 3-byte NRC     */
 /* into the capture buffer (line ~831). So captured_len = 3 (a NRC    */
 /* frame). fn_secure_encode is then called on it, and the outer 0x84   */
 /* response carries the encoded NRC 0x78 frame.                         */
@@ -469,8 +469,8 @@ static void test_84_inner_pending_yields_secured_nrc78(void **state)
      * (execute_handler line ~261) MUST be cleared by uds_emit_response on the
      * outer positive path. If a future change broke that cleanup, p2_msg_pending
      * would leak into the next request (the #80 bug class). Lock it. */
-    assert_false(ctx.p2_msg_pending);
-    assert_int_equal(ctx.server_pending_sid, 0u);
+    assert_false(ctx.server.p2_msg_pending);
+    assert_int_equal(ctx.server.pending_sid, 0u);
 }
 
 /* ------------------------------------------------------------------ */
@@ -567,8 +567,8 @@ static void test_nrc_security_beats_safety(void **state)
     cfg.user_services = k_svc_nosub;
     cfg.user_service_count = 1u;
     cfg.fn_is_safe = always_unsafe;
-    ctx.active_session = 0x03u; /* UDS_SESSION_ID_EXTENDED */
-    ctx.security_level = 0u;   /* locked */
+    ctx.session.active = 0x03u; /* UDS_SESSION_ID_EXTENDED */
+    ctx.security.level = 0u;   /* locked */
 
     uint8_t req[] = {0xC1u, 0x00u, 0x00u, 0x00u};
     will_return(mock_get_time, 1000u);
@@ -622,7 +622,7 @@ static void test_functional_0x7F_suppressed(void **state)
     setup_ctx(&ctx, &cfg);
     cfg.user_services = k_svc_nosub;
     cfg.user_service_count = 1u;
-    ctx.active_session = 0x01u; /* UDS_SESSION_ID_DEFAULT */
+    ctx.session.active = 0x01u; /* UDS_SESSION_ID_DEFAULT */
 
     uint8_t req[] = {0xC1u, 0x00u, 0x00u, 0x00u};
     will_return(mock_get_time, 1000u);

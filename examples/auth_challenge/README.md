@@ -25,7 +25,7 @@ follow the identical pattern.
 verifyCertificateUnidirectional   (0x29 0x01) -> evaluation status
 requestChallengeForAuthentication (0x29 0x05) -> server returns a challenge nonce
 proofOfOwnership                  (0x29 0x03) -> client returns tag(challenge),
-                                                 server verifies -> ctx.authenticated
+                                                 server verifies -> ctx.security.authenticated
 (gated service 0xBA after auth)               -> allowed
 ```
 
@@ -33,7 +33,7 @@ proofOfOwnership                  (0x29 0x03) -> client returns tag(challenge),
 by the library natively. Services are gated on authentication via the
 `fn_auth_required(ctx, sid)` config hook; when it returns true and the channel
 is not authenticated, the library rejects with NRC 0x34. The library auto-clears
-`ctx.authenticated` on deAuthenticate, session change, S3 timeout, and reset.
+`ctx.security.authenticated` on deAuthenticate, session change, S3 timeout, and reset.
 
 ## ⚠️ The demo tag is not cryptography
 
@@ -58,7 +58,7 @@ Expected output:
 === 4. proofOfOwnership with the correct tag -> verified ===
 -> request: 29 03 D2 A4 D7 2B
   <- response: 69 03 02
-   ctx.authenticated = true
+   ctx.security.authenticated = true
 
 === 5. Gated service 0xBA AFTER auth -> allowed ===
 -> request: BA

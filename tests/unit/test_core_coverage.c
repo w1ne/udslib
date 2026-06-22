@@ -160,7 +160,7 @@ static void test_client_request_sends_request(void **state)
     assert_int_equal(g_last_send[0], 0x22);
     assert_int_equal(g_last_send[1], 0xF1);
     assert_int_equal(g_last_send[2], 0x90);
-    assert_int_equal(ctx.client_pending_sid, 0x22);
+    assert_int_equal(ctx.client.pending_sid, 0x22);
 }
 
 /* data NULL with len 0 is allowed (skips the memcpy branch at :663). */
@@ -256,8 +256,8 @@ static void test_init_strict_clamps_timing(void **state)
     cfg.p2_star_ms = 10u; /* below UDS_P2_STAR_MIN_SAFE_MS (1000) */
 
     assert_int_equal(uds_init(&ctx, &cfg), UDS_OK);
-    assert_int_equal(ctx.p2_ms, UDS_P2_MIN_SAFE_MS);
-    assert_int_equal(ctx.p2_star_ms, UDS_P2_STAR_MIN_SAFE_MS);
+    assert_int_equal(ctx.session.p2_ms, UDS_P2_MIN_SAFE_MS);
+    assert_int_equal(ctx.session.p2_star_ms, UDS_P2_STAR_MIN_SAFE_MS);
 }
 
 static uint8_t g_init_nvm[2] = {UDS_SESSION_ID_EXTENDED, 0x02};
@@ -288,8 +288,8 @@ static void test_init_loads_nvm_state(void **state)
     cfg.fn_nvm_load = init_nvm_load;
 
     assert_int_equal(uds_init(&ctx, &cfg), UDS_OK);
-    assert_int_equal(ctx.active_session, UDS_SESSION_ID_EXTENDED);
-    assert_int_equal(ctx.security_level, 0x02);
+    assert_int_equal(ctx.session.active, UDS_SESSION_ID_EXTENDED);
+    assert_int_equal(ctx.security.level, 0x02);
 }
 
 /* ---- uds_process: mutex, S3 timeout, P2*, periodic ---- */
@@ -342,16 +342,16 @@ static void test_process_s3_timeout_reverts(void **state)
     cfg.tx_buffer_size = sizeof(g_tx_buf);
     uds_init(&ctx, &cfg);
 
-    ctx.active_session = UDS_SESSION_ID_EXTENDED;
-    ctx.security_level = 1u;
-    ctx.authenticated = true;
-    ctx.last_msg_time = 0u;
+    ctx.session.active = UDS_SESSION_ID_EXTENDED;
+    ctx.security.level = 1u;
+    ctx.security.authenticated = true;
+    ctx.session.last_msg_time = 0u;
     g_time = UDS_S3_TIMEOUT_MS + 1u;
 
     uds_process(&ctx);
-    assert_int_equal(ctx.active_session, UDS_SESSION_ID_DEFAULT);
-    assert_int_equal(ctx.security_level, 0u);
-    assert_false(ctx.authenticated);
+    assert_int_equal(ctx.session.active, UDS_SESSION_ID_DEFAULT);
+    assert_int_equal(ctx.security.level, 0u);
+    assert_false(ctx.security.authenticated);
 }
 
 /* P2* expiry while pending emits a 0x78 ResponsePending (:574-594). */
@@ -369,11 +369,11 @@ static void test_process_p2_star_sends_pending(void **state)
     cfg.tx_buffer_size = sizeof(g_tx_buf);
     uds_init(&ctx, &cfg);
 
-    ctx.p2_msg_pending = true;
-    ctx.p2_star_active = true;
-    ctx.p2_timer_start = 0u;
-    ctx.server_pending_sid = 0x31u;
-    g_time = ctx.p2_star_ms + 1u;
+    ctx.server.p2_msg_pending = true;
+    ctx.server.p2_star_active = true;
+    ctx.server.p2_timer_start = 0u;
+    ctx.server.pending_sid = 0x31u;
+    g_time = ctx.session.p2_star_ms + 1u;
 
     g_send_calls = 0;
     uds_process(&ctx);
@@ -381,7 +381,7 @@ static void test_process_p2_star_sends_pending(void **state)
     assert_int_equal(g_last_send[0], 0x7F);
     assert_int_equal(g_last_send[1], 0x31);
     assert_int_equal(g_last_send[2], UDS_NRC_RESPONSE_PENDING);
-    assert_int_equal(ctx.rcrrp_count, 1u);
+    assert_int_equal(ctx.server.rcrrp_count, 1u);
 }
 
 /* RCRRP limit reached -> conditionsNotCorrect + mutex unlocked on early return
@@ -403,18 +403,18 @@ static void test_process_rcrrp_limit_aborts(void **state)
     cfg.fn_mutex_unlock = mtx_unlock;
     uds_init(&ctx, &cfg);
 
-    ctx.p2_msg_pending = true;
-    ctx.p2_star_active = true;
-    ctx.p2_timer_start = 0u;
-    ctx.server_pending_sid = 0x31u;
-    ctx.rcrrp_count = 2u; /* already at limit */
-    g_time = ctx.p2_star_ms + 1u;
+    ctx.server.p2_msg_pending = true;
+    ctx.server.p2_star_active = true;
+    ctx.server.p2_timer_start = 0u;
+    ctx.server.pending_sid = 0x31u;
+    ctx.server.rcrrp_count = 2u; /* already at limit */
+    g_time = ctx.session.p2_star_ms + 1u;
 
     g_send_calls = g_lock_calls = g_unlock_calls = 0;
     uds_process(&ctx);
     assert_int_equal(g_send_calls, 1);
     assert_int_equal(g_last_send[2], UDS_NRC_CONDITIONS_NOT_CORRECT);
-    assert_int_equal(ctx.rcrrp_count, 0u);
+    assert_int_equal(ctx.server.rcrrp_count, 0u);
     assert_int_equal(g_lock_calls, 1);
     assert_int_equal(g_unlock_calls, 1); /* unlocked on the early-return branch */
 }
@@ -447,10 +447,10 @@ static void test_process_periodic_transmits(void **state)
     cfg.fn_periodic_read = periodic_read;
     uds_init(&ctx, &cfg);
 
-    ctx.periodic_count = 1u;
-    ctx.periodic_ids[0] = 0x55u;
-    ctx.periodic_rates[0] = UDS_PERIODIC_RATE_FAST;
-    ctx.periodic_timers[0] = 0u; /* due immediately */
+    ctx.server.periodic_count = 1u;
+    ctx.server.periodic_ids[0] = 0x55u;
+    ctx.server.periodic_rates[0] = UDS_PERIODIC_RATE_FAST;
+    ctx.server.periodic_timers[0] = 0u; /* due immediately */
     g_time = 100u;
 
     g_send_calls = g_periodic_calls = 0;
@@ -460,7 +460,7 @@ static void test_process_periodic_transmits(void **state)
     assert_int_equal(g_last_send_len, 3u); /* id + 2 data */
     assert_int_equal(g_last_send[0], 0x55);
     /* Fast rate reschedules 100ms ahead. */
-    assert_int_equal(ctx.periodic_timers[0], 100u + UDS_PERIODIC_FAST_INTERVAL_MS);
+    assert_int_equal(ctx.server.periodic_timers[0], 100u + UDS_PERIODIC_FAST_INTERVAL_MS);
 }
 
 /* Medium/slow rate branches of the interval selector (:617-622). */
@@ -479,20 +479,20 @@ static void test_process_periodic_medium_and_slow_rate(void **state)
     cfg.fn_periodic_read = periodic_read;
     uds_init(&ctx, &cfg);
 
-    ctx.periodic_count = 2u;
-    ctx.periodic_ids[0] = 0x60u;
-    ctx.periodic_rates[0] = UDS_PERIODIC_RATE_MEDIUM;
-    ctx.periodic_timers[0] = 0u;
-    ctx.periodic_ids[1] = 0x61u;
-    ctx.periodic_rates[1] = UDS_PERIODIC_RATE_SLOW;
-    ctx.periodic_timers[1] = 0u;
+    ctx.server.periodic_count = 2u;
+    ctx.server.periodic_ids[0] = 0x60u;
+    ctx.server.periodic_rates[0] = UDS_PERIODIC_RATE_MEDIUM;
+    ctx.server.periodic_timers[0] = 0u;
+    ctx.server.periodic_ids[1] = 0x61u;
+    ctx.server.periodic_rates[1] = UDS_PERIODIC_RATE_SLOW;
+    ctx.server.periodic_timers[1] = 0u;
     g_time = 50u;
 
     g_send_calls = g_periodic_calls = 0;
     uds_process(&ctx);
     assert_int_equal(g_periodic_calls, 2);
-    assert_int_equal(ctx.periodic_timers[0], 50u + UDS_PERIODIC_MEDIUM_INTERVAL_MS);
-    assert_int_equal(ctx.periodic_timers[1], 50u + UDS_PERIODIC_SLOW_INTERVAL_MS);
+    assert_int_equal(ctx.server.periodic_timers[0], 50u + UDS_PERIODIC_MEDIUM_INTERVAL_MS);
+    assert_int_equal(ctx.server.periodic_timers[1], 50u + UDS_PERIODIC_SLOW_INTERVAL_MS);
 }
 
 /* ---- Unknown session bit (uds_internal_session_bit default, :190-191) ---- */
@@ -504,7 +504,7 @@ static void test_unknown_session_bit_rejects(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.restrict_sessions = true; /* makes 0x27 require extended/programming */
-    ctx.active_session = 0xFEu;   /* unknown -> session bit 0 */
+    ctx.session.active = 0xFEu;   /* unknown -> session bit 0 */
 
     uint8_t req[] = {0x27, 0x01};
     will_return(mock_get_time, 1000);
@@ -649,7 +649,7 @@ static void test_input_busy_repeat(void **state)
     cfg.tx_buffer_size = sizeof(g_tx_buf);
     uds_init(&ctx, &cfg);
 
-    ctx.p2_msg_pending = true; /* a response is already pending */
+    ctx.server.p2_msg_pending = true; /* a response is already pending */
     g_time = 100;
 
     g_send_calls = 0;
@@ -678,7 +678,7 @@ static void test_input_busy_suppressed_tp(void **state)
     cfg.fn_mutex_unlock = mtx_unlock;
     uds_init(&ctx, &cfg);
 
-    ctx.p2_msg_pending = true;
+    ctx.server.p2_msg_pending = true;
     g_time = 100;
     g_send_calls = g_lock_calls = g_unlock_calls = 0;
     uint8_t tp[] = {0x3E, 0x80}; /* suppress bit set */
@@ -709,14 +709,14 @@ static void test_input_client_positive_response(void **state)
     g_send_calls = g_cb_calls = 0;
     uint8_t payload[] = {0xF1, 0x90};
     assert_int_equal(uds_client_request(&ctx, 0x22, payload, 2u, client_cb), 0);
-    assert_int_equal(ctx.client_pending_sid, 0x22);
+    assert_int_equal(ctx.client.pending_sid, 0x22);
 
     /* Feed the positive response 0x62 ... -> callback fires, pending cleared. */
     g_lock_calls = g_unlock_calls = 0;
     uint8_t resp[] = {0x62, 0xF1, 0x90, 0xAB};
     uds_input_sdu(&ctx, resp, sizeof(resp));
     assert_int_equal(g_cb_calls, 1);
-    assert_int_equal(ctx.client_pending_sid, 0u);
+    assert_int_equal(ctx.client.pending_sid, 0u);
     assert_int_equal(g_unlock_calls, 1);
 }
 
@@ -744,7 +744,7 @@ static void test_input_client_negative_response(void **state)
     uint8_t neg[] = {0x7F, 0x10, 0x22};
     uds_input_sdu(&ctx, neg, sizeof(neg));
     assert_int_equal(g_cb_calls, 1);
-    assert_int_equal(ctx.client_pending_sid, 0u);
+    assert_int_equal(ctx.client.pending_sid, 0u);
 }
 
 /* ---- uds_emit_response / uds_send_response / uds_send_nrc edge paths ---- */
@@ -767,11 +767,11 @@ static void test_send_response_suppressed(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    ctx.suppress_pos_resp = true;
+    ctx.scratch.suppress_pos_resp = true;
     /* No tp_send expected: suppressed. */
     assert_int_equal(uds_send_response(&ctx, 6u), UDS_OK);
-    assert_false(ctx.suppress_pos_resp);
-    assert_false(ctx.p2_msg_pending);
+    assert_false(ctx.scratch.suppress_pos_resp);
+    assert_false(ctx.server.p2_msg_pending);
 }
 
 static void test_send_nrc_buffer_too_small(void **state)
@@ -790,14 +790,14 @@ static void test_send_nrc_captured(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     uint8_t capture[8];
-    ctx.secure_capturing = true;
-    ctx.secure_capture_buf = capture;
-    ctx.secure_capture_size = sizeof(capture);
-    ctx.secure_capture_len = 0u;
+    ctx.scratch.secure_capturing = true;
+    ctx.scratch.secure_capture_buf = capture;
+    ctx.scratch.secure_capture_size = sizeof(capture);
+    ctx.scratch.secure_capture_len = 0u;
 
     /* No tp_send expected: NRC is captured, not transmitted. */
     assert_int_equal(uds_send_nrc(&ctx, 0x22, UDS_NRC_REQUEST_OUT_OF_RANGE), UDS_OK);
-    assert_int_equal(ctx.secure_capture_len, 3u);
+    assert_int_equal(ctx.scratch.secure_capture_len, 3u);
     assert_int_equal(capture[0], 0x7F);
     assert_int_equal(capture[1], 0x22);
     assert_int_equal(capture[2], UDS_NRC_REQUEST_OUT_OF_RANGE);

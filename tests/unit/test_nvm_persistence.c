@@ -106,8 +106,8 @@ static void test_nvm_load_on_init(void **state)
 
     uds_init(&g_ctx, &g_cfg);
 
-    assert_int_equal(g_ctx.active_session, 0x03);
-    assert_int_equal(g_ctx.security_level, 0x01);
+    assert_int_equal(g_ctx.session.active, 0x03);
+    assert_int_equal(g_ctx.security.level, 0x01);
 }
 
 /* 2. Test Save on Session Change */

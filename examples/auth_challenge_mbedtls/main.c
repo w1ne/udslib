@@ -18,7 +18,7 @@
  * The split of responsibilities is unchanged, and it is the whole point:
  *
  *   - udslib owns the 0x29 PLUMBING: sub-function validation, the
- *     `ctx.authenticated` state machine, NRC framing, and service gating via
+ *     `ctx.security.authenticated` state machine, NRC framing, and service gating via
  *     `fn_auth_required`. It bundles NO cipher.
  *   - The application (this file) owns the CRYPTO, behind `fn_auth`. On a real
  *     ECU the AES key lives in an SHE/HSM the CPU cannot read, so the CMAC
@@ -156,13 +156,13 @@ static int handle_auth(uds_ctx_t *ctx, uint8_t subfn, const uint8_t *data, uint1
                 return -(int) 0x22; /* conditionsNotCorrect (crypto failure) */
             }
             if (!ct_equal(data, expected, CMAC_LEN)) {
-                ctx->authenticated = false;
+                ctx->security.authenticated = false;
                 return -(int) 0x34; /* authenticationFailed (ISO 14229-1:2020) */
             }
             /* Mark the channel authenticated. The library auto-clears this on
              * deAuthenticate, session change, S3 timeout, and reset, and gates
              * services selected by the fn_auth_required hook. */
-            ctx->authenticated = true;
+            ctx->security.authenticated = true;
             out[0] = AUTH_RET_OWNERSHIP_VERIFIED;
             return 1;
         }
@@ -174,7 +174,7 @@ static int handle_auth(uds_ctx_t *ctx, uint8_t subfn, const uint8_t *data, uint1
 
 /* A vendor service that must only run on an authenticated channel. The library
  * enforces this via the fn_auth_required hook (NRC 0x34 otherwise); the handler
- * never even runs until ctx.authenticated is set. */
+ * never even runs until ctx.security.authenticated is set. */
 static void handle_secure_op(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) len;
@@ -249,7 +249,7 @@ int main(void)
         return 1;
     }
     send_request(&ctx, proof, sizeof(proof)); /* 69 03 02 */
-    printf("   ctx.authenticated = %s\n", ctx.authenticated ? "true" : "false");
+    printf("   ctx.security.authenticated = %s\n", ctx.security.authenticated ? "true" : "false");
 
     printf("\n=== 5. proofOfOwnership with a WRONG tag -> NRC 0x34 ===\n");
     uint8_t bad_proof[2u + CMAC_LEN];
@@ -261,7 +261,7 @@ int main(void)
     aes_cmac(k_aes_key, g_challenge, CHALLENGE_LEN, &bad_proof[2]);
     bad_proof[2] ^= 0xFFu;
     send_request(&ctx, bad_proof, sizeof(bad_proof)); /* 7F 29 34 */
-    printf("   ctx.authenticated = %s\n", ctx.authenticated ? "true" : "false");
+    printf("   ctx.security.authenticated = %s\n", ctx.security.authenticated ? "true" : "false");
 
     printf("\n=== 6. Re-authenticate, then gated service 0xBA -> allowed ===\n");
     send_request(&ctx, req_challenge, sizeof(req_challenge));

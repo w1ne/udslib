@@ -218,7 +218,7 @@ static void test_transfer_out_of_order(void **state)
     expect_value(mock_tp_send, len, 2);
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, b1, sizeof(b1));
-    assert_int_equal(ctx.flash_sequence, 0x01u);
+    assert_int_equal(ctx.server.flash_sequence, 0x01u);
 
     /* Expected next is 0x02; send 0x05 -> requestSequenceError. */
     uint8_t b5[] = {0x36, 0x05, 0xBB};

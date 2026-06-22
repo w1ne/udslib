@@ -56,14 +56,14 @@ static void test_doc_comm_state_persists_across_s3(void **state)
     expect_value(mock_tp_send, len, 2); /* 68 03 */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, comm_req, sizeof(comm_req));
-    assert_int_equal(ctx.comm_state, 0x03);
+    assert_int_equal(ctx.session.comm_state, 0x03);
 
     /* Advance past S3 (5000 ms) and fire uds_process */
     will_return(mock_get_time, 6001u);
     uds_process(&ctx);
 
     /* comm_state must still be 0x03: S3 does NOT reset it */
-    assert_int_equal(ctx.comm_state, 0x03);
+    assert_int_equal(ctx.session.comm_state, 0x03);
 }
 
 /* ------------------------------------------------------------------ */
@@ -127,7 +127,7 @@ static void test_doc_lockout_persists_across_session_change(void **state)
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, bad_key, sizeof(bad_key));
     assert_int_equal(g_tx_buf[2], 0x36);
-    assert_true(ctx.security_delay_end > 0u);
+    assert_true(ctx.security.delay_end > 0u);
 
     /* Session change (at T=1500, still within the 5-second lockout window) */
     uint8_t sess_req[] = {0x10, 0x01};
@@ -196,7 +196,7 @@ static void test_doc_periodic_survives_s3(void **state)
     expect_value(mock_tp_send, len, 1); /* 6A */
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, per_req, sizeof(per_req));
-    assert_int_equal(ctx.periodic_count, 1u);
+    assert_int_equal(ctx.server.periodic_count, 1u);
 
     /* Advance past S3 at T=6001: session resets to default.
      * The periodic deadline (1000+100=1100) is already past at T=6001, so
@@ -207,7 +207,7 @@ static void test_doc_periodic_survives_s3(void **state)
     will_return(mock_tp_send, 0);
     uds_process(&ctx);
     /* periodic subscription must NOT have been cancelled by S3 */
-    assert_int_equal(ctx.periodic_count, 1u);
+    assert_int_equal(ctx.server.periodic_count, 1u);
 
     /* Advance to T=7200 (well past the renewed 100 ms deadline at 6001+100=6101).
      * uds_process must fire the periodic read again. */

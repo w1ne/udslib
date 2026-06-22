@@ -211,7 +211,7 @@ static void test_link_verify_specific_baud(void **state)
     assert_int_equal(g_tx_buf[0], 0xC7);
     assert_int_equal(g_tx_buf[1], 0x02);
     assert_int_equal(g_link_param, 0x112233);
-    assert_true(ctx.link_ctrl_verified);
+    assert_true(ctx.server.link_ctrl_verified);
 }
 
 /* fn_link_control negative on verify -> its NRC (:48-51). */
@@ -251,8 +251,8 @@ static void test_access_timing_set_given(void **state)
 
     assert_int_equal(g_tx_buf[0], 0xC3);
     assert_int_equal(g_tx_buf[1], 0x04);
-    assert_int_equal(ctx.p2_ms, 150u);
-    assert_int_equal(ctx.p2_star_ms, 1000u);
+    assert_int_equal(ctx.session.p2_ms, 150u);
+    assert_int_equal(ctx.session.p2_star_ms, 1000u);
 }
 
 /* sub 0x04 with a too-short request -> incorrectLength (:116-118). */
@@ -435,7 +435,7 @@ static void test_transfer_seq_rollover(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_transfer_data = transfer_ok;
-    ctx.flash_sequence = 0xFFu; /* next expected = 0x00 */
+    ctx.server.flash_sequence = 0xFFu; /* next expected = 0x00 */
 
     uint8_t req[] = {0x36, 0x00, 0xAB};
     will_return(mock_get_time, 1000);
@@ -447,7 +447,7 @@ static void test_transfer_seq_rollover(void **state)
 
     assert_int_equal(g_tx_buf[0], 0x76);
     assert_int_equal(g_tx_buf[1], 0x00);
-    assert_int_equal(ctx.flash_sequence, 0x00u);
+    assert_int_equal(ctx.server.flash_sequence, 0x00u);
 }
 
 /* Last-block replay accepted without re-invoking the callback (:128-135). */
@@ -457,7 +457,7 @@ static void test_transfer_last_block_replay(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_transfer_data = transfer_negative; /* would fail if invoked */
     cfg.transfer_accept_last_block_replay = true;
-    ctx.flash_sequence = 0x05u; /* replay of the last block */
+    ctx.server.flash_sequence = 0x05u; /* replay of the last block */
 
     uint8_t req[] = {0x36, 0x05, 0xAB};
     will_return(mock_get_time, 1000);
