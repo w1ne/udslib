@@ -13,32 +13,24 @@
  *        Implements the full 27-service configuration mirroring
  *        examples/host_sim/main.c.  All 27 ISO-14229-1 services are
  *        registered via the real udslib server API (built-in dispatch +
- *        the documented fn_* hooks).
+ *        the documented fn_* hooks), used 100% unmodified.
  *
- * F-7 (EMULATOR — labwired STM32H563 core_services FLASH read at high index):
- *        SID 0x85 (ControlDTCSetting) sits at index 19 in core_services[].
- *        handle_request() reads service->sub_mask from that struct at FLASH
- *        offset ~19*sizeof(uds_service_entry_t).  The labwired H563 FLASH model
- *        returns a non-zero garbage value for this pointer field, so
- *        is_subfunction_supported() dereferences a bad address → Default_Handler.
- *        SID 0x86 (ResponseOnEvent) is at index 26 and hits the same fault.
- *        Workaround: user-service shims for 0x85 and 0x86 with sub_mask=NULL;
- *        the built-in handlers are called directly and validate sub themselves.
- *        SID 0x19 (index 3) uses the same sub_mask mechanism and works, confirming
- *        this is an offset-dependent FLASH read bug, not a universal issue.
- *        See docs/superpowers/udslib-findings-from-h5-gate.md entry F-7.
+ *        This is the idiomatic-udslib ECU: DID data and the DID table live in
+ *        .rodata const, RDBI/WDBI/IOControl (0x22/0x2E/0x2F) and
+ *        ControlDTCSetting/ResponseOnEvent (0x85/0x86) all run through udslib's
+ *        BUILT-IN dispatch (no user-service shims).  Findings F-2/F-3/F-5/F-6/F-7
+ *        were all labwired ARMv7-M decoder/load bugs (same class as F-9/F-10/F-11)
+ *        and are resolved by the fixed emulator.
  *
- * F-2 / F-3 (EMULATOR — labwired STM32H563 FLASH model):
- *        The built-in RDBI path (uds_internal_handle_read_data_by_id) calls
- *        memcpy(tx_buf, entry->storage, size) where entry->storage is a
- *        pointer stored in .rodata pointing to more .rodata data.  On the
- *        labwired H563 emulator this double-indirection FLASH read faults
- *        (CPU jumps to Default_Handler, no response emitted).  The same
- *        fault class was observed with local const char arrays (F-3).
- *        Workaround: DID data (VIN, customer name) live in RAM, not .rodata;
- *        a user-service shim handles 0x22 directly from RAM buffers.
- *        Real udslib is bug-free; workarounds are confined and marked.
- *        See docs/superpowers/udslib-findings-from-h5-gate.md entries F-2, F-3.
+ * F-4 (EMULATOR — labwired decodes Thumb-2 STMIA.W as STMDB.W):
+ *        The ONE remaining workaround.  clang -Os coalesces the cfg.fn_* stores
+ *        into STMIA.W (0xE88x); the labwired decoder treats 0xE8xx and 0xE9xx
+ *        identically (StmdbW), executing decrement-before instead of
+ *        increment-after, so four fn_* hooks land 16 bytes low and read NULL.
+ *        Workaround: a `volatile uds_config_t *` forces individual STR.W stores.
+ *        This is an emulator decoder defect, NOT a udslib bug.  See the detailed
+ *        comment at the cfg.fn_* assignment block below and
+ *        docs/superpowers/udslib-findings-from-h5-gate.md entry F-4.
  */
 
 #include <stdbool.h>
@@ -47,7 +39,6 @@
 
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
-#include "uds_internal.h" /* WORKAROUND udslib F-7: shims for 0x85, 0x86 */
 
 /* ---- freestanding mem helpers ---- */
 
@@ -253,157 +244,21 @@ static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t
 
 static uint8_t g_mock_memory[1024];
 
-/* ---- DID data storage in RAM ----
+/* ---- DID data storage ----
  *
- * WORKAROUND F-2 / F-3: DID data buffers are in RAM (.bss), not .rodata.
- * On the labwired STM32H563 emulator the FLASH model faults when memcpy reads
- * from a .rodata address obtained via a pointer stored in another .rodata struct
- * (double-indirection read from FLASH).  The DID table entry's `storage` field
- * holds the address of this buffer; with the buffer in RAM the memcpy succeeds.
- * These buffers are initialized byte-by-byte in main() to avoid any string-literal
- * copy from .rodata.
- *
- * Real-hardware fix: remove the `static` (let the linker put data in .rodata
- * as const), no firmware change otherwise.
+ * VIN is read-only -> .rodata const.  Customer name is the WDBI (0x2E) target,
+ * so it stays writable (.data), initialized normally from a string literal.
  */
-static char g_ecu_vin[15];       /* "UDSLIB_SIM_001" (14 bytes) + NUL */
-static char g_customer_name[16]; /* "ECU_OWNER" (9 bytes) + NUL + 6 pad bytes */
+static const char g_ecu_vin[15] = "UDSLIB_SIM_001"; /* 14 bytes + NUL, .rodata */
+static char g_customer_name[16] = "ECU_OWNER";      /* writable WDBI target (.data) */
 
-/* WORKAROUND udslib F-5 (EMULATOR — .rodata struct-field read returns wrong value):
- * The labwired STM32H563 emulator does not correctly read halfword fields from
- * a struct array in .rodata (FLASH) via a pointer; `uds_internal_find_did`
- * iterates `g_ecu_dids[i].id` and the comparison fails, returning NULL for all
- * DIDs.  Moving the table to RAM (.bss) and initializing it in main() resolves
- * the lookup failure.  This is the same emulator bug class as F-2/F-3.
- * Revert (restore `static const`) once the labwired H563 FLASH model correctly
- * returns halfword values for struct fields in .rodata. */
-static uds_did_entry_t g_ecu_dids[2]; /* initialized in main() */
-
-/* ---- WORKAROUND udslib F-2: user-service shim for SID 0x22 ----
- *
- * The built-in uds_internal_handle_read_data_by_id calls
- *   memcpy(tx_buf, entry->storage, entry->size)
- * where entry is in .rodata and storage points to more .rodata.  In the
- * labwired H563 emulator this two-level FLASH read faults (Default_Handler,
- * ECU goes silent).  With the DID data in RAM (g_ecu_vin / g_customer_name
- * above) the memcpy works.  This shim performs the same operation as the
- * built-in path but always reads from RAM, bypassing the built-in handler.
- *
- * Revert: remove svc_rdbi and g_user_services once the emulator FLASH model
- * supports double-indirection reads from .rodata (labwired issue).
- */
-static int svc_rdbi(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
-{
-    if (len < 3u) {
-        return uds_send_nrc(ctx, 0x22u, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
-    }
-
-    /* DID 0xF190 — VIN (14 bytes, RAM copy of "UDSLIB_SIM_001") */
-    if (data[1] == 0xF1u && data[2] == 0x90u) {
-        uint8_t *tx = ctx->config->tx_buffer;
-        tx[0] = 0x62u;
-        tx[1] = 0xF1u;
-        tx[2] = 0x90u;
-        memcpy(&tx[3], g_ecu_vin, 14u);
-        return uds_send_response(ctx, (uint16_t)(3u + 14u));
-    }
-
-    /* DID 0x0123 — Customer Name (16 bytes, RAM copy of "ECU_OWNER") */
-    if (data[1] == 0x01u && data[2] == 0x23u) {
-        uint8_t *tx = ctx->config->tx_buffer;
-        tx[0] = 0x62u;
-        tx[1] = 0x01u;
-        tx[2] = 0x23u;
-        memcpy(&tx[3], g_customer_name, 16u);
-        return uds_send_response(ctx, (uint16_t)(3u + 16u));
-    }
-
-    return uds_send_nrc(ctx, 0x22u, 0x31u); /* requestOutOfRange */
-}
-
-/* ---- WORKAROUND udslib F-6: user-service shims for SID 0x2E and 0x2F ----
- *
- * The built-in WDBI (0x2E) and IOCTL (0x2F) handlers both call
- * uds_internal_find_did(), which iterates did_table.entries[i].id.  Even with
- * g_ecu_dids in RAM (F-5 workaround), the labwired H563 emulator returns wrong
- * data when the udslib core reads .id via an indirect-pointer load chain through
- * ctx->config->did_table.entries.  The comparison always fails → NRC 0x31.
- *
- * These shims bypass find_did entirely, matching DID 0x0123 by constant
- * comparison in the shim itself (same technique as svc_rdbi for SID 0x22).
- *
- * Revert: remove svc_wdbi, svc_ioctl and the extra entries in g_user_services
- * once the labwired H563 emulator correctly handles find_did DID comparisons.
- */
-static int svc_wdbi(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
-{
-    if (len < 3u) {
-        return uds_send_nrc(ctx, 0x2Eu, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
-    }
-
-    /* DID 0x0123 — Customer Name (16 bytes) */
-    if (data[1] == 0x01u && data[2] == 0x23u) {
-        if (len != (uint16_t)(3u + 16u)) {
-            return uds_send_nrc(ctx, 0x2Eu, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
-        }
-        memcpy(g_customer_name, &data[3], 16u);
-        uint8_t *tx = ctx->config->tx_buffer;
-        tx[0] = 0x6Eu;
-        tx[1] = 0x01u;
-        tx[2] = 0x23u;
-        return uds_send_response(ctx, 3u);
-    }
-
-    return uds_send_nrc(ctx, 0x2Eu, 0x31u); /* requestOutOfRange */
-}
-
-static int svc_ioctl(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
-{
-    if (len < 3u) {
-        return uds_send_nrc(ctx, 0x2Fu, 0x13u); /* incorrectMessageLengthOrInvalidFormat */
-    }
-
-    /* DID 0x0123 — shortTermAdjustment (ctrl_type=0x03): return 0x55 */
-    if (data[1] == 0x01u && data[2] == 0x23u) {
-        uint8_t *tx = ctx->config->tx_buffer;
-        tx[0] = 0x6Fu;
-        tx[1] = 0x01u;
-        tx[2] = 0x23u;
-        tx[3] = 0x55u;
-        return uds_send_response(ctx, 4u);
-    }
-
-    return uds_send_nrc(ctx, 0x2Fu, 0x31u); /* requestOutOfRange */
-}
-
-/* WORKAROUND udslib F-7 — explicit shims for 0x85 and 0x86.
- * sub_mask=NULL (set in g_user_services) means handle_request never calls
- * is_subfunction_supported(), avoiding the FLASH-offset pointer bug.
- * The shims validate sub-function themselves and build the response inline,
- * with no uart_puts calls (ECU UART spin-waits burn tester pump ticks). */
-static int svc_ctrl_dtc(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
-{
-    uart_putc('!'); /* DIAG: svc_ctrl_dtc entered */
-    int rr = uds_internal_handle_control_dtc_setting(ctx, data, len);
-    uart_putc('%'); /* DIAG: handler returned */
-    return rr;
-}
-
-static int svc_roe(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
-{
-    return uds_internal_handle_response_on_event(ctx, data, len);
-}
-
-/* WORKAROUND udslib F-2 + F-6 + F-7:
- * g_user_services is intentionally NON-const (.bss / RAM) to work around the
- * labwired H563 FLASH model bug that returns wrong values when reading struct
- * fields (handler ptr, sub_mask ptr) at byte offsets > ~64 within a .rodata
- * array.  With the table in RAM, all field reads succeed.
- * Entries are initialized byte-by-byte in main() via a volatile pointer to
- * force individual STR instructions (same technique as g_ecu_dids / F-4 fix).
- * Revert to `static const` once the labwired H563 FLASH model is fixed. */
-#define USER_SERVICE_COUNT 5u
-static uds_service_entry_t g_user_services[USER_SERVICE_COUNT];
+/* DID table — idiomatic static const in .rodata. */
+static const uds_did_entry_t g_ecu_dids[2] = {
+    {.id = 0xF190u, .size = 14u, .session_mask = 0u, .security_mask = 0u,
+     .read = NULL, .write = NULL, .storage = (void *) g_ecu_vin},
+    {.id = 0x0123u, .size = 16u, .session_mask = 0u, .security_mask = 0u,
+     .read = NULL, .write = NULL, .storage = (void *) g_customer_name},
+};
 
 /* ---- Service callbacks — all fn_* hooks, mirroring examples/host_sim/main.c ---- */
 
@@ -651,98 +506,6 @@ static int fn_dynamic_did(struct uds_ctx *ctx, uint8_t subfn, uint16_t defined_d
 
 int main(void)
 {
-    /* WORKAROUND F-2: initialize VIN and customer-name DID data in RAM.
-     * Byte-by-byte assignment avoids any .rodata-to-stack copy that would
-     * fault in the labwired H563 emulator (see F-3 pattern). */
-    g_ecu_vin[0]='U'; g_ecu_vin[1]='D'; g_ecu_vin[2]='S'; g_ecu_vin[3]='L';
-    g_ecu_vin[4]='I'; g_ecu_vin[5]='B'; g_ecu_vin[6]='_'; g_ecu_vin[7]='S';
-    g_ecu_vin[8]='I'; g_ecu_vin[9]='M'; g_ecu_vin[10]='_'; g_ecu_vin[11]='0';
-    g_ecu_vin[12]='0'; g_ecu_vin[13]='1'; g_ecu_vin[14]='\0';
-
-    g_customer_name[0]='E'; g_customer_name[1]='C'; g_customer_name[2]='U';
-    g_customer_name[3]='_'; g_customer_name[4]='O'; g_customer_name[5]='W';
-    g_customer_name[6]='N'; g_customer_name[7]='E'; g_customer_name[8]='R';
-    g_customer_name[9]='\0'; /* remaining bytes stay zero-initialized from .bss */
-
-    /* WORKAROUND udslib F-5: initialize DID table in RAM.
-     * g_ecu_dids is non-const (.bss) to avoid the labwired H563 .rodata struct
-     * read bug (same class as F-2/F-3).  Use volatile pointer to force
-     * individual STR/STRH/STRB instructions (avoids STRD/STM.W coalescing). */
-    {
-        volatile uds_did_entry_t *vd = g_ecu_dids;
-
-        vd[0].id            = 0xF190u;
-        vd[0].size          = 14u;
-        vd[0].session_mask  = 0u;
-        vd[0].security_mask = 0u;
-        vd[0].read          = NULL;
-        vd[0].write         = NULL;
-        vd[0].storage       = (void *)g_ecu_vin;
-
-        vd[1].id            = 0x0123u;
-        vd[1].size          = 16u;
-        vd[1].session_mask  = 0u;
-        vd[1].security_mask = 0u;
-        vd[1].read          = NULL;
-        vd[1].write         = NULL;
-        vd[1].storage       = (void *)g_customer_name;
-    }
-
-    /* WORKAROUND udslib F-7: initialize user-service table in RAM.
-     * g_user_services is non-const (.bss) to avoid the labwired H563 .rodata
-     * FLASH bug (struct field read returns wrong value at byte offsets > ~64).
-     * Entries for 0x85 and 0x86 would fall at offset ≥68 in a 20-byte-stride
-     * array, triggering the same fault class as core_services[19].  With the
-     * table in RAM, field reads succeed.
-     * Volatile pointer forces individual STR instructions (avoids STM.W / F-4). */
-    {
-        volatile uds_service_entry_t *vu = g_user_services;
-
-        vu[0].sid           = 0x22u;
-        vu[0].min_len       = 3u;
-        vu[0].session_mask  = (uint8_t)UDS_SESSION_ALL;
-        vu[0].security_mask = 0u;
-        vu[0].handler       = svc_rdbi;
-        vu[0].sub_mask      = NULL;
-        vu[0].address_mode  = 0u;
-
-        vu[1].sid           = 0x2Eu;
-        vu[1].min_len       = 3u;
-        vu[1].session_mask  = (uint8_t)UDS_SESSION_ALL;
-        vu[1].security_mask = 0u;
-        vu[1].handler       = svc_wdbi;
-        vu[1].sub_mask      = NULL;
-        vu[1].address_mode  = 0u;
-
-        vu[2].sid           = 0x2Fu;
-        vu[2].min_len       = 3u;
-        vu[2].session_mask  = (uint8_t)UDS_SESSION_ALL;
-        vu[2].security_mask = 0u;
-        vu[2].handler       = svc_ioctl;
-        vu[2].sub_mask      = NULL;
-        vu[2].address_mode  = 0u;
-
-        /* WORKAROUND udslib F-7: 0x85 at core_services[19] (offset ~304 bytes) and
-         * 0x86 at core_services[26] (offset ~380 bytes) trigger the FLASH-read bug.
-         * User shims intercept them here; sub_mask=NULL, built-in handlers validate
-         * sub-functions themselves. */
-        vu[3].sid           = 0x85u;
-        vu[3].min_len       = 2u;
-        vu[3].session_mask  = (uint8_t)UDS_SESSION_ALL;
-        vu[3].security_mask = 0u;
-        vu[3].handler       = svc_ctrl_dtc;
-        vu[3].sub_mask      = NULL;
-        vu[3].address_mode  = 0u;
-
-        vu[4].sid           = 0x86u;
-        vu[4].min_len       = 2u;
-        vu[4].session_mask  = (uint8_t)UDS_SESSION_ALL;
-        vu[4].security_mask = 0u;
-        vu[4].handler       = svc_roe;
-        vu[4].sub_mask      = NULL;
-        vu[4].address_mode  = 0u;
-    }
-
     uart_init();
     uart_puts("H5-UDS-ECU-FULL\n");
 
@@ -767,32 +530,32 @@ int main(void)
     cfg.tx_buffer      = g_tx_buf;
     cfg.tx_buffer_size = (uint16_t)sizeof(g_tx_buf);
 
-    /* DID table for RDBI (0x22) / WDBI (0x2E).
-     * Set fields individually (not struct assignment) to keep the DID entry
-     * pointer chain from going through .rodata at runtime — see F-2 workaround. */
+    /* DID table for RDBI (0x22) / WDBI (0x2E) / IOControl (0x2F). */
     cfg.did_table.entries = g_ecu_dids;
     cfg.did_table.count   = (uint16_t)(sizeof(g_ecu_dids) / sizeof(g_ecu_dids[0]));
 
-    /* WORKAROUND F-2 + F-7: user-service shims; remove when emulator is fixed */
-    cfg.user_services      = g_user_services;
-    cfg.user_service_count = (uint16_t)USER_SERVICE_COUNT;
-
     /* Service callbacks — all 27 ISO-14229-1 services.
      *
-     * WORKAROUND udslib F-4 (EMULATOR — STM.W not applied):
-     * The labwired STM32H563 Cortex-M33 emulator does not correctly execute
-     * Thumb-2 STM.W (Store Multiple, 32-bit encoding).  The optimizer groups
-     * sequential struct-field assignments into STM.W / STRD instructions; on
-     * this emulator only individual STR.W instructions reliably commit the
-     * stored value.  Using a `volatile uds_config_t *` pointer forces clang -Os
-     * to emit one STR.W per field instead of coalescing into STM.W.
-     * Fields assigned before the volatile pointer (cfg.rx_buffer, cfg.tx_buffer,
-     * cfg.did_table, cfg.user_services, cfg.get_time_ms, cfg.fn_tp_send,
-     * cfg.p2_ms, cfg.p2_star_ms) were written via STRD/individual STR and are
-     * NOT affected; only the fn_* hooks from fn_reset onwards exhibit the bug
-     * because the compiler groups them into STM.W.
-     * Revert once labwired H563 emulator correctly implements STM.W.
-     */
+     * WORKAROUND udslib F-4 (EMULATOR — labwired STM32H563 decodes STMIA.W as
+     * STMDB.W).  Idiomatic `cfg.fn_x = ...` assignments let clang -Os coalesce
+     * the consecutive function-pointer stores into Thumb-2 STMIA.W (store
+     * multiple, increment-after, encoding 0xE88x — e.g. `e880 5030 stmia.w r0,
+     * {r4,r5,ip,lr}` writing cfg offsets 188..200).  The labwired ARMv7-M
+     * decoder (crates/core/src/decoder/arm.rs, the `(h1 & 0xFE00) == 0xE800`
+     * branch) does not test h1 bit 8 (the P/U selector) and returns
+     * Instruction::StmdbW for BOTH 0xE8xx (STMIA.W) and 0xE9xx (STMDB.W).  The
+     * StmdbW executor then stores at `Rn - count*4` (decrement-before) instead
+     * of `Rn` (increment-after), so the fn_mem_read/fn_mem_write/fn_io_control/
+     * fn_request_upload pointers land 16 bytes low and the real fields read back
+     * NULL -> 0x23/0x2F/0x34/0x36/0x38/0x87/0x29 fail (NRC 0x22/0x11).  This is
+     * the SAME bug class as the fixed F-9/F-10/F-11 load/extend decode gaps, but
+     * for a store.  (Note: STMDB.W prologue pushes `e92d ...` are genuine STMDB
+     * and execute correctly, which is why only this init breaks.)
+     *
+     * The `volatile uds_config_t *` pointer forces clang to emit one STR.W per
+     * field instead of STMIA.W, sidestepping the mis-decode.  Revert to plain
+     * `cfg.fn_* = ...` once labwired decodes STMIA.W (add an StmiaW variant /
+     * increment-after executor path keyed on h1 bit 8). */
     {
         volatile uds_config_t *vcfg = &cfg;
         vcfg->fn_reset            = fn_reset;

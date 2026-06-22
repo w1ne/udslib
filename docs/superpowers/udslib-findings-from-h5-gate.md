@@ -10,6 +10,49 @@ udslib fix) · `EMULATOR` (labwired-side) · `NEEDS-CONFIRM` (not yet pinned).
 
 ---
 
+## RESOLUTION PASS (2026-06-22, fixed labwired v0.17.3 + F-9/F-10/F-11 decoder fixes)
+
+The ECU's F-2..F-7 workarounds were reverted one-by-one to idiomatic udslib usage and
+re-run on the FIXED labwired (the binary with the LDRB.W/LDRH.W zero-extend, wide
+UXTH/UXTB/SXTH/SXTB, and UXTAH/UXTAB extend-and-add decode fixes). Result:
+
+| Finding | Workaround reverted | Outcome |
+|---|---|---|
+| F-2 | 0x22 RDBI shim → built-in DID-table path | **emulator artifact** — built-in works, 27/27 |
+| F-3 | VIN/customer-name RAM bytes → `static const char[]` in .rodata | **emulator artifact** — 27/27 |
+| F-5 | DID table RAM/volatile init → `static const` .rodata | **emulator artifact** — 27/27 |
+| F-6 | 0x2E/0x2F shims → built-in WDBI/IOControl via find_did | **emulator artifact** — 27/27 |
+| F-7 | 0x85/0x86 shims → built-in ControlDTCSetting/ResponseOnEvent dispatch | **emulator artifact** — 27/27 |
+| F-4 | volatile-cfg STR.W trick → idiomatic `cfg.fn_* = ...` | **STILL NEEDED** — genuine *unfixed* labwired decoder bug (NOT udslib) |
+
+**F-4 root cause (newly pinned, a real emulator decoder defect — same class as
+F-9/F-10/F-11 but for a STORE):** idiomatic `cfg.fn_* = ...` lets clang -Os coalesce
+the consecutive function-pointer stores into **Thumb-2 STMIA.W** (store multiple,
+increment-after; e.g. `e880 5030  stmia.w r0, {r4,r5,ip,lr}` writing cfg offsets
+188..200, and `e88c 0448  stmia.w ip, {r3,r6,sl}` writing 144..152). The labwired
+ARMv7-M decoder branch at `crates/core/src/decoder/arm.rs` (`(h1 & 0xFE00) == 0xE800`,
+the `(h1 & 0x40) == 0` sub-branch, lines ~1572-1589) does **not** test h1 bit 8 (the
+P/U selector) and returns `Instruction::StmdbW` for BOTH 0xE8xx (STMIA.W) and 0xE9xx
+(STMDB.W). The `StmdbW` executor (`crates/core/src/cpu/cortex_m.rs` ~2050) computes
+`addr = Rn - count*4` (decrement-before), so the four fn_* hooks (fn_mem_read,
+fn_mem_write, fn_io_control, fn_request_upload at offsets 188..200) are written
+16 bytes too low and the real fields read back NULL → 0x23/0x2F/0x34/0x36/0x38/0x87/
+0x29 fail with NRC 0x22/0x11. (STMDB.W prologue pushes `e92d ...` are genuine STMDB and
+execute correctly, which is why only the cfg init breaks.)
+**Classification:** `EMULATOR` (CONFIRMED, unfixed). **Fix belongs in labwired:** add an
+`Instruction::StmiaW` variant (or a base-mode flag keyed on h1 bit 8) with an
+increment-after executor path. **No udslib change.**
+
+**BOTTOM LINE:** udslib has **no genuine bug**. All 11 findings (F-1..F-11) reduce to
+labwired ARMv7-M decoder defects — 3 already fixed (F-9 LDRB.W/LDRH.W sign-extend,
+F-11 wide UXT/SXT, F-10 UXTAH/UXTAB extend-and-add) plus 1 still unfixed (F-4 STMIA.W
+decoded as STMDB.W). The ECU now uses udslib **100% unmodified** (built-in dispatch +
+documented fn_* hooks, .rodata const DID table/data); the only remaining firmware
+deviation is the F-4 store-coalescing dodge, attributable solely to the emulator.
+Gate: **27/27, exit 0** with F-2/F-3/F-5/F-6/F-7 reverted and only F-4 retained.
+
+---
+
 ## F-1 — `uds_client_request` send fails on the tester — NOT EMULATOR (disproven by minimal repro)
 
 **FINAL STATUS: NOT an emulator bug. Real cause is firmware/udslib-side, not yet isolated. Workaround retained (functional).**
