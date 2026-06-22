@@ -322,6 +322,30 @@ void uds_tp_isotp_process(uds_isotp_ctx_t *iso, uint32_t time_ms)
     }
 }
 
+/* Deliver a reassembled SDU: to the custom handler if one is set (role-agnostic
+ * routing, e.g. to a UDS client), otherwise to the server uds_input_sdu. */
+static void isotp_deliver_sdu(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *sdu,
+                              uint16_t sdu_len, uint8_t addr)
+{
+    if (iso->on_sdu != NULL) {
+        iso->on_sdu(iso->sdu_cookie, sdu, sdu_len, addr);
+    }
+    else if (addr == (uint8_t) UDS_ADDR_FUNCTIONAL) {
+        uds_input_sdu_addr(uds, sdu, sdu_len, UDS_ADDR_FUNCTIONAL);
+    }
+    else {
+        uds_input_sdu(uds, sdu, sdu_len);
+    }
+}
+
+void uds_isotp_set_sdu_handler(uds_isotp_ctx_t *iso, uds_isotp_sdu_fn fn, void *cookie)
+{
+    if (iso != NULL) {
+        iso->on_sdu = fn;
+        iso->sdu_cookie = cookie;
+    }
+}
+
 static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *data, uint8_t len,
                       uint8_t addr)
 {
@@ -351,10 +375,12 @@ static void uds_rx_sf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
     }
 
     if (addr == (uint8_t) UDS_ADDR_FUNCTIONAL) {
-        uds_input_sdu_addr(uds, &data[data_offset], (uint16_t) sdu_len, UDS_ADDR_FUNCTIONAL);
+        isotp_deliver_sdu(iso, uds, &data[data_offset], (uint16_t) sdu_len,
+                          (uint8_t) UDS_ADDR_FUNCTIONAL);
     }
     else {
-        uds_input_sdu(uds, &data[data_offset], (uint16_t) sdu_len);
+        isotp_deliver_sdu(iso, uds, &data[data_offset], (uint16_t) sdu_len,
+                          (uint8_t) UDS_ADDR_PHYSICAL);
     }
 }
 
@@ -451,7 +477,8 @@ static void uds_rx_cf(uds_isotp_ctx_t *iso, struct uds_ctx *uds, const uint8_t *
 
     if (iso->rx_bytes_processed >= iso->rx_msg_len) {
         iso->rx_state = ISOTP_RX_IDLE;
-        uds_input_sdu(uds, uds->config->rx_buffer, iso->rx_msg_len);
+        isotp_deliver_sdu(iso, uds, uds->config->rx_buffer, iso->rx_msg_len,
+                          (uint8_t) UDS_ADDR_PHYSICAL);
     }
 }
 
