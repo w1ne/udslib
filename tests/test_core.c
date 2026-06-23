@@ -128,7 +128,8 @@ static void test_custom_service_registration(void **state)
     uint8_t req[] = {0x66};
     will_return(mock_get_time, 1000); /* input_sdu */
     will_return(mock_get_time, 1000); /* dispatcher */
-    expect_value(mock_tp_send, data, tx_buf);
+    expect_any(mock_tp_send,
+               data); /* frame is snapshotted out of the lock; verify bytes via tx_buf below */
     expect_value(mock_tp_send, len, 1);
     will_return(mock_tp_send, 0);
 
@@ -165,8 +166,7 @@ static void test_safety_gate_rejection(void **state)
 
 /* A handler that asks to send more than the TX buffer can hold. The core must
  * answer the tester with ResponseTooLong (0x14), not silently drop the frame. */
-static void oversize_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
-                             uds_result_t *out)
+static void oversize_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) data;
     (void) len;
@@ -196,7 +196,8 @@ static void test_response_too_long_nrc(void **state)
     uint8_t req[] = {0x66};
     will_return(mock_get_time, 1000); /* input_sdu */
     will_return(mock_get_time, 1000); /* dispatcher */
-    expect_value(mock_tp_send, data, tx_buf);
+    expect_any(mock_tp_send,
+               data); /* frame is snapshotted out of the lock; verify bytes via tx_buf below */
     expect_value(mock_tp_send, len, 3); /* 7F 66 14 */
     will_return(mock_tp_send, 0);
 

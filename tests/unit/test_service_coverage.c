@@ -48,13 +48,27 @@ static void test_session_invalid_id(void **state)
     expect_nrc(&ctx, req, sizeof(req), 0x10, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED, 0);
 }
 
-/* Configured p2/p2* server-max values are echoed in the response (:56-57). */
+/* Configured p2/p2* timing values are echoed in the 0x10 response.
+ * Tests the legacy-alias fold-in path: p2_ms==0, p2_server_max set before
+ * uds_init().  Under the single-source-of-truth design uds_init() resolves
+ * P2/P2* once into ctx->session; the 0x10 handler reads only those fields. */
 static void test_session_uses_configured_p2(void **state)
 {
     (void) state;
-    BEGIN_UDS_TEST(ctx, cfg);
-    cfg.p2_server_max = 0x0064;      /* 100ms */
-    cfg.p2_star_server_max = 0x2710; /* 10000ms -> /10 = 1000 = 0x03E8 */
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    /* Manual init: leave p2_ms/p2_star_ms at zero so the legacy aliases are
+     * folded in by uds_init(). */
+    memset(&cfg, 0, sizeof(uds_config_t));
+    cfg.get_time_ms = mock_get_time;
+    cfg.fn_tp_send = mock_tp_send;
+    cfg.rx_buffer = g_rx_buf;
+    cfg.rx_buffer_size = sizeof(g_rx_buf);
+    cfg.tx_buffer = g_tx_buf;
+    cfg.tx_buffer_size = sizeof(g_tx_buf);
+    cfg.p2_server_max = 0x0064;      /* 100ms legacy alias */
+    cfg.p2_star_server_max = 0x2710; /* 10000ms legacy alias -> /10 = 1000 = 0x03E8 */
+    uds_init(&ctx, &cfg);
 
     uint8_t req[] = {0x10, 0x03};
     will_return(mock_get_time, 1000);

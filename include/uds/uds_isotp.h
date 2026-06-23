@@ -225,6 +225,32 @@ void uds_tp_isotp_set_functional_id(uds_isotp_ctx_t *iso, uint32_t rx_id_func);
 void uds_tp_isotp_set_pad_byte(uds_isotp_ctx_t *iso, uint8_t pad_byte);
 
 /**
+ * @brief Set the Block Size (BS) advertised by this receiver in Flow Control frames.
+ *
+ * The value is sent in FC byte 1 after every First Frame is received.
+ * 0 means "send all remaining CFs without waiting for another FC".
+ * The default after uds_tp_isotp_init() is 8.
+ *
+ * @param iso  ISO-TP context.
+ * @param bs   Block size to advertise (0–255).
+ */
+void uds_tp_isotp_set_block_size(uds_isotp_ctx_t *iso, uint8_t bs);
+
+/**
+ * @brief Set the Separation Time minimum (STmin) advertised by this receiver
+ *        in Flow Control frames.
+ *
+ * The value is sent in FC byte 2 after every First Frame is received and
+ * governs the minimum inter-CF gap the sender must observe.
+ * The default after uds_tp_isotp_init() is 0 (no separation required).
+ *
+ * @param iso    ISO-TP context.
+ * @param st_min STmin to advertise (ISO 15765-2 encoding: 0x00–0x7F ms,
+ *               0xF1–0xF9 = 100–900 µs).
+ */
+void uds_tp_isotp_set_st_min(uds_isotp_ctx_t *iso, uint8_t st_min);
+
+/**
  * @brief Send an SDU via ISO-TP.
  *
  * This function handles segmentation into SF or FF/CF frames.

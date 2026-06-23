@@ -102,3 +102,32 @@ target_link_options(test_tp_addressing PRIVATE -Wl,--wrap=uds_input_sdu -Wl,--wr
 
 # Regression for issue #42 part 2: functional addressing end to end.
 add_uds_test(test_issue42_functional unit/test_issue42_functional.c)
+
+# §2b hardening: enforce minimum buffer sizes at uds_init().
+add_uds_test(test_init_validation unit/test_init_validation.c)
+
+# §5a hardening: P2/P2* single source of truth regression.
+add_uds_test(test_p2_single_source unit/test_p2_single_source.c)
+
+# §5b hardening: configurable S3 session timeout regression.
+add_uds_test(test_s3_configurable unit/test_s3_configurable.c)
+
+# §5c hardening: expose receiver Block Size / STmin via setters.
+add_uds_test(test_tp_bs_stmin_setters unit/test_tp_bs_stmin_setters.c)
+
+# §1 concurrency: host pthreads stress test for the lock-scope refactor (fn_tp_send
+# moved out of the critical section; cross-context ctx fields made volatile).
+# Optional and OFF by default: it is not part of the core gate. Enable with
+# -DUDS_BUILD_STRESS_TESTS=ON, ideally under ThreadSanitizer
+# (-DCMAKE_C_FLAGS="-fsanitize=thread"), to look for data races on the shared ctx.
+option(UDS_BUILD_STRESS_TESTS "Build the pthreads concurrency stress test" OFF)
+if(UDS_BUILD_STRESS_TESTS)
+    find_package(Threads)
+    if(Threads_FOUND)
+        add_executable(test_concurrency_stress unit/test_concurrency_stress.c)
+        target_link_libraries(test_concurrency_stress uds Threads::Threads)
+        add_test(NAME test_concurrency_stress COMMAND test_concurrency_stress)
+    else()
+        message(STATUS "Threads not found: skipping test_concurrency_stress")
+    endif()
+endif()

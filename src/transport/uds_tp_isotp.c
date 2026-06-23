@@ -112,6 +112,22 @@ void uds_tp_isotp_set_functional_id(uds_isotp_ctx_t *iso, uint32_t rx_id_func)
     iso->rx_id_func = rx_id_func;
 }
 
+void uds_tp_isotp_set_block_size(uds_isotp_ctx_t *iso, uint8_t bs)
+{
+    if (!iso) {
+        return;
+    }
+    iso->block_size = bs;
+}
+
+void uds_tp_isotp_set_st_min(uds_isotp_ctx_t *iso, uint8_t st_min)
+{
+    if (!iso) {
+        return;
+    }
+    iso->st_min = st_min;
+}
+
 /**
  * @brief Internal: Send Single Frame.
  */

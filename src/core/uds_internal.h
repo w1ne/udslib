@@ -65,6 +65,12 @@
 #define UDS_S3_TIMEOUT_MS 5000u
 #define UDS_P2_MIN_SAFE_MS 20u
 #define UDS_P2_STAR_MIN_SAFE_MS 1000u
+#define UDS_MIN_TX_BUFFER_SIZE 8u
+#define UDS_MIN_RX_BUFFER_SIZE 8u
+
+/* §5d: Security-access fallback limits when cfg fields are zero (unconfigured). */
+#define UDS_DEFAULT_SECURITY_MAX_ATTEMPTS 3u
+#define UDS_DEFAULT_SECURITY_DELAY_MS 10000u
 
 #define UDS_RESPONSE_OFFSET 0x40u
 #define UDS_MAX_PERIODIC_MSG_LEN 8u
@@ -164,6 +170,35 @@ bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t form
                                  uint32_t *size);
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
 int uds_emit_response(uds_ctx_t *ctx, uint16_t len);
+
+/* Flush a server response that an emit staged in tx_buffer.
+ *
+ * uds_internal_unlock_and_flush(): PRECONDITION the caller holds the lock. For a
+ * frame that fits the stack snapshot (<= UDS_TX_FLUSH_SNAPSHOT_MAX) it snapshots
+ * the frame, releases the lock, then transmits the snapshot so fn_tp_send runs
+ * outside the critical section without a concurrent context tearing the shared
+ * tx_buffer. An oversized frame is transmitted while the lock is still held (then
+ * released), preserving the baseline send-under-lock guarantee for large
+ * responses. Used by uds_input_sdu_addr() and uds_process(), which replace their
+ * `unlock; flush` with this single call.
+ *
+ * uds_internal_flush_tx(): for callers that hold NO lock (the public async
+ * completion path and uds_roe_trigger()); transmits straight from tx_buffer.
+ *
+ * Both return the fn_tp_send result, or UDS_OK when nothing was staged. */
+int uds_internal_unlock_and_flush(uds_ctx_t *ctx);
+int uds_internal_flush_tx(uds_ctx_t *ctx);
+
+/* As uds_internal_flush_tx() but does NOT reconcile the armed post-TX action
+ * against the transport result: for the application-driven uds_roe_trigger(),
+ * whose 0xC6 ResponseOnEvent frames never arm a post-TX action and so must not
+ * cancel one armed by an unrelated dispatch response. */
+int uds_internal_flush_tx_noreconcile(uds_ctx_t *ctx);
+
+/* Snapshot-flush a staged frame for callers that hold the lock and emit several
+ * frames per tick (the 0x2A periodic and 0x86 ROE schedulers): releases the lock
+ * around the snapshotted fn_tp_send and retakes it before returning. */
+void uds_internal_flush_tx_unlocked(uds_ctx_t *ctx);
 
 /* Kind of disruptive action a service has deferred until its positive response
  * is on the wire (see uds_server_state_t::posttx_kind). */

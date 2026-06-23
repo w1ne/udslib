@@ -232,8 +232,13 @@ void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint
     if (mode == 0x04u) {
         /* Stop Sending */
         if (len == 2u) {
-            /* Stop all */
-            memset(ctx->server.periodic_ids, 0, sizeof(ctx->server.periodic_ids));
+            /* Stop all. Element-wise clear: periodic_ids is volatile (read by the
+             * uds_process() scheduler), which memset() cannot target. */
+            for (uint8_t j = 0u;
+                 j < (sizeof(ctx->server.periodic_ids) / sizeof(ctx->server.periodic_ids[0]));
+                 j++) {
+                ctx->server.periodic_ids[j] = 0u;
+            }
             ctx->server.periodic_count = 0u;
         }
         else {

@@ -58,7 +58,7 @@ The analyzer includes:
 - `src/transport/` ISO-TP fallback
 - `examples/` host simulator and integration templates ([index](examples/README.md))
 - `extras/` Wireshark dissector, Python bindings
-- `docs/` white paper, guides, and strategy
+- `docs/` architecture, integration, transport, and testing guides
 
 ## Support & Licensing
 Commercial inquiries: `andrii@shylenko.com`  
@@ -68,6 +68,7 @@ Community questions: open an issue on GitHub.
 
 For deeper dives into the project's design and future, please refer to the following documents:
 
-*   [**Architecture**](docs/ARCHITECTURE.md) - Design philosophy, component diagrams, and transport strategy.
-*   [**Roadmap**](docs/ROADMAP.md) - Project phases, upcoming features, and long-term vision.
-*   [**Vision**](docs/VISION.md) - Product mission, market position, and design principles.
+*   [**Architecture**](docs/ARCHITECTURE.md) - Design philosophy, component diagrams, concurrency model, and transport strategy.
+*   [**Service Compliance**](docs/SERVICE_COMPLIANCE.md) - Authoritative ISO 14229-1 service matrix.
+*   [**OSAL**](docs/OSAL.md) - Two-context concurrency model and RTOS integration.
+*   [**Roadmap**](docs/ROADMAP.md) - Project phases and upcoming features.

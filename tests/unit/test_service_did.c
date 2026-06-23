@@ -252,6 +252,108 @@ static void test_rdbi_session_gating(void **state)
     assert_int_equal(g_tx_buf[2], 0x31);
 }
 
+/* --- Finding 1 regression: a response larger than UDS_TX_FLUSH_SNAPSHOT_MAX
+ * (default 512) must be delivered intact AND transmitted while the state lock is
+ * still held. ---
+ *
+ * The fast path snapshots a frame onto the stack and sends it with the lock
+ * released; an oversized frame cannot be snapshotted, so it is sent under the
+ * lock (baseline send-under-lock behaviour) to keep a concurrent context from
+ * tearing the shared tx_buffer mid-send. This test reads a 600-byte DID so the
+ * 0x62 response is 603 bytes (> 512), verifies the whole frame reaches the
+ * transport unmodified, and — via lock-tracking mutex hooks — asserts the lock
+ * was HELD during fn_tp_send.
+ */
+#define BIG_DID_SIZE 600u
+
+static uint8_t g_big_storage[BIG_DID_SIZE];
+
+static int big_did_read_fn(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t max_len)
+{
+    (void) ctx;
+    (void) max_len;
+    if (did == 0x9000) {
+        for (uint16_t i = 0u; i < BIG_DID_SIZE; i++) {
+            buf[i] = (uint8_t) ((i * 7u + 3u) & 0xFFu); /* deterministic pattern */
+        }
+        return 0;
+    }
+    return -1;
+}
+
+static const uds_did_entry_t g_big_dids[] = {
+    {0x9000, BIG_DID_SIZE, UDS_SESSION_ALL, 0, big_did_read_fn, NULL, NULL},
+};
+static const uds_did_table_t g_big_table = {.entries = g_big_dids, .count = 1};
+
+/* Lock-tracking OSAL hooks: record whether the lock was held when fn_tp_send ran. */
+static int g_lock_depth;
+static int g_lock_held_during_send;
+
+static void track_lock(void *h)
+{
+    (void) h;
+    g_lock_depth++;
+}
+static void track_unlock(void *h)
+{
+    (void) h;
+    g_lock_depth--;
+}
+
+static uint8_t g_big_tx[1024];
+static uint16_t g_big_sent_len;
+
+static int big_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    g_lock_held_during_send = (g_lock_depth > 0) ? 1 : 0;
+    g_big_sent_len = len;
+    if (len > sizeof(g_big_tx)) {
+        len = (uint16_t) sizeof(g_big_tx);
+    }
+    memcpy(g_big_tx, data, len);
+    return 0;
+}
+
+static void test_rdbi_oversize_response_sent_under_lock(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.did_table = g_big_table;
+    cfg.fn_tp_send = big_tp_send;
+    cfg.fn_mutex_lock = track_lock;
+    cfg.fn_mutex_unlock = track_unlock;
+    g_lock_depth = 0;
+    g_lock_held_during_send = -1;
+    g_big_sent_len = 0;
+    memset(g_big_tx, 0, sizeof(g_big_tx));
+    memset(g_big_storage, 0, sizeof(g_big_storage));
+
+    uint8_t request[] = {0x22, 0x90, 0x00};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    /* Full 603-byte frame delivered intact: header + the deterministic payload. */
+    assert_int_equal(g_big_sent_len, (uint16_t) (3u + BIG_DID_SIZE));
+    assert_int_equal(g_big_tx[0], 0x62);
+    assert_int_equal(g_big_tx[1], 0x90);
+    assert_int_equal(g_big_tx[2], 0x00);
+    for (uint16_t i = 0u; i < BIG_DID_SIZE; i++) {
+        assert_int_equal(g_big_tx[3u + i], (uint8_t) ((i * 7u + 3u) & 0xFFu));
+    }
+
+    /* The oversized frame was transmitted with the lock STILL HELD (it is too big
+     * to snapshot), and the lock balanced back to zero afterwards. */
+    assert_int_equal(g_lock_held_during_send, 1);
+    assert_int_equal(g_lock_depth, 0);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -263,6 +365,7 @@ int main(void)
         cmocka_unit_test(test_rdbi_security_denied),
         cmocka_unit_test(test_wdbi_security_denied),
         cmocka_unit_test(test_wdbi_length_fail_nrc13),
+        cmocka_unit_test(test_rdbi_oversize_response_sent_under_lock),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

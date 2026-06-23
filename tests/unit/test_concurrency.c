@@ -97,10 +97,222 @@ static void test_concurrent_request_rejection(void **state)
     assert_false(ctx.server.p2_msg_pending);
 }
 
+/* --- I1: responsePending 0x78 must not be clobbered by a same-tick periodic --- */
+
+/* Recording transport: capture every frame sent in a tick so we can assert the
+ * 0x78 responsePending was transmitted alongside the periodic frame. */
+#define REC_MAX 8
+static uint8_t g_rec_frames[REC_MAX][64];
+static uint16_t g_rec_lens[REC_MAX];
+static int g_rec_count;
+
+static int rec_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    if (g_rec_count < REC_MAX) {
+        uint16_t n = (len <= 64u) ? len : 64u;
+        memcpy(g_rec_frames[g_rec_count], data, n);
+        g_rec_lens[g_rec_count] = len;
+    }
+    g_rec_count++;
+    return 0;
+}
+
+static int rec_periodic_read(struct uds_ctx *ctx, uint8_t periodic_id, uint8_t *out_buf,
+                             uint16_t max_len)
+{
+    (void) ctx;
+    (void) max_len;
+    if (periodic_id == 0xE1) {
+        out_buf[0] = 0x11;
+        out_buf[1] = 0x22;
+        return 2;
+    }
+    return -1;
+}
+
+/* RED before the fix: when the P2* deadline expires on the SAME uds_process tick a
+ * periodic (0x2A) is due, the staged responsePending 0x78 was overwritten by the
+ * periodic frame in the shared tx_buffer and silently dropped. The tester must
+ * still receive the 0x78. */
+static void test_responsepending_not_clobbered_by_periodic(void **state)
+{
+    (void) state;
+    uint8_t rx_buf[64], tx_buf[64];
+
+    uds_service_entry_t user_services[] = {{0x31, 2, UDS_SESSION_ALL, 0, async_handler, NULL, 0u}};
+
+    uds_config_t cfg = {.fn_tp_send = rec_tp_send,
+                        .rx_buffer = rx_buf,
+                        .rx_buffer_size = 64,
+                        .tx_buffer = tx_buf,
+                        .tx_buffer_size = 64,
+                        .user_services = user_services,
+                        .user_service_count = 1,
+                        .get_time_ms = mock_get_time,
+                        .fn_periodic_read = rec_periodic_read,
+                        .p2_ms = 100,
+                        .p2_star_ms = 1000};
+
+    uds_ctx_t ctx;
+    uds_init(&ctx, &cfg);
+
+    /* 1. Start an async request -> handler returns UDS_PENDING -> initial 0x78. */
+    g_rec_count = 0;
+    uint8_t req[] = {0x31, 0x01};
+    mock_time = 1000;
+    uds_input_sdu(&ctx, req, 2);
+    assert_true(ctx.server.p2_msg_pending);
+
+    /* 2. Arm a periodic id that is due on the next tick. */
+    ctx.server.periodic_ids[0] = 0xE1;
+    ctx.server.periodic_rates[0] = 0x01; /* Fast: 100ms */
+    ctx.server.periodic_timers[0] = 2000;
+    ctx.server.periodic_count = 1;
+
+    /* 3. Advance past the P2* deadline AND past the periodic deadline so BOTH fire
+     * on the same uds_process tick. */
+    g_rec_count = 0;
+    mock_time = 2500;
+    uint8_t rcrrp_before = ctx.server.rcrrp_count;
+    uint32_t p2_start_before = ctx.server.p2_timer_start;
+    uds_process(&ctx);
+
+    /* The responsePending 0x78 must have been transmitted (not dropped), AND the
+     * periodic 0xE1 frame too: two frames this tick. */
+    assert_int_equal(g_rec_count, 2);
+
+    int saw_78 = 0;
+    int saw_periodic = 0;
+    for (int i = 0; i < g_rec_count && i < REC_MAX; i++) {
+        if (g_rec_lens[i] == 3u && g_rec_frames[i][0] == 0x7F && g_rec_frames[i][1] == 0x31 &&
+            g_rec_frames[i][2] == 0x78) {
+            saw_78 = 1;
+        }
+        if (g_rec_lens[i] == 3u && g_rec_frames[i][0] == 0xE1) {
+            saw_periodic = 1;
+        }
+    }
+    assert_true(saw_78);
+    assert_true(saw_periodic);
+
+    /* P2-star / RCRRP semantics preserved: rcrrp_count incremented, P2* re-armed. */
+    assert_int_equal(ctx.server.rcrrp_count, rcrrp_before + 1u);
+    assert_true(ctx.server.p2_star_active);
+    assert_int_not_equal(ctx.server.p2_timer_start, p2_start_before);
+}
+
+/* --- I2: posttx flag bookkeeping must be serialized under the lock --- */
+
+static int g_i2_lock_depth;
+static int g_i2_reset_called;
+static int g_i2_reset_under_lock;      /* -1 = not observed */
+static int g_i2_txcomplete_under_lock; /* -1 = not observed */
+static int g_i2_kind_cleared_at_reset; /* -1 = not observed */
+
+static void i2_lock(void *h)
+{
+    (void) h;
+    g_i2_lock_depth++;
+}
+static void i2_unlock(void *h)
+{
+    (void) h;
+    g_i2_lock_depth--;
+}
+static bool i2_tx_complete(struct uds_ctx *ctx)
+{
+    (void) ctx;
+    g_i2_txcomplete_under_lock = (g_i2_lock_depth > 0) ? 1 : 0;
+    return true;
+}
+static void i2_reset(struct uds_ctx *ctx, uint8_t type)
+{
+    (void) type;
+    g_i2_reset_under_lock = (g_i2_lock_depth > 0) ? 1 : 0;
+    /* The flag must already be cleared before the (possibly rebooting) action
+     * runs, so a returning action cannot fire twice. */
+    g_i2_kind_cleared_at_reset = (ctx->server.posttx_kind == 0u) ? 1 : 0;
+    g_i2_reset_called++;
+}
+
+/* What this single-threaded test CAN and CANNOT guard (read before trusting it):
+ *
+ * It is NOT a guard for the I2 lock-scoping itself. The I2 fix is that the posttx
+ * flag test-and-clear in uds_internal_run_posttx_action() happens UNDER the lock so
+ * a concurrent uds_internal_reconcile_posttx() (dispatch/flush context) cannot tear
+ * it. With only one thread there is no concurrent observer, so whether the clear
+ * sits inside or outside the locked region is indistinguishable here — this test
+ * PASSES with the clear moved back outside the lock. The genuine I2 guard is
+ * test_concurrency_stress (tests/unit/test_concurrency_stress.c), which arms a
+ * post-TX action (ECUReset 0x11 / LinkControl 0x87) and runs the two contexts
+ * concurrently under ThreadSanitizer: reverting the lock scoping makes TSan report
+ * a data race on posttx_kind at the test-and-clear (verified).
+ *
+ * What this test DOES guard, and what would regress without it, is the callback
+ * lock discipline that pairs with the I2 fix: the action callback (fn_reset) and
+ * the transport-complete poll (fn_tx_complete) must run with the lock RELEASED — a
+ * rebooting fn_reset must never hold the lock — and the lock must be balanced to
+ * zero after the action runs (single-unlock-per-path discipline). It observes the
+ * lock depth at the moment each callback fires. */
+static void test_posttx_action_callbacks_run_lock_released(void **state)
+{
+    (void) state;
+    uint8_t rx_buf[64], tx_buf[64];
+
+    uds_config_t cfg = {.fn_tp_send = rec_tp_send,
+                        .rx_buffer = rx_buf,
+                        .rx_buffer_size = 64,
+                        .tx_buffer = tx_buf,
+                        .tx_buffer_size = 64,
+                        .get_time_ms = mock_get_time,
+                        .fn_mutex_lock = i2_lock,
+                        .fn_mutex_unlock = i2_unlock,
+                        .fn_reset = i2_reset,
+                        .fn_tx_complete = i2_tx_complete,
+                        .p2_ms = 100,
+                        .p2_star_ms = 1000};
+
+    uds_ctx_t ctx;
+    uds_init(&ctx, &cfg);
+
+    g_i2_lock_depth = 0;
+    g_i2_reset_called = 0;
+    g_i2_reset_under_lock = -1;
+    g_i2_txcomplete_under_lock = -1;
+    g_i2_kind_cleared_at_reset = -1;
+    g_rec_count = 0;
+
+    /* ECUReset hard (0x11 0x01): response transmits and arms the deferred reset. */
+    uint8_t reset_req[] = {0x11, 0x01};
+    mock_time = 1000;
+    uds_input_sdu(&ctx, reset_req, sizeof(reset_req));
+    assert_int_equal(g_i2_reset_called, 0); /* deferred to uds_process */
+    assert_int_equal(g_i2_lock_depth, 0);   /* lock balanced after dispatch */
+
+    /* uds_process tick: drains the deferred reset. */
+    mock_time = 1001;
+    uds_process(&ctx);
+
+    assert_int_equal(g_i2_reset_called, 1);
+    /* The action callback and the transport-complete poll ran with the lock
+     * RELEASED (a rebooting fn_reset must never hold the lock). */
+    assert_int_equal(g_i2_reset_under_lock, 0);
+    assert_int_equal(g_i2_txcomplete_under_lock, 0);
+    /* posttx_kind was cleared before the action callback ran (clear-before-invoke:
+     * a returning action must not fire twice). */
+    assert_int_equal(g_i2_kind_cleared_at_reset, 1);
+    /* Lock balanced to zero: every lock taken for the flag bookkeeping was
+     * released (single-unlock-per-path discipline preserved). */
+    assert_int_equal(g_i2_lock_depth, 0);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_concurrent_request_rejection),
+        cmocka_unit_test(test_responsepending_not_clobbered_by_periodic),
+        cmocka_unit_test(test_posttx_action_callbacks_run_lock_released),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

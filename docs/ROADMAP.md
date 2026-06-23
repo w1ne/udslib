@@ -210,4 +210,5 @@ For current implemented service coverage, see `SERVICE_COMPLIANCE.md`.
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.
 - **Certification**: Preparation for ISO 26262 and ASPICE compliance.
-- **Service Coverage**: 26/26 services (100% ISO 14229-1 compliance).
+- **Service Coverage**: 27/27 ISO 14229-1 application services implemented; see
+  `SERVICE_COMPLIANCE.md` for the authoritative matrix.

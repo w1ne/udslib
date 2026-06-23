@@ -38,9 +38,9 @@ graph TD
 
 ## 3. Modular Service Registry
 
-A table-driven dispatcher manages UDS services (22 of 27 ISO 14229-1 application
-services are implemented; see [SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md) for
-the authoritative matrix).
+A table-driven dispatcher manages UDS services (all 27 of 27 ISO 14229-1
+application services are implemented; see
+[SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md) for the authoritative matrix).
 
 - **Scalability**: Adding a service (like SID 0x29) requires adding an entry to the `core_services` table.
 - **Extensibility**: Applications register `user_services` in `uds_config_t` to override or extend standard functionality.
@@ -83,11 +83,63 @@ To ensure MISRA-C compliance and reliability:
 - The caller provides buffers for RX and TX operations.
 - Message structures use fixed sizes.
 
-## 8. Non-Blocking Design
+## 8. Scheduling and Concurrency
 
-The `uds_process()` function runs the stack. It is designed for a loop and does not block. It uses the `get_time_ms()` callback to check if internal timers (S3, P2, P2*) have expired.
+The server has two entry points, and the scheduling model is defined entirely by
+where each one runs:
 
-This allows `udslib` to fit into different scheduling models:
-- **Super Loop**: Call once per loop.
-- **RTOS Task**: Call periodically with `vTaskDelay` or `k_sleep`.
-- **Interrupt Mode**: Call when a hardware timer triggers.
+- `uds_input_sdu()` / `uds_input_sdu_addr()` — the **receive path**. Called for
+  each inbound SDU, from a transport task or an RX interrupt.
+- `uds_process()` — the **periodic tick**. It is non-blocking: it uses
+  `get_time_ms()` to check the S3/P2/P2\* timers, advances the responsePending
+  state machine, runs the 0x2A periodic and 0x86 ResponseOnEvent schedulers, and
+  drains any deferred post-TX action. It must be called regularly.
+
+`uds_process()` fits any substrate:
+
+- **Super loop**: call once per loop.
+- **RTOS task**: call periodically (`vTaskDelay` / `k_sleep`).
+- **Timer interrupt**: call when a hardware timer fires.
+
+### Running the two contexts concurrently
+
+The two entry points may run in different contexts at the same time (RX task vs.
+process task, or RX interrupt vs. main loop) **only when the OSAL mutex callbacks
+are supplied** (`docs/OSAL.md`). The mutex makes the two critical sections
+mutually exclusive over the shared state (session, security, timers, the
+post-TX action, the periodic/ROE schedule). The cross-context fields are
+`volatile` so the compiler cannot cache a stale copy across the critical section
+when the lock is a bare interrupt-disable.
+
+Key rule: **`fn_tp_send` is invoked outside the lock.** Each entry point builds
+its response under the lock, latches the length, releases the lock, then
+transmits. A slow or blocking transport therefore never stalls the other context
+(or, under an interrupt-disable lock, never extends interrupt latency). When RX
+runs in an interrupt, the lock must be an ISR-safe critical section
+(disable-IRQ / BASEPRI), not an RTOS mutex — see `docs/OSAL.md`. Two threads both
+calling `uds_input_sdu()` on one context is *not* a supported configuration; UDS
+is one-request-at-a-time.
+
+## 9. State-Commit Model
+
+Service state — the active session, the security level, and the transfer
+(download/upload) state — **commits when the handler returns and is not rolled
+back if the subsequent emit fails.** A handler that, say, unlocks security or
+enters the programming session has already mutated the context by the time the
+framework tries to put the positive response on the wire; if `fn_tp_send` then
+rejects the frame, the state change stands.
+
+This is deliberate. On CAN, `fn_tp_send` is *queue-not-wire*: a successful return
+means the frame was accepted into a transmit mailbox, not that the tester
+received it. There is no point at which the library could know a response was
+truly delivered, so unwinding committed state on a queue rejection would trade a
+well-defined state for a guess — and the tester resynchronises on its next
+request regardless.
+
+The **only** emit-gated operations are the deferred post-TX actions: **ECUReset
+(0x11)** and the **LinkControl (0x87) transition**. These are disruptive (a
+reboot or a bus-parameter switch) and must not happen if the tester never got its
+confirmation, so the post-TX engine runs them only after the response has been
+handed to the transport (`emit_ok`) and, when `fn_tx_complete` is supplied, only
+after the frame has physically drained. A failed emit cancels them. Ordinary
+session/security/transfer state has no such gate.

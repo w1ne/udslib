@@ -538,9 +538,89 @@ static void test_ecu_reset_tx_complete_timeout_forces_reset(void **state)
     assert_true(ticks < 100);            /* terminated via the timeout, no hang */
 }
 
+/* --- Finding 2 regression: an unrelated failing periodic send must NOT cancel
+ * an already-armed ECUReset whose own response transmitted successfully. ---
+ *
+ * Pre-fix, uds_internal_reconcile_posttx ran on EVERY flush, including the
+ * per-frame periodic (0x2A) send done inside uds_process before the post-TX
+ * action drains. So an ECUReset armed by an RX response that went out fine could
+ * be silently cancelled by a later periodic send failing — the ECU would never
+ * reset. The fix scopes the reconcile to the dispatch-response flush only.
+ */
+static int g_split_send_calls;
+static int g_split_fail_from; /* fn_tp_send returns non-zero from this call index on */
+
+static int split_tp_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    g_split_send_calls++;
+    if (len > sizeof(g_tx_buf)) {
+        len = (uint16_t) sizeof(g_tx_buf);
+    }
+    memcpy(g_tx_buf, data, len);
+    /* The first send (the 0x51 ECUReset response) succeeds; later sends (the
+     * periodic 0xE1 frames) fail. */
+    return (g_split_send_calls >= g_split_fail_from) ? -1 : 0;
+}
+
+static int reset_periodic_read(uds_ctx_t *ctx, uint8_t periodic_id, uint8_t *out_buf,
+                               uint16_t max_len)
+{
+    (void) ctx;
+    (void) max_len;
+    if (periodic_id == 0xE1) {
+        out_buf[0] = 0x11;
+        out_buf[1] = 0x22;
+        return 2;
+    }
+    return -1;
+}
+
+static void test_ecu_reset_not_cancelled_by_failed_periodic(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = split_tp_send;
+    cfg.fn_reset = mock_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete; /* reset is releasable once on the wire */
+    cfg.fn_periodic_read = reset_periodic_read;
+    g_split_send_calls = 0;
+    g_split_fail_from = 2; /* call 1 = the 0x51 response (OK); call 2+ = periodic (fail) */
+    g_reset_called = 0;
+
+    /* 1. ECUReset hard (0x11 0x01): response transmits OK (call 1) and arms the
+     * deferred reset. */
+    uint8_t reset_req[] = {0x11, 0x01};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    uds_input_sdu(&ctx, reset_req, sizeof(reset_req));
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_tx_buf[1], 0x01);
+    assert_int_equal(g_reset_called, 0); /* deferred to uds_process */
+
+    /* 2. Arm a periodic read whose send will FAIL on the next tick. */
+    ctx.server.periodic_ids[0] = 0xE1;
+    ctx.server.periodic_rates[0] = 0x01; /* Fast: 100ms */
+    ctx.server.periodic_timers[0] = 1000;
+    ctx.server.periodic_count = 1;
+
+    /* 3. uds_process tick: the periodic 0xE1 send fails (call 2 returns -1). The
+     * armed reset must STILL fire — the unrelated periodic failure must not
+     * cancel a post-TX action armed by a different, already-sent response. */
+    will_return(mock_get_time, 1000);
+    uds_process(&ctx);
+
+    assert_true(g_split_send_calls >= 2); /* the periodic send was attempted and failed */
+    assert_int_equal(g_reset_called, 1);  /* reset fired despite the periodic failure */
+    assert_int_equal(g_last_reset_type, 0x01);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
+        cmocka_unit_test(test_ecu_reset_not_cancelled_by_failed_periodic),
         cmocka_unit_test(test_ecu_reset_response_sent_before_reset),
         cmocka_unit_test(test_ecu_reset_88_reboot_response_on_wire),
         cmocka_unit_test(test_ecu_reset_hard_success),

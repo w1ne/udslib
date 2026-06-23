@@ -95,9 +95,14 @@ static void test_osal_locking(void **state)
     assert_int_equal(g_lock_count, 1);
     assert_int_equal(g_mutex_val, 0); /* Should be back to 0 */
 
-    /* 2. Process should lock and unlock */
+    /* 2. Process should lock and unlock. It now takes the lock twice: once for the
+     * tick dispatch/flush, and once more in uds_internal_run_posttx_action() to read
+     * posttx_kind. The previous unlocked fast-path read of posttx_kind there was a
+     * genuine data race against the locked writer in execute_handler() (TSan flags
+     * it); the §1 concurrency hardening serialises even that guard read under the
+     * lock, so an idle tick takes two lock/unlock pairs and g_mutex_val nets to 0. */
     uds_process(&ctx);
-    assert_int_equal(g_lock_count, 2);
+    assert_int_equal(g_lock_count, 3);
     assert_int_equal(g_mutex_val, 0);
 }
 

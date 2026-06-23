@@ -60,12 +60,10 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_SESSION_CONTROL + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
 
-    /* C-19: Use Configured P2 Timings */
-    /* Default fallback if not configured: P2=50ms, P2*=5000ms */
-    uint16_t p2 = ctx->config->p2_server_max > 0 ? ctx->config->p2_server_max : 50u;
-    uint16_t p2_star_ms =
-        ctx->config->p2_star_server_max > 0 ? ctx->config->p2_star_server_max : 5000u;
-    uint16_t p2_star_val = p2_star_ms / 10u; /* P2* resolution is 10ms */
+    /* C-19: Advertise P2/P2* from the single resolved source (ctx->session).
+     * Values were resolved exactly once by uds_init; do not re-read config. */
+    uint16_t p2 = ctx->session.p2_ms;
+    uint16_t p2_star_val = (uint16_t) (ctx->session.p2_star_ms / 10u); /* ISO unit: 10ms */
 
     ctx->config->tx_buffer[2] = (uint8_t) ((p2 >> 8) & 0xFFu);
     ctx->config->tx_buffer[3] = (uint8_t) (p2 & 0xFFu);

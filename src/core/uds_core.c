@@ -573,6 +573,12 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
         return UDS_ERR_INVALID_ARG;
     }
 
+    /* Enforce minimum buffer floors */
+    if (config->tx_buffer_size < UDS_MIN_TX_BUFFER_SIZE ||
+        config->rx_buffer_size < UDS_MIN_RX_BUFFER_SIZE) {
+        return UDS_ERR_INVALID_ARG;
+    }
+
     memset(ctx, 0, sizeof(uds_ctx_t));
     ctx->config = config;
     ctx->session.active = UDS_SESSION_ID_DEFAULT; /* Default Session */
@@ -582,9 +588,32 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
 
     ctx->server.rcrrp_count = 0u;
 
-    /* Enforce Timing Safety (ISO 14229-1 requires reasonable timeouts) */
-    ctx->session.p2_ms = (config->p2_ms > 0u) ? config->p2_ms : 50u;
-    ctx->session.p2_star_ms = (config->p2_star_ms > 0u) ? config->p2_star_ms : 5000u;
+    /* Resolve P2/P2* once (single source of truth for all DiagnosticSessionControl responses).
+     * Precedence: p2_ms/p2_star_ms (authoritative) > p2_server_max/
+     * p2_star_server_max (legacy aliases) > built-in defaults.
+     * The DiagnosticSessionControl handler reads ctx->session.p2_ms/p2_star_ms exclusively. */
+    if (config->p2_ms > 0u) {
+        ctx->session.p2_ms = config->p2_ms;
+    }
+    else if (config->p2_server_max > 0u) {
+        ctx->session.p2_ms = config->p2_server_max;
+    }
+    else {
+        ctx->session.p2_ms = 50u;
+    }
+    if (config->p2_star_ms > 0u) {
+        ctx->session.p2_star_ms = config->p2_star_ms;
+    }
+    else if (config->p2_star_server_max > 0u) {
+        ctx->session.p2_star_ms = (uint32_t) config->p2_star_server_max;
+    }
+    else {
+        ctx->session.p2_star_ms = 5000u;
+    }
+
+    /* Resolve S3 once (single source of truth for the session-revert check).
+     * Precedence: s3_ms non-zero → used directly; zero → UDS_S3_TIMEOUT_MS default. */
+    ctx->session.s3_ms = (config->s3_ms > 0u) ? config->s3_ms : UDS_S3_TIMEOUT_MS;
 
     if (config->strict_compliance) {
         if (ctx->session.p2_ms < UDS_P2_MIN_SAFE_MS) ctx->session.p2_ms = UDS_P2_MIN_SAFE_MS;
@@ -609,21 +638,58 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
     return UDS_OK;
 }
 
+static inline void uds_internal_lock(uds_ctx_t *ctx)
+{
+    if (ctx->config->fn_mutex_lock) {
+        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
+    }
+}
+
+static inline void uds_internal_unlock(uds_ctx_t *ctx)
+{
+    if (ctx->config->fn_mutex_unlock) {
+        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+    }
+}
+
+static int uds_internal_unlock_and_flush_x(uds_ctx_t *ctx, bool reconcile);
+
+/* Drop the lock, hand the staged frame to the transport, then retake the lock.
+ * Used by the periodic (0x2A) and ResponseOnEvent (0x86) schedulers, which can
+ * emit several frames per uds_process() tick: each frame is built into tx_buffer
+ * under the lock, then transmitted with the lock released so a slow fn_tp_send
+ * never blocks a concurrent RX context, before the walk continues. */
+void uds_internal_flush_tx_unlocked(uds_ctx_t *ctx)
+{
+    if (!ctx->server.tx_pending) {
+        return;
+    }
+    /* Snapshot the frame and release the lock around fn_tp_send, then retake it so
+     * the scheduler walk can continue safely. reconcile=false: a periodic/ROE
+     * frame is unrelated to any armed post-TX action, so its transport result must
+     * never cancel an ECUReset/LinkControl armed by a different response. */
+    (void) uds_internal_unlock_and_flush_x(ctx, false);
+    uds_internal_lock(ctx);
+}
+
 void uds_process(uds_ctx_t *ctx)
 {
     if (!ctx || !ctx->config) {
         return;
     }
 
-    if (ctx->config->fn_mutex_lock) {
-        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
-    }
+    uds_internal_lock(ctx);
+
+    /* Frames built below (the P2-star responsePending NRC, periodic, ROE) are
+     * staged and flushed with the lock released, so the in-band senders must
+     * stage, not transmit. */
+    ctx->scratch.in_dispatch = true;
 
     uint32_t now = ctx->config->get_time_ms();
 
     /* S3 Timer: Revert to Default Session if no activity */
     if (ctx->session.active != UDS_SESSION_ID_DEFAULT) {
-        if ((now - ctx->session.last_msg_time) > UDS_S3_TIMEOUT_MS) {
+        if ((now - ctx->session.last_msg_time) > ctx->session.s3_ms) {
             ctx->session.active = UDS_SESSION_ID_DEFAULT;
             ctx->security.level = 0u;
             ctx->security.authenticated = false;
@@ -644,23 +710,31 @@ void uds_process(uds_ctx_t *ctx)
                 ctx->server.rcrrp_count >= ctx->config->rcrrp_limit) {
                 uds_send_nrc(ctx, ctx->server.pending_sid, UDS_NRC_CONDITIONS_NOT_CORRECT);
                 ctx->server.rcrrp_count = 0u;
-                if (ctx->config->fn_mutex_unlock) {
-                    ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-                }
+                ctx->scratch.in_dispatch = false;
+                uds_internal_unlock_and_flush(ctx); /* snapshot + unlock + transmit the abort NRC */
                 return;
             }
 
-            /* Send NRC 0x78 (Response Pending) */
+            /* Send NRC 0x78 (Response Pending). uds_send_nrc only STAGES the frame
+             * into tx_buffer (in_dispatch is true), so transmit it here, before the
+             * periodic (0x2A) / ROE (0x86) schedulers below build their own frame
+             * into the same tx_buffer. Without this flush a same-tick periodic/ROE
+             * frame would overwrite tx_pending/tx_buffer and the responsePending NRC
+             * would be silently dropped. flush_tx_unlocked snapshots, releases the
+             * lock, transmits, then retakes the lock (reconcile=false: the 0x78 arms
+             * no post-TX action). */
             uds_send_nrc(ctx, ctx->server.pending_sid, UDS_NRC_RESPONSE_PENDING);
             ctx->server.rcrrp_count++;
             ctx->server.p2_star_active = true;
             ctx->server.p2_timer_start = now; /* Reset timer for P2* */
+            uds_internal_flush_tx_unlocked(ctx);
         }
     }
 
     /* SID 0x2A: Periodic Data Transmission Scheduler */
     if (ctx->server.periodic_count > 0u && ctx->config->fn_periodic_read != NULL) {
-        for (uint8_t i = 0u; i < 8u; i++) {
+        for (uint8_t i = 0u;
+             i < (sizeof(ctx->server.periodic_ids) / sizeof(ctx->server.periodic_ids[0])); i++) {
             if (ctx->server.periodic_ids[i] != 0u) {
                 /* Wrap-safe deadline check (signed delta), mirroring the S3/P2
                    timers; a plain >= breaks across the 32-bit ms rollover. */
@@ -669,11 +743,17 @@ void uds_process(uds_ctx_t *ctx)
                     int written = ctx->config->fn_periodic_read(ctx, ctx->server.periodic_ids[i],
                                                                 out_buf, UDS_MAX_PERIODIC_MSG_LEN);
                     if (written > 0) {
-                        /* Send periodic message as a raw CAN/ISO-TP response if needed,
-                           or via a specialized periodic tx hook. For now, use fn_tp_send. */
-                        ctx->config->tx_buffer[0] = ctx->server.periodic_ids[i];
-                        memcpy(&ctx->config->tx_buffer[1], out_buf, written);
-                        ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, written + 1);
+                        /* Build the periodic frame in tx_buffer, then transmit it
+                           with the lock released (uds_internal_flush_tx_unlocked).
+                           Guard: skip if the encoded frame (id + payload) exceeds the
+                           tx_buffer; transmitting a truncated frame is not permitted. */
+                        if ((uint16_t) (written + 1) <= ctx->config->tx_buffer_size) {
+                            ctx->config->tx_buffer[0] = ctx->server.periodic_ids[i];
+                            memcpy(&ctx->config->tx_buffer[1], out_buf, written);
+                            ctx->server.tx_pending = true;
+                            ctx->server.tx_pending_len = (uint16_t) (written + 1);
+                            uds_internal_flush_tx_unlocked(ctx);
+                        }
                     }
 
                     /* Reset timer based on rate: Fast (100ms), Medium (500ms), Slow (2000ms) */
@@ -692,13 +772,17 @@ void uds_process(uds_ctx_t *ctx)
     }
 
 #if (UDS_ROE_MAX_EVENTS > 0)
-    /* SID 0x86: expire ResponseOnEvent windows. */
+    /* SID 0x86: expire ResponseOnEvent windows (transmits 0xC6 with the lock
+     * released per frame, like the periodic scheduler above). */
     uds_internal_roe_service(ctx, now);
 #endif
 
-    if (ctx->config->fn_mutex_unlock) {
-        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-    }
+    ctx->scratch.in_dispatch = false;
+
+    /* Snapshot + unlock + transmit any frame the P2-star responsePending path
+     * staged above (the periodic and ROE schedulers already transmitted their own
+     * frames with the lock released). */
+    uds_internal_unlock_and_flush(ctx);
 
     /* Drain any disruptive action deferred until its response is on the wire
      * (ECUReset 0x11, LinkControl 0x87 transition). Run outside the mutex: the
@@ -717,13 +801,10 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
         return;
     }
 
-    if (ctx->config->fn_mutex_lock != NULL) {
-        ctx->config->fn_mutex_lock(ctx->config->mutex_handle);
-    }
+    uds_internal_lock(ctx);
 
     if (!data || len == 0u) {
-        if (ctx->config->fn_mutex_unlock != NULL)
-            ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
+        uds_internal_unlock(ctx);
         return;
     }
 
@@ -734,6 +815,10 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
      * inner request's suppressPosRsp is still cleared per-dispatch there. */
     memset(&ctx->scratch, 0, sizeof ctx->scratch);
     ctx->scratch.req_addr_mode = (uint8_t) addr;
+    /* The whole locked region below builds responses for the top-level flush, so
+     * the in-band senders must stage rather than transmit from inside the lock
+     * (see uds_dispatch_scratch_t::in_dispatch). */
+    ctx->scratch.in_dispatch = true;
 
     uint8_t sid = data[0];
     ctx->session.last_msg_time = ctx->config->get_time_ms();
@@ -742,15 +827,13 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
     if (ctx->server.p2_msg_pending) {
         if (sid == UDS_SID_TESTER_PRESENT && len >= 2u && (data[1] & 0x80u)) {
             /* Suppressed TesterPresent: Just update S3, don't interrupt */
-            if (ctx->config->fn_mutex_unlock != NULL) {
-                ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-            }
+            ctx->scratch.in_dispatch = false;
+            uds_internal_unlock(ctx);
             return;
         }
         uds_send_nrc(ctx, sid, UDS_NRC_BUSY_REPEAT_REQUEST); /* Busy Repeat Request */
-        if (ctx->config->fn_mutex_unlock != NULL) {
-            ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-        }
+        ctx->scratch.in_dispatch = false;
+        uds_internal_unlock_and_flush(ctx); /* snapshot + unlock + transmit the NRC */
         return;
     }
 
@@ -761,10 +844,13 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
     ctx->server.rcrrp_count = 0u;
 
     handle_request(ctx, data, len);
+    ctx->scratch.in_dispatch = false;
 
-    if (ctx->config->fn_mutex_unlock != NULL) {
-        ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
-    }
+    /* The response (positive or negative) was built into tx_buffer under the
+     * lock; uds_internal_unlock_and_flush snapshots it, releases the lock, then
+     * transmits — so a slow fn_tp_send never stalls a concurrent uds_process()/RX
+     * context and cannot tear the shared tx_buffer. */
+    uds_internal_unlock_and_flush(ctx);
 }
 
 /* Drain a deferred post-TX action (issue #88/#98). execute_handler promotes a
@@ -776,7 +862,20 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
  * thread is never starved. */
 void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
 {
+    /* Serialize the posttx FLAG bookkeeping (posttx_kind/posttx_deadline_set/
+     * posttx_wait_start) under the lock: this function runs in the uds_process()
+     * context with the lock released, while uds_internal_reconcile_posttx() and
+     * execute_handler() may concurrently write the same flags from the dispatch/
+     * flush context. volatile gives no atomicity, so even the guard READ is wrapped
+     * in the lock — an unsynchronised fast-path read here is a genuine data race on
+     * posttx_kind (TSan flags it), and the saving (one lock/unlock on an idle tick)
+     * is not worth a documented race in the concurrency-critical path. Only the
+     * potentially slow/rebooting fn_reset/fn_link_control callbacks run OUTSIDE the
+     * lock; fn_tx_complete (a transport poll) is also kept outside it. */
+    uds_internal_lock(ctx);
     if (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE) {
+        /* No action armed, or cleared by a concurrent reconcile. */
+        uds_internal_unlock(ctx);
         return;
     }
 
@@ -786,11 +885,13 @@ void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
         ctx->server.posttx_wait_start = now;
         ctx->server.posttx_deadline_set = true;
     }
+    uint32_t wait_start = ctx->server.posttx_wait_start;
+    uds_internal_unlock(ctx);
 
     bool tx_done = (ctx->config->fn_tx_complete != NULL) ? ctx->config->fn_tx_complete(ctx) : false;
     uint16_t budget = (ctx->config->reset_tx_wait_ms != 0u) ? ctx->config->reset_tx_wait_ms
                                                             : UDS_DEFAULT_RESET_TX_WAIT_MS;
-    bool deadline = (uint32_t) (now - ctx->server.posttx_wait_start) >= (uint32_t) budget;
+    bool deadline = (uint32_t) (now - wait_start) >= (uint32_t) budget;
     if (!tx_done && !deadline) {
         return; /* still draining; try again next uds_process() tick */
     }
@@ -798,12 +899,19 @@ void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
         uds_internal_log(ctx, UDS_LOG_INFO, "post-TX action: transmit-wait timed out, forcing");
     }
 
+    /* Test-and-clear under the lock so a concurrent reconcile cannot fire the
+     * action while it is being cancelled (or leave the flag stale). A reconcile
+     * that already cleared posttx_kind between the unlock above and this re-lock
+     * makes kind == NONE here, so the action is skipped. */
+    uds_internal_lock(ctx);
     uint8_t kind = ctx->server.posttx_kind;
     uint8_t arg = ctx->server.posttx_arg;
     /* Clear before invoking: the action may reboot and never return, and a
      * returning action must not run twice. */
     ctx->server.posttx_kind = (uint8_t) UDS_POSTTX_NONE;
     ctx->server.posttx_deadline_set = false;
+    uint8_t link_ctrl_param = ctx->server.link_ctrl_param;
+    uds_internal_unlock(ctx);
 
     switch (kind) {
         case (uint8_t) UDS_POSTTX_RESET:
@@ -817,7 +925,7 @@ void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
                  * failure cannot become an NRC (feasibility was checked at the
                  * verify step). Surface it via the log rather than dropping it
                  * silently, so the link entering an undefined state is observable. */
-                if (ctx->config->fn_link_control(ctx, arg, ctx->server.link_ctrl_param) != 0) {
+                if (ctx->config->fn_link_control(ctx, arg, link_ctrl_param) != 0) {
                     uds_internal_log(ctx, UDS_LOG_ERROR,
                                      "LinkControl: transition failed after response was sent");
                 }
@@ -851,7 +959,166 @@ int uds_emit_response(uds_ctx_t *ctx, uint16_t len)
         return UDS_OK;
     }
     ctx->server.rcrrp_count = 0u;
-    return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
+    /* Stage the response: the bytes are already in tx_buffer; the top-level entry
+     * point flushes them via fn_tp_send AFTER releasing the lock (see
+     * uds_internal_flush_tx). Returns UDS_OK because every synchronous failure
+     * (oversize, capture) was already handled above; a transport rejection is
+     * surfaced at flush time and reconciled against the deferred post-TX action
+     * there, not here. */
+    ctx->server.tx_pending = true;
+    ctx->server.tx_pending_len = len;
+    return UDS_OK;
+}
+
+/* Largest staged frame copied to the flushing context's stack before the lock is
+ * released, so the transport can run outside the critical section without a
+ * concurrent context tearing the shared tx_buffer. Frames up to this size are
+ * snapshotted and sent OUTSIDE the lock (the fast path); a larger frame (only big
+ * block transfers on a large tx_buffer) is instead sent WHILE THE LOCK IS HELD —
+ * matching the historical send-under-lock behaviour exactly, so a concurrent
+ * context can never overwrite tx_buffer mid-send. Raise this macro toward the
+ * configured tx_buffer_size to keep more frames on the lock-free fast path. */
+#ifndef UDS_TX_FLUSH_SNAPSHOT_MAX
+#define UDS_TX_FLUSH_SNAPSHOT_MAX 512u
+#endif
+
+/* Apply the post-flush transport result: a tester that never received its
+ * confirmation must not be desynchronised by a reboot or link switch, so cancel
+ * any post-TX action the just-emitted response had armed if the transport
+ * rejected it (ISO 14229-1; develop #85, #88).
+ *
+ * This MUST gate only on the transport result of the dispatch response that may
+ * have armed the post-TX action — i.e. the top-level RX dispatch flush and the
+ * uds_process pending/response flush. It must NOT run for an unrelated periodic
+ * (0x2A) or ResponseOnEvent (0x86) frame flushed earlier in the same tick: a
+ * later periodic/ROE send failing must never cancel an ECUReset/LinkControl that
+ * was already armed and whose own response transmitted successfully. Hence the
+ * per-frame periodic/ROE flush paths pass reconcile=false. */
+static void uds_internal_reconcile_posttx(uds_ctx_t *ctx, int ret)
+{
+    /* PRECONDITION: caller does NOT hold the lock (every reconcile=true flush path
+     * has already released it before calling this). The posttx FLAG test-and-clear
+     * is serialized under the lock here so it cannot race the bookkeeping in
+     * uds_internal_run_posttx_action(): volatile alone gives no atomicity, so on a
+     * preemptive/two-core target a bare RMW could clear the flag mid-fire or leave
+     * it stale. The transport (fn_tp_send) already ran outside the lock; only this
+     * tiny flag update is serialized. */
+
+    /* Cheap unlocked guard: a successful send (the common case) cancels nothing,
+     * and with no action armed there is nothing to clear — bail without touching
+     * the lock so a normal dispatch flush keeps its single lock/unlock. Only the
+     * actual cancellation RMW below needs serialization. */
+    if ((ret == UDS_OK) || (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE)) {
+        return;
+    }
+
+    uds_internal_lock(ctx);
+    if (ctx->server.posttx_kind != (uint8_t) UDS_POSTTX_NONE) {
+        ctx->server.posttx_kind = (uint8_t) UDS_POSTTX_NONE;
+        ctx->server.posttx_deadline_set = false;
+    }
+    uds_internal_unlock(ctx);
+}
+
+/* Release the lock and transmit the frame a server emit staged in tx_buffer.
+ *
+ * PRECONDITION: the caller holds the lock (or has none configured). The send
+ * length is read and the pending flag cleared WHILE the lock is still held — the
+ * atomic "capture pointer+len" step — then the lock is released and fn_tp_send is
+ * called outside the critical section, passing the unchanged tx_buffer pointer.
+ * This is the crux of the §1 refactor: the (possibly slow or blocking) transport
+ * call no longer runs under the state lock, so it cannot stall a concurrent
+ * uds_process()/RX context, while the latched length keeps the frame size
+ * consistent across the unlock. The single-response-per-pass contract means at
+ * most one frame is staged per call.
+ *
+ * A frame up to UDS_TX_FLUSH_SNAPSHOT_MAX is copied into a private stack snapshot
+ * before the unlock so that a concurrent context which re-enters and rebuilds the
+ * shared tx_buffer cannot tear the in-flight send; for that fast path the data
+ * pointer handed to fn_tp_send is the snapshot, not tx_buffer, so applications
+ * must treat fn_tp_send's data/len as the authoritative frame and not assume it
+ * aliases config.tx_buffer (see docs/OSAL.md).
+ *
+ * An oversized frame (len > UDS_TX_FLUSH_SNAPSHOT_MAX, which would not fit the
+ * stack snapshot) is instead transmitted WHILE THE LOCK IS STILL HELD, then the
+ * lock is released. This restores the baseline send-under-lock guarantee for
+ * large responses (big RDBI records, ReadMemoryByAddress, transfer data): a
+ * concurrent context cannot overwrite tx_buffer mid-send because it cannot take
+ * the lock until the send returns. Only safely-snapshotted frames are sent with
+ * the lock released.
+ *
+ * reconcile: when true, the transport result is reconciled against any armed
+ * post-TX action (see uds_internal_reconcile_posttx). The dispatch-response
+ * flushes pass true; the per-frame periodic/ROE flushes pass false. */
+static int uds_internal_unlock_and_flush_x(uds_ctx_t *ctx, bool reconcile)
+{
+    if (!ctx->server.tx_pending) {
+        uds_internal_unlock(ctx);
+        return UDS_OK;
+    }
+
+    uint16_t len = ctx->server.tx_pending_len;
+    ctx->server.tx_pending = false;
+    ctx->server.tx_pending_len = 0u;
+
+    int ret;
+    if (len <= (uint16_t) UDS_TX_FLUSH_SNAPSHOT_MAX) {
+        /* Fast path: snapshot under the lock, release, send the private copy. */
+        uint8_t snapshot[UDS_TX_FLUSH_SNAPSHOT_MAX];
+        memcpy(snapshot, ctx->config->tx_buffer, len);
+        uds_internal_unlock(ctx);
+        ret = ctx->config->fn_tp_send(ctx, snapshot, len);
+    }
+    else {
+        /* Oversized: send under the lock so a concurrent context cannot overwrite
+         * tx_buffer mid-send, then release (baseline send-under-lock behaviour). */
+        ret = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
+        uds_internal_unlock(ctx);
+    }
+
+    if (reconcile) {
+        uds_internal_reconcile_posttx(ctx, ret);
+    }
+    return ret;
+}
+
+int uds_internal_unlock_and_flush(uds_ctx_t *ctx)
+{
+    /* Dispatch-response flush: reconcile the armed post-TX action against this
+     * response's transport result. */
+    return uds_internal_unlock_and_flush_x(ctx, true);
+}
+
+/* Flush a staged frame when the caller holds no lock.
+ *
+ * reconcile: true for the public async completion path
+ * (uds_send_response()/uds_send_nrc() completing a UDS_PENDING response), which
+ * carries the response that may have armed a post-TX action; false for the
+ * application-driven uds_roe_trigger(), whose 0xC6 frames never arm one. */
+static int uds_internal_flush_tx_x(uds_ctx_t *ctx, bool reconcile)
+{
+    if (!ctx->server.tx_pending) {
+        return UDS_OK;
+    }
+    uint16_t len = ctx->server.tx_pending_len;
+    ctx->server.tx_pending = false;
+    ctx->server.tx_pending_len = 0u;
+    int ret = ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, len);
+    if (reconcile) {
+        uds_internal_reconcile_posttx(ctx, ret);
+    }
+    return ret;
+}
+
+int uds_internal_flush_tx(uds_ctx_t *ctx)
+{
+    return uds_internal_flush_tx_x(ctx, true);
+}
+
+/* No-lock flush that must NOT reconcile the post-TX action (uds_roe_trigger). */
+int uds_internal_flush_tx_noreconcile(uds_ctx_t *ctx)
+{
+    return uds_internal_flush_tx_x(ctx, false);
 }
 
 int uds_send_response(uds_ctx_t *ctx, uint16_t len) /* public compat shim */
@@ -867,7 +1134,19 @@ int uds_send_response(uds_ctx_t *ctx, uint16_t len) /* public compat shim */
         ctx->server.pending_sid = 0u;
         return UDS_OK;
     }
-    return uds_emit_response(ctx, len);
+    int ret = uds_emit_response(ctx, len);
+    if (ret != UDS_OK) {
+        return ret;
+    }
+    /* Called from inside the dispatch (a handler emitting via the legacy API,
+     * e.g. the 0x19 DTC formatter): leave the frame staged for the top-level
+     * outside-the-lock flush. Called by the application to complete a
+     * UDS_PENDING response from its own context: transmit now so the caller sees
+     * the synchronous fn_tp_send result it has always seen. */
+    if (ctx->scratch.in_dispatch) {
+        return UDS_OK;
+    }
+    return uds_internal_flush_tx(ctx);
 }
 
 int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
@@ -914,5 +1193,16 @@ int uds_send_nrc(uds_ctx_t *ctx, uint8_t sid, uint8_t nrc)
         return UDS_OK;
     }
 
-    return ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, 3u);
+    /* Stage the NRC in tx_buffer; the top-level entry point flushes it via
+     * fn_tp_send after releasing the lock (see uds_internal_flush_tx). */
+    ctx->server.tx_pending = true;
+    ctx->server.tx_pending_len = 3u;
+    /* If a handler is emitting via this legacy API mid-dispatch (in_dispatch),
+     * leave it staged for the top-level flush; if called outside the dispatch
+     * (e.g. an application completing a request directly), transmit now so the
+     * caller still sees the synchronous fn_tp_send result. */
+    if (ctx->scratch.in_dispatch) {
+        return UDS_OK;
+    }
+    return uds_internal_flush_tx(ctx);
 }

@@ -30,7 +30,7 @@ In an RTOS, `udslib` usually runs in its own low-priority task.
 
 - **Example**: [examples/freertos_demo/main.c](../examples/freertos_demo/main.c)
 - **Key Concepts**:
-  - **Thread Safety**: Use `uds_config_t.fn_mutex_lock` logic. The library will lock the mutex before modifying internal state.
+  - **Thread Safety**: Use `uds_config_t.fn_mutex_lock` logic. The library locks the mutex before modifying internal state and releases it before calling `fn_tp_send` (the transmit runs outside the lock). See [docs/OSAL.md](OSAL.md) for the full concurrency model, including interrupt-mode (disable-IRQ) locking.
   - **Blocking**: The UDS task can `vTaskDelay` to yield CPU.
   - **Communication**: Use Queues or Direct Notifications to pass CAN frames to the UDS task (or call `uds_input_sdu` from the CAN task if Mutex is recursive/safe).
 

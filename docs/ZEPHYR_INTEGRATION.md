@@ -318,7 +318,7 @@ west build -t run
 
 ### Non-Blocking Design
 
-UDSLib is designed for single-threaded or cooperative multitasking:
+The simplest integration drives both entry points from one cooperative task:
 
 ```c
 void uds_task(void *p1, void *p2, void *p3) {
@@ -332,14 +332,27 @@ void uds_task(void *p1, void *p2, void *p3) {
 K_THREAD_DEFINE(uds_thread, 2048, uds_task, NULL, NULL, NULL, 5, 0, 0);
 ```
 
-### ISR Safety
+### Two-context concurrency
 
-- **DO NOT** call `uds_` functions from ISRs
+`uds_input_sdu()` (the RX path) and `uds_process()` (the periodic tick) may run
+in two different contexts at once — an RX task vs. a process task, or an RX
+interrupt vs. the main loop — **provided the OSAL mutex callbacks are supplied**.
+Supply `fn_mutex_lock`/`fn_mutex_unlock` (e.g. `k_mutex` for task-vs-task, or an
+ISR-safe disable-IRQ critical section when RX runs in an interrupt). `fn_tp_send`
+runs outside the lock, so a slow transport never stalls the other context. See
+[docs/OSAL.md](OSAL.md) for the authoritative concurrency model. Two threads
+calling `uds_input_sdu()` on one context concurrently is not supported (UDS is
+one-request-at-a-time).
+
+### ISR delivery
+
 - The fallback transport installs its own CAN RX filter callback and feeds
   frames into its private ISO-TP instance, so RX is handled for you.
-- If you drive the raw instance-based ISO-TP API yourself, defer ISR work to
-  thread context via a message queue or workqueue. Note the receive callback is
-  instance-based and takes both the ISO-TP and core contexts:
+- If you drive the raw instance-based ISO-TP API yourself, you may either defer
+  ISR work to thread context via a message queue/workqueue (shown below), or
+  call `uds_input_sdu()` directly from the ISR — in which case the OSAL lock
+  must be an ISR-safe disable-IRQ critical section, not a `k_mutex`. The receive
+  callback is instance-based and takes both the ISO-TP and core contexts:
 
 ```c
 /* You own and initialize the ISO-TP instance:

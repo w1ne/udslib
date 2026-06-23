@@ -103,12 +103,13 @@ void uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, ui
         else {
             /* C-15: Attempt Management */
             ctx->security.attempts++;
-            uint8_t max_att =
-                ctx->config->security_max_attempts ? ctx->config->security_max_attempts : 3u;
+            uint8_t max_att = ctx->config->security_max_attempts
+                                  ? ctx->config->security_max_attempts
+                                  : UDS_DEFAULT_SECURITY_MAX_ATTEMPTS;
 
             if (ctx->security.attempts >= max_att) {
-                uint32_t delay =
-                    ctx->config->security_delay_ms ? ctx->config->security_delay_ms : 10000u;
+                uint32_t delay = ctx->config->security_delay_ms ? ctx->config->security_delay_ms
+                                                                : UDS_DEFAULT_SECURITY_DELAY_MS;
                 ctx->security.delay_end = now + delay;
                 uds_nrc(out, UDS_NRC_EXCEEDED_ATTEMPTS);
                 return;
