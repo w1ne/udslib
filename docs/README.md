@@ -5,9 +5,8 @@ This library provides a portable, commercial-grade UDS (ISO 14229) protocol stac
 ## 📖 Core Documentation
 
 ### Getting Started
-- **[QUICKSTART.md](docs/QUICKSTART_ZEPHYR.md)**: 5-minute Zephyr example.
-- **[DOCKER.md](scripts/docker_run.sh)**: Run tests instantly with Docker.
-- **[VISION.md](VISION.md)**: Project vision and commercial model.
+- **[QUICKSTART_ZEPHYR.md](QUICKSTART_ZEPHYR.md)**: 5-minute Zephyr example.
+- **[Docker](../scripts/docker_run.sh)**: Run tests instantly with Docker.
 - **[ROADMAP.md](ROADMAP.md)**: Development timelines.
 
 ### Architecture & Design
@@ -25,13 +24,14 @@ This library provides a portable, commercial-grade UDS (ISO 14229) protocol stac
   - Memory analysis.
   - RTOS considerations.
 
+### Service Coverage & Compliance
+- **[SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md)**: Authoritative ISO 14229-1 service matrix (27/27).
+- **[MISRA.md](MISRA.md)**: MISRA-C:2012 baseline and documented deviations.
+
 ### Testing & Validation
 - **[TESTING.md](TESTING.md)**: Testing philosophy.
 - **[TESTING_STRATEGY.md](TESTING_STRATEGY.md)**: Three-tier testing approach (Unit, Integration, System).
-- **[UDS_SERVER_OPTIONS.md](UDS_SERVER_OPTIONS.md)**: External UDS simulator comparison (`iso14229`, `py-uds`).
-
-### Implementation
-- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)**: Current development plan.
+- **[UDS_SERVER_OPTIONS.md](UDS_SERVER_OPTIONS.md)**: Independent UDS stacks for cross-validation (`iso14229`, `py-uds`, `udsoncan`).
 
 ## 🎯 Quick Navigation
 
@@ -40,7 +40,6 @@ This library provides a portable, commercial-grade UDS (ISO 14229) protocol stac
 - **Use as a client**: [CLIENT_API.md](CLIENT_API.md)
 - **Port to OS (RTOS/Bare Metal)**: [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md)
 - **Set up testing**: [TESTING_STRATEGY.md](TESTING_STRATEGY.md)
-- **Compare UDS servers**: [UDS_SERVER_OPTIONS.md](UDS_SERVER_OPTIONS.md)
 - **Understand ISO-TP**: [TRANSPORT.md](TRANSPORT.md)
 
 ## 📂 Repository Structure
@@ -74,17 +73,16 @@ udslib/
 
 | Component | Status |
 |:----------|:-------|
-| Core UDS Stack (15 Services) | ✅ Complete (v1.4.0) |
-| Asynchronous Processing (NRC 0x78) | ✅ Complete |
-| OS Abstraction Layer (OSAL) | ✅ Complete |
-| Memory Services (0x23/0x3D) | ✅ Complete |
-| Flash Engine (0x31/34/36/37) | ✅ Complete |
-| Authentication (0x29) | ✅ Complete |
-| DTC Management (0x14/19/85) | ✅ Complete |
-| Zephyr Integration | ✅ Complete |
-| ISO-TP Fallback | ✅ Complete |
-| Unit Tests (100% Coverage) | ✅ Complete |
-| Portability (Endian/Headers) | ✅ Verified |
+| ISO 14229-1 application services (27/27) | Implemented (see [SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md)) |
+| Asynchronous processing (NRC 0x78) | Implemented |
+| OS Abstraction Layer (two-context concurrency) | Implemented (see [OSAL.md](OSAL.md)) |
+| Memory services (0x23 / 0x3D) | Implemented |
+| Flash engine (0x31 / 0x34 / 0x36 / 0x37) | Implemented |
+| Authentication (0x29) | Implemented |
+| DTC management (0x14 / 0x19 / 0x85) | Implemented |
+| Zephyr integration | Implemented |
+| ISO-TP fallback (Classic CAN + CAN-FD) | Implemented |
+| MISRA-C:2012 (CI-checked baseline) | No mandatory-rule violations |
 
 ## 📝 License
 

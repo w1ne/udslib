@@ -38,9 +38,9 @@ graph TD
 
 ## 3. Modular Service Registry
 
-A table-driven dispatcher manages UDS services (22 of 27 ISO 14229-1 application
-services are implemented; see [SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md) for
-the authoritative matrix).
+A table-driven dispatcher manages UDS services (all 27 of 27 ISO 14229-1
+application services are implemented; see
+[SERVICE_COMPLIANCE.md](SERVICE_COMPLIANCE.md) for the authoritative matrix).
 
 - **Scalability**: Adding a service (like SID 0x29) requires adding an entry to the `core_services` table.
 - **Extensibility**: Applications register `user_services` in `uds_config_t` to override or extend standard functionality.

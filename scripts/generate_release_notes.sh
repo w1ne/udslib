@@ -161,7 +161,7 @@ ctest
 - [API Documentation](docs/CLIENT_API.md)
 - [Testing Strategy](docs/TESTING_STRATEGY.md)
 - [Porting Guide](README.md#4-porting-guide)
-- [Commercial Licensing](docs/COMMERCIAL_STRATEGY.md)
+- [Commercial Licensing](COMMERCIAL_LICENSE.md)
 
 ## Licensing
 
