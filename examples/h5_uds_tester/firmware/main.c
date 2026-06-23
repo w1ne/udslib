@@ -392,16 +392,16 @@ static void pump_until_done(uint32_t max_ticks)
                     uart_puthex8(frame.data[0]);
                     uart_puthex8(frame.len);
                     uart_putc('>');
-                    uart_putc('p'); /* DIAG: client_pending_sid before callback */
-                    uart_puthex8(g_ctx.client_pending_sid);
-                    uart_putc('c'); /* DIAG: client_cb != 0 */
-                    uart_putc((g_ctx.client_cb != NULL) ? '1' : '0');
+                    uart_putc('p'); /* DIAG: client pending_sid before callback */
+                    uart_puthex8(g_client.pending_sid);
+                    uart_putc('c'); /* DIAG: client cb != 0 */
+                    uart_putc((g_client.cb != NULL) ? '1' : '0');
                 }
                 ++rx_count;
                 uds_isotp_rx_callback(&g_iso, &g_ctx, frame.id, frame.data, frame.len);
                 if (g_diag_pump != 0u && rx_count <= 4u) {
-                    uart_putc('q'); /* DIAG: client_pending_sid AFTER callback */
-                    uart_puthex8(g_ctx.client_pending_sid);
+                    uart_putc('q'); /* DIAG: client pending_sid AFTER callback */
+                    uart_puthex8(g_client.pending_sid);
                     if (g_resp_done) {
                         uart_putc('D'); /* DIAG: resp_done set */
                     }
