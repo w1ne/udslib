@@ -796,53 +796,90 @@ typedef struct
  */
 /* --- Runtime context, grouped by field lifetime/role (Phase 2) --- */
 
+/* Concurrency model (see docs/OSAL.md, docs/ARCHITECTURE.md §8): uds_process()
+ * and uds_input_sdu() run in two different contexts (e.g. a periodic task / a
+ * super-loop tick vs. an RX ISR or RX task). Fields written in one context and
+ * observed in the other are marked `volatile` so the compiler cannot cache a
+ * stale copy across the lock when the "mutex" is a bare disable-IRQ critical
+ * section (the single-core ISR-vs-main case, where there is no library call to
+ * act as a compiler barrier). Fields touched in only ONE context are left plain.
+ */
+
 /** Diagnostic session and dynamic timing. */
 typedef struct uds_session_state
 {
-    uint8_t active;         /**< Currently active session (Default, Programming, ...) */
-    uint32_t last_msg_time; /**< Timestamp of last valid message (S3 timer) */
-    uint16_t p2_ms;         /**< Current P2 server timeout */
-    uint32_t p2_star_ms;    /**< Current P2* server timeout */
-    uint8_t comm_state;     /**< CommunicationControl (0x28) state (uds_comm_control_type_t) */
+    /* Cross-context: written by uds_process() S3 revert and by the 0x10 handler
+     * (uds_input_sdu context); read by the dispatcher in both. */
+    volatile uint8_t active; /**< Currently active session (Default, Programming, ...) */
+    /* Cross-context: stamped in uds_input_sdu(), read by the uds_process() S3 timer. */
+    volatile uint32_t last_msg_time; /**< Timestamp of last valid message (S3 timer) */
+    uint16_t p2_ms;                  /**< Current P2 server timeout (resolved once in uds_init) */
+    uint32_t p2_star_ms;             /**< Current P2* server timeout (resolved once in uds_init) */
+    uint8_t comm_state; /**< CommunicationControl (0x28) state (uds_comm_control_type_t) */
     uint8_t dtc_setting_disabled; /**< ControlDTCSetting (0x85): 1 = DTC setting off, 0 = on */
-    uint32_t s3_ms; /**< Resolved S3 server timeout; 0 at runtime is replaced by UDS_S3_TIMEOUT_MS */
+    uint32_t
+        s3_ms; /**< Resolved S3 server timeout; 0 at runtime is replaced by UDS_S3_TIMEOUT_MS */
 } uds_session_state_t;
 
 /** SecurityAccess (0x27) / Authentication (0x29) state. */
 typedef struct uds_security_state
 {
-    uint8_t level;      /**< Current security level (0 = Locked) */
-    bool authenticated; /**< 0x29 state: true once fn_auth verifies ownership */
-    uint32_t delay_end; /**< Timestamp when the security delay expires */
-    uint8_t attempts;   /**< Counter for failed security attempts */
-    uint8_t seed_level; /**< Level a seed is currently outstanding for (0 = none) */
-    uint8_t seed_len;   /**< Length of the issued seed cached in seed[] */
-    uint8_t seed[UDS_SECURITY_SEED_MAX]; /**< Copy of the last issued seed */
+    /* Cross-context: relocked by the uds_process() S3 revert as well as written
+     * by the 0x27/0x29 handlers (uds_input_sdu context), and read by the
+     * dispatcher's security gate. */
+    volatile uint8_t level;      /**< Current security level (0 = Locked) */
+    volatile bool authenticated; /**< 0x29 state: true once fn_auth verifies ownership */
+    uint32_t delay_end;          /**< Timestamp when the security delay expires (uds_input only) */
+    uint8_t attempts;            /**< Counter for failed security attempts (uds_input only) */
+    /* Cross-context: cleared by the uds_process() S3 revert, set by 0x27. */
+    volatile uint8_t seed_level; /**< Level a seed is currently outstanding for (0 = none) */
+    volatile uint8_t seed_len;   /**< Length of the issued seed cached in seed[] */
+    uint8_t seed[UDS_SECURITY_SEED_MAX]; /**< Copy of the last issued seed (uds_input only) */
 } uds_security_state_t;
 
-/** Server-role persistent state: async response engine + per-service state. */
+/** Server-role persistent state: async response engine + per-service state.
+ *
+ * The fields driving the async-response state machine and the deferred post-TX
+ * engine are shared between the uds_input_sdu() dispatch context and the
+ * uds_process() tick, so they are `volatile` (see the note above
+ * uds_session_state_t). Per-service bookkeeping touched only while dispatching a
+ * request (uds_input_sdu context) is left plain. */
 typedef struct uds_server_state
 {
-    uint32_t p2_timer_start;  /**< Start time for P2 performance tracking */
-    bool p2_msg_pending;      /**< True if a service returned UDS_PENDING */
-    bool p2_star_active;      /**< True once the first 0x78 NRC has been sent */
-    uint8_t pending_sid;      /**< SID awaiting an async (0x78) response */
-    uint16_t rcrrp_count;     /**< Counter for NRC 0x78 repetitions (C-07) */
-    uint8_t flash_sequence;   /**< Block Sequence Counter for SID 0x36 */
-    bool transfer_active;     /**< True between RequestDownload/Upload and TransferExit */
-    bool link_ctrl_verified;  /**< 0x87: a verify sub-function has been accepted */
-    uint32_t link_ctrl_param; /**< 0x87: link parameter latched at verify */
+    /* Cross-context: P2/P2* deadline tracking is armed in uds_input_sdu() /
+     * execute_handler and advanced by the uds_process() timing engine. */
+    volatile uint32_t p2_timer_start; /**< Start time for P2 performance tracking */
+    volatile bool p2_msg_pending;     /**< True if a service returned UDS_PENDING */
+    volatile bool p2_star_active;     /**< True once the first 0x78 NRC has been sent */
+    volatile uint8_t pending_sid;     /**< SID awaiting an async (0x78) response */
+    volatile uint16_t rcrrp_count;    /**< Counter for NRC 0x78 repetitions (C-07) */
+    uint8_t flash_sequence;           /**< Block Sequence Counter for SID 0x36 (uds_input only) */
+    bool transfer_active;     /**< Between RequestDownload/Upload and TransferExit (uds_input) */
+    bool link_ctrl_verified;  /**< 0x87: a verify sub-function has been accepted (uds_input) */
+    uint32_t link_ctrl_param; /**< 0x87: link parameter latched at verify (post-TX engine reads) */
     /* Deferred post-transmit action (ECUReset 0x11, LinkControl 0x87 transition):
      * a disruptive operation held until its positive response is on the wire,
-     * then drained by uds_process() — never via a busy-wait. See #88/#98. */
-    uint8_t posttx_kind;         /**< uds_posttx_kind_t (0 = none) */
-    uint8_t posttx_arg;          /**< resetType, or LinkControl sub-function to replay */
-    uint32_t posttx_wait_start;  /**< get_time_ms() when the transmit-wait began */
-    bool posttx_deadline_set;    /**< posttx_wait_start has been latched */
-    uint8_t periodic_ids[8];     /**< Active periodic IDs (SID 0x2A) */
-    uint8_t periodic_rates[8];   /**< Periodic sub-function rates (1-3) */
-    uint32_t periodic_timers[8]; /**< Next periodic transmission deadline */
-    uint8_t periodic_count;      /**< Number of active periodic IDs */
+     * then drained by uds_process() — never via a busy-wait. See #88/#98.
+     * Cross-context: armed by execute_handler (uds_input_sdu context), drained by
+     * uds_internal_run_posttx_action() (uds_process context). */
+    volatile uint8_t posttx_kind;        /**< uds_posttx_kind_t (0 = none) */
+    volatile uint8_t posttx_arg;         /**< resetType, or LinkControl sub-function to replay */
+    volatile uint32_t posttx_wait_start; /**< get_time_ms() when the transmit-wait began */
+    volatile bool posttx_deadline_set;   /**< posttx_wait_start has been latched */
+    /* Deferred transport handoff: a server response is built in tx_buffer under
+     * the lock, then fn_tp_send() is invoked OUTSIDE the lock by the top-level
+     * entry point. Only the length/flag cross the lock; the bytes stay in the
+     * caller-owned tx_buffer, which the single-response-per-request contract
+     * keeps stable until the flush. Set in execute_handler / uds_send_nrc
+     * (uds_input_sdu context), consumed by the flush in the same call chain. */
+    volatile bool tx_pending;         /**< A response is staged in tx_buffer awaiting fn_tp_send. */
+    volatile uint16_t tx_pending_len; /**< Length of the staged response in tx_buffer. */
+    /* Cross-context: the periodic (0x2A) schedule is edited by its handler
+     * (uds_input_sdu context) and walked by the uds_process() scheduler. */
+    volatile uint8_t periodic_ids[8];     /**< Active periodic IDs (SID 0x2A) */
+    volatile uint8_t periodic_rates[8];   /**< Periodic sub-function rates (1-3) */
+    volatile uint32_t periodic_timers[8]; /**< Next periodic transmission deadline */
+    volatile uint8_t periodic_count;      /**< Number of active periodic IDs */
 #if (UDS_ROE_MAX_EVENTS > 0)
     uds_roe_slot_t roe[UDS_ROE_MAX_EVENTS]; /**< ResponseOnEvent slots (SID 0x86) */
 #endif
@@ -862,6 +899,15 @@ typedef struct uds_dispatch_scratch
     uint16_t secure_capture_size; /**< Capacity of secure_capture_buf */
     uint16_t secure_capture_len;  /**< Bytes captured for the inner response */
     bool secure_capture_overflow; /**< Inner response exceeded the capture buffer */
+    /* True while a request is being dispatched under the library lock (set in
+     * uds_input_sdu_addr around handle_request). Lets the legacy public senders
+     * uds_send_response()/uds_send_nrc() — which some handlers still call
+     * directly, e.g. the 0x19 DTC formatter — STAGE the frame for the top-level
+     * outside-the-lock flush instead of transmitting from inside the lock. When
+     * false (an application calling uds_send_response() to complete a UDS_PENDING
+     * response from its own context), the senders flush immediately so the caller
+     * still sees the synchronous fn_tp_send result. */
+    bool in_dispatch;
 } uds_dispatch_scratch_t;
 
 typedef struct uds_ctx

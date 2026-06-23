@@ -27,6 +27,7 @@ int uds_client_request(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, ui
         c->config->fn_mutex_lock(c->config->mutex_handle);
     }
 
+    /* Build the request frame and arm the completion state under the lock. */
     c->pending_sid = sid;
     c->cb = cb;
 
@@ -34,13 +35,17 @@ int uds_client_request(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, ui
     if ((data != NULL) && (len > 0u)) {
         memcpy(&c->config->tx_buffer[1], data, len);
     }
-
-    int result = c->config->fn_tp_send(NULL, c->config->tx_buffer, (uint16_t) (len + 1u));
+    uint16_t frame_len = (uint16_t) (len + 1u);
 
     if (c->config->fn_mutex_unlock != NULL) {
         c->config->fn_mutex_unlock(c->config->mutex_handle);
     }
-    return result;
+
+    /* Transmit with the lock released, mirroring the server emit path: a slow
+     * fn_tp_send must not stall a concurrent uds_client_handle_response() (or any
+     * other holder of the shared transport mutex). The frame stays in
+     * tx_buffer — only one client request is outstanding at a time. */
+    return c->config->fn_tp_send(NULL, c->config->tx_buffer, frame_len);
 }
 
 bool uds_client_handle_response(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, uint16_t len)

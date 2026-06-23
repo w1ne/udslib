@@ -199,7 +199,11 @@ static void roe_emit_slot(uds_ctx_t *ctx, const uds_roe_slot_t *slot)
     tx[1] = slot->event_type;
     tx[2] = 0x01u; /* numberOfIdentifiedEvents */
     memcpy(&tx[3], captured, (size_t) cap);
-    (void) ctx->config->fn_tp_send(ctx, tx, (uint16_t) (3 + cap));
+    /* Stage the 0xC6 frame; the caller transmits it (with the lock released when
+     * it runs from the uds_process() tick, see uds_internal_roe_service). The
+     * frame lives in tx_buffer until flushed, so callers flush per slot. */
+    ctx->server.tx_pending = true;
+    ctx->server.tx_pending_len = (uint16_t) (3 + cap);
 }
 
 /* onTimerInterrupt rate (eventTypeRecord byte) -> interval in ms. */
@@ -236,6 +240,10 @@ void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now)
             }
             else if ((int32_t) (now - slot->next_fire) >= 0) {
                 roe_emit_slot(ctx, slot);
+                /* uds_process() holds the lock here: transmit the staged 0xC6
+                 * with the lock released so fn_tp_send cannot block a concurrent
+                 * RX context. */
+                uds_internal_flush_tx_unlocked(ctx);
                 slot->next_fire = now + period;
             }
         }
@@ -281,6 +289,10 @@ int uds_roe_trigger(uds_ctx_t *ctx, uint8_t event_type, uint32_t param)
         }
 
         roe_emit_slot(ctx, slot);
+        /* Application-triggered path: no library lock is held here, so transmit
+         * the staged frame directly. Use the no-reconcile flush: a 0xC6 ROE frame
+         * is unrelated to any armed post-TX action and must not cancel one. */
+        (void) uds_internal_flush_tx_noreconcile(ctx);
         emitted++;
     }
     return emitted;
