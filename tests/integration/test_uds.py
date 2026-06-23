@@ -114,7 +114,11 @@ def test_full_sequence():
     try:
         # Step 1: Default -> Extended Session (0x10)
         print("[TEST] 1. Diagnostic Session Control (10 03)")
-        assert client.uds_request(bytes([0x10, 0x03])) == [0x50, 0x03, 0x00, 0x32, 0x01, 0xF4]
+        # P2=0x0032 (50 ms), P2*=0x00C8 (200 -> 2000 ms): the ECU advertises its
+        # configured p2_star_ms=2000 (uds_config in host_sim main.c). Prior to the
+        # single-source-of-truth fix the 0x10 response wrongly advertised the
+        # 5000 ms fallback while the stack actually used 2000 ms.
+        assert client.uds_request(bytes([0x10, 0x03])) == [0x50, 0x03, 0x00, 0x32, 0x00, 0xC8]
         
         # Step 2: Authentication (0x29)
         print("[TEST] 2. Authentication (29 02 - Certificate)")
