@@ -10,6 +10,14 @@
 #define UDS_CLIENT_RESPONSE_OFFSET 0x40u
 #define UDS_CLIENT_NEG_RESPONSE_SID 0x7Fu
 
+/* Largest client request frame copied to a stack snapshot before releasing the
+ * lock, so fn_tp_send can run outside the critical section without a concurrent
+ * context tearing a shared tx_buffer (mirrors UDS_TX_FLUSH_SNAPSHOT_MAX on the
+ * server emit path). A larger frame is sent while the lock is held. */
+#ifndef UDS_CLIENT_TX_SNAPSHOT_MAX
+#define UDS_CLIENT_TX_SNAPSHOT_MAX 512u
+#endif
+
 int uds_client_request(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, uint16_t len,
                        uds_response_cb cb)
 {
@@ -37,15 +45,29 @@ int uds_client_request(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, ui
     }
     uint16_t frame_len = (uint16_t) (len + 1u);
 
-    if (c->config->fn_mutex_unlock != NULL) {
-        c->config->fn_mutex_unlock(c->config->mutex_handle);
+    /* Snapshot the frame before releasing the lock, mirroring the server emit path
+     * (uds_internal_unlock_and_flush_x): if a concurrent context shares this
+     * tx_buffer and rebuilds it after the unlock, the in-flight send must not tear.
+     * A small frame is copied to a bounded stack snapshot and sent with the lock
+     * released (the common case); an oversized frame (only with a large tx_buffer)
+     * is sent WHILE THE LOCK IS HELD so a concurrent context cannot overwrite
+     * tx_buffer mid-send. */
+    int ret;
+    if (frame_len <= (uint16_t) UDS_CLIENT_TX_SNAPSHOT_MAX) {
+        uint8_t snapshot[UDS_CLIENT_TX_SNAPSHOT_MAX];
+        memcpy(snapshot, c->config->tx_buffer, frame_len);
+        if (c->config->fn_mutex_unlock != NULL) {
+            c->config->fn_mutex_unlock(c->config->mutex_handle);
+        }
+        ret = c->config->fn_tp_send(NULL, snapshot, frame_len);
     }
-
-    /* Transmit with the lock released, mirroring the server emit path: a slow
-     * fn_tp_send must not stall a concurrent uds_client_handle_response() (or any
-     * other holder of the shared transport mutex). The frame stays in
-     * tx_buffer — only one client request is outstanding at a time. */
-    return c->config->fn_tp_send(NULL, c->config->tx_buffer, frame_len);
+    else {
+        ret = c->config->fn_tp_send(NULL, c->config->tx_buffer, frame_len);
+        if (c->config->fn_mutex_unlock != NULL) {
+            c->config->fn_mutex_unlock(c->config->mutex_handle);
+        }
+    }
+    return ret;
 }
 
 bool uds_client_handle_response(uds_client_ctx_t *c, uint8_t sid, const uint8_t *data, uint16_t len)

@@ -715,11 +715,19 @@ void uds_process(uds_ctx_t *ctx)
                 return;
             }
 
-            /* Send NRC 0x78 (Response Pending) */
+            /* Send NRC 0x78 (Response Pending). uds_send_nrc only STAGES the frame
+             * into tx_buffer (in_dispatch is true), so transmit it here, before the
+             * periodic (0x2A) / ROE (0x86) schedulers below build their own frame
+             * into the same tx_buffer. Without this flush a same-tick periodic/ROE
+             * frame would overwrite tx_pending/tx_buffer and the responsePending NRC
+             * would be silently dropped. flush_tx_unlocked snapshots, releases the
+             * lock, transmits, then retakes the lock (reconcile=false: the 0x78 arms
+             * no post-TX action). */
             uds_send_nrc(ctx, ctx->server.pending_sid, UDS_NRC_RESPONSE_PENDING);
             ctx->server.rcrrp_count++;
             ctx->server.p2_star_active = true;
             ctx->server.p2_timer_start = now; /* Reset timer for P2* */
+            uds_internal_flush_tx_unlocked(ctx);
         }
     }
 
@@ -854,7 +862,26 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
  * thread is never starved. */
 void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
 {
+    /* Cheap unlocked guard: the overwhelmingly common tick has no action armed, so
+     * bail without touching the lock (keeps uds_process() at one lock/unlock per
+     * idle tick). A stale read here is benign — if an action was armed
+     * concurrently, the next uds_process() tick catches it (the response it is
+     * gated on has only just been queued anyway). */
     if (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE) {
+        return;
+    }
+
+    /* Serialize the posttx FLAG bookkeeping (posttx_kind/posttx_deadline_set/
+     * posttx_wait_start) under the lock: this function runs in the uds_process()
+     * context with the lock released, while uds_internal_reconcile_posttx() may
+     * concurrently test-and-clear the same flags from a flush path. volatile gives
+     * no atomicity, so the read-latch-clear is wrapped in the lock; only the
+     * potentially slow/rebooting fn_reset/fn_link_control callbacks run OUTSIDE it.
+     * fn_tx_complete (a transport poll) is also kept outside the lock. */
+    uds_internal_lock(ctx);
+    if (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE) {
+        /* Cleared by a concurrent reconcile between the guard above and this lock. */
+        uds_internal_unlock(ctx);
         return;
     }
 
@@ -864,11 +891,13 @@ void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
         ctx->server.posttx_wait_start = now;
         ctx->server.posttx_deadline_set = true;
     }
+    uint32_t wait_start = ctx->server.posttx_wait_start;
+    uds_internal_unlock(ctx);
 
     bool tx_done = (ctx->config->fn_tx_complete != NULL) ? ctx->config->fn_tx_complete(ctx) : false;
     uint16_t budget = (ctx->config->reset_tx_wait_ms != 0u) ? ctx->config->reset_tx_wait_ms
                                                             : UDS_DEFAULT_RESET_TX_WAIT_MS;
-    bool deadline = (uint32_t) (now - ctx->server.posttx_wait_start) >= (uint32_t) budget;
+    bool deadline = (uint32_t) (now - wait_start) >= (uint32_t) budget;
     if (!tx_done && !deadline) {
         return; /* still draining; try again next uds_process() tick */
     }
@@ -876,12 +905,19 @@ void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
         uds_internal_log(ctx, UDS_LOG_INFO, "post-TX action: transmit-wait timed out, forcing");
     }
 
+    /* Test-and-clear under the lock so a concurrent reconcile cannot fire the
+     * action while it is being cancelled (or leave the flag stale). A reconcile
+     * that already cleared posttx_kind between the unlock above and this re-lock
+     * makes kind == NONE here, so the action is skipped. */
+    uds_internal_lock(ctx);
     uint8_t kind = ctx->server.posttx_kind;
     uint8_t arg = ctx->server.posttx_arg;
     /* Clear before invoking: the action may reboot and never return, and a
      * returning action must not run twice. */
     ctx->server.posttx_kind = (uint8_t) UDS_POSTTX_NONE;
     ctx->server.posttx_deadline_set = false;
+    uint8_t link_ctrl_param = ctx->server.link_ctrl_param;
+    uds_internal_unlock(ctx);
 
     switch (kind) {
         case (uint8_t) UDS_POSTTX_RESET:
@@ -895,7 +931,7 @@ void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
                  * failure cannot become an NRC (feasibility was checked at the
                  * verify step). Surface it via the log rather than dropping it
                  * silently, so the link entering an undefined state is observable. */
-                if (ctx->config->fn_link_control(ctx, arg, ctx->server.link_ctrl_param) != 0) {
+                if (ctx->config->fn_link_control(ctx, arg, link_ctrl_param) != 0) {
                     uds_internal_log(ctx, UDS_LOG_ERROR,
                                      "LinkControl: transition failed after response was sent");
                 }
@@ -966,10 +1002,28 @@ int uds_emit_response(uds_ctx_t *ctx, uint16_t len)
  * per-frame periodic/ROE flush paths pass reconcile=false. */
 static void uds_internal_reconcile_posttx(uds_ctx_t *ctx, int ret)
 {
-    if ((ret != UDS_OK) && (ctx->server.posttx_kind != (uint8_t) UDS_POSTTX_NONE)) {
+    /* PRECONDITION: caller does NOT hold the lock (every reconcile=true flush path
+     * has already released it before calling this). The posttx FLAG test-and-clear
+     * is serialized under the lock here so it cannot race the bookkeeping in
+     * uds_internal_run_posttx_action(): volatile alone gives no atomicity, so on a
+     * preemptive/two-core target a bare RMW could clear the flag mid-fire or leave
+     * it stale. The transport (fn_tp_send) already ran outside the lock; only this
+     * tiny flag update is serialized. */
+
+    /* Cheap unlocked guard: a successful send (the common case) cancels nothing,
+     * and with no action armed there is nothing to clear — bail without touching
+     * the lock so a normal dispatch flush keeps its single lock/unlock. Only the
+     * actual cancellation RMW below needs serialization. */
+    if ((ret == UDS_OK) || (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE)) {
+        return;
+    }
+
+    uds_internal_lock(ctx);
+    if (ctx->server.posttx_kind != (uint8_t) UDS_POSTTX_NONE) {
         ctx->server.posttx_kind = (uint8_t) UDS_POSTTX_NONE;
         ctx->server.posttx_deadline_set = false;
     }
+    uds_internal_unlock(ctx);
 }
 
 /* Release the lock and transmit the frame a server emit staged in tx_buffer.
