@@ -27,6 +27,14 @@ static void mock_reset_cb(uds_ctx_t *ctx, uint8_t type)
     g_last_reset_type = type;
 }
 
+/* The reset is deferred until uds_process() observes transmit-complete; in tests
+ * that just want the reset to run, report the frame as already on the wire. */
+static bool always_tx_complete(uds_ctx_t *ctx)
+{
+    (void) ctx;
+    return true;
+}
+
 static int mock_dtc_clear_cb(uds_ctx_t *ctx, uint32_t group)
 {
     (void) ctx;
@@ -69,6 +77,7 @@ static void test_ecu_reset_response_sent_before_reset(void **state)
     setup_ctx(&ctx, &cfg);
     cfg.fn_tp_send = order_tp_send; /* override the cmocka mock to record order */
     cfg.fn_reset = order_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
     g_order_seq = 0;
     g_send_order = 0;
     g_reset_order = 0;
@@ -80,8 +89,14 @@ static void test_ecu_reset_response_sent_before_reset(void **state)
 
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    /* Both happened... */
+    /* Response is on the wire; the reset is deferred, not run in the RX path. */
     assert_int_not_equal(g_send_order, 0);
+    assert_int_equal(g_reset_order, 0);
+
+    will_return(mock_get_time, 1000); /* uds_process tick drains the reset */
+    uds_process(&ctx);
+
+    /* Both happened... */
     assert_int_not_equal(g_reset_order, 0);
     /* ...and the positive response went out BEFORE the reset was performed. */
     assert_true(g_send_order < g_reset_order);
@@ -96,6 +111,7 @@ static void test_ecu_reset_hard_success(void **state)
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
     cfg.fn_reset = mock_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
     g_reset_called = 0;
 
     uint8_t request[] = {0x11, 0x01};
@@ -110,6 +126,10 @@ static void test_ecu_reset_hard_success(void **state)
 
     assert_int_equal(g_tx_buf[0], 0x51);
     assert_int_equal(g_tx_buf[1], 0x01);
+    assert_int_equal(g_reset_called, 0); /* deferred until uds_process */
+
+    will_return(mock_get_time, 1000); /* uds_process tick drains the reset */
+    uds_process(&ctx);
     assert_int_equal(g_reset_called, 1);
     assert_int_equal(g_last_reset_type, 0x01);
 }
@@ -145,6 +165,7 @@ static void test_ecu_reset_suppress_pos_resp(void **state)
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
     cfg.fn_reset = mock_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
     g_reset_called = 0;
 
     /* 0x11 0x81 -> Hard Reset (0x01) + SuppressPosResp (0x80) */
@@ -155,7 +176,10 @@ static void test_ecu_reset_suppress_pos_resp(void **state)
     /* NO expect_any(mock_tp_send, data) here because it must be suppressed */
 
     uds_input_sdu(&ctx, request, sizeof(request));
+    assert_int_equal(g_reset_called, 0); /* deferred until uds_process */
 
+    will_return(mock_get_time, 1000); /* uds_process tick drains the reset */
+    uds_process(&ctx);
     assert_int_equal(g_reset_called, 1);
     assert_int_equal(g_last_reset_type, 0x01);
 }
@@ -179,12 +203,13 @@ static void test_ecu_reset_suppress_does_not_leak(void **state)
     cfg.fn_dtc_clear = mock_dtc_clear_cb;
     g_reset_called = 0;
 
-    /* 1. Suppressed hard reset (0x11 0x81): no response is emitted. */
+    /* 1. Suppressed hard reset (0x11 0x81): no response is emitted. The reset is
+     * deferred to uds_process and must not run here in the RX path. */
     uint8_t reset_req[] = {0x11, 0x81};
     will_return(mock_get_time, 1000); /* Input */
     will_return(mock_get_time, 1000); /* Dispatch */
     uds_input_sdu(&ctx, reset_req, sizeof(reset_req));
-    assert_int_equal(g_reset_called, 1);
+    assert_int_equal(g_reset_called, 0);
 
     /* 2. The next service MUST still respond. 0x14 0xFFFFFF -> 0x54. */
     uint8_t clear_req[] = {0x14, 0xFF, 0xFF, 0xFF};
@@ -208,6 +233,7 @@ static void test_ecu_reset_rapid_shutdown_power_down_time(void **state)
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
     cfg.fn_reset = mock_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
     cfg.power_down_time = 0x05u;
     g_reset_called = 0;
 
@@ -224,6 +250,10 @@ static void test_ecu_reset_rapid_shutdown_power_down_time(void **state)
     assert_int_equal(g_tx_buf[0], 0x51);
     assert_int_equal(g_tx_buf[1], 0x04);
     assert_int_equal(g_tx_buf[2], 0x05);
+    assert_int_equal(g_reset_called, 0); /* deferred until uds_process */
+
+    will_return(mock_get_time, 1000); /* uds_process tick drains the reset */
+    uds_process(&ctx);
     assert_int_equal(g_reset_called, 1);
     assert_int_equal(g_last_reset_type, 0x04);
 }
@@ -294,6 +324,7 @@ static void test_ecu_reset_secured_defers_until_outer_response(void **state)
     setup_ctx(&ctx, &cfg);
     cfg.fn_tp_send = order_tp_send; /* record send vs reset order */
     cfg.fn_reset = order_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
     cfg.fn_secure_decode = xor_decode;
     cfg.fn_secure_encode = xor_encode;
     g_order_seq = 0;
@@ -315,6 +346,12 @@ static void test_ecu_reset_secured_defers_until_outer_response(void **state)
     assert_int_equal(g_tx_buf[4], 0xAB);
     /* Exactly one real transmit (the inner 0x51 was captured, not sent). */
     assert_int_equal(g_send_order, 1);
+    /* The reset stays queued across the inner/outer hops, deferred to uds_process. */
+    assert_int_equal(g_reset_order, 0);
+
+    will_return(mock_get_time, 1000); /* uds_process tick drains the reset */
+    uds_process(&ctx);
+
     /* Reset fired strictly after the outer secured response was sent. */
     assert_int_not_equal(g_reset_order, 0);
     assert_true(g_send_order < g_reset_order);
@@ -345,6 +382,7 @@ static void test_ecu_reset_88_reboot_response_on_wire(void **state)
     setup_ctx(&ctx, &cfg);
     cfg.fn_tp_send = order_tp_send; /* records into g_tx_buf + g_send_order */
     cfg.fn_reset = reboot_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
     g_order_seq = 0;
     g_send_order = 0;
     g_rebooted = 0;
@@ -354,17 +392,20 @@ static void test_ecu_reset_88_reboot_response_on_wire(void **state)
 
     will_return(mock_get_time, 1000); /* Input */
     will_return(mock_get_time, 1000); /* Dispatch */
+    uds_input_sdu(&ctx, request, sizeof(request));
 
-    if (setjmp(g_reboot_env) == 0) {
-        uds_input_sdu(&ctx, request, sizeof(request));
-    }
-
-    /* The reset fired (so we reached it)... */
-    assert_int_equal(g_rebooted, 1);
-    /* ...and the 0x51 01 response was already handed to the transport. */
+    /* The response is on the wire and the reboot has NOT happened in the RX path. */
+    assert_int_equal(g_rebooted, 0);
     assert_int_not_equal(g_send_order, 0);
     assert_int_equal(g_tx_buf[0], 0x51);
     assert_int_equal(g_tx_buf[1], 0x01);
+
+    /* uds_process drains the reset: the reboot fires here, never to return. */
+    will_return(mock_get_time, 1000);
+    if (setjmp(g_reboot_env) == 0) {
+        uds_process(&ctx);
+    }
+    assert_int_equal(g_rebooted, 1);
 }
 
 /* --- issue #88: TX-complete gate before reset --- */
@@ -396,8 +437,10 @@ static void gate_reset_cb(uds_ctx_t *ctx, uint8_t type)
     g_reset_at_txc_calls = g_txc_calls;
 }
 
-/* Reset must wait until fn_tx_complete reports the frame is on the wire. */
-static void test_ecu_reset_waits_for_tx_complete(void **state)
+/* #98: the deferred reset must be drained by uds_process — the periodic tick
+ * every substrate runs — and never spun on inside the RX path. fn_tx_complete is
+ * polled at most ONCE per uds_process call (no busy-wait). */
+static void test_ecu_reset_drained_by_process_one_poll_per_tick(void **state)
 {
     (void) state;
     uds_ctx_t ctx;
@@ -406,26 +449,65 @@ static void test_ecu_reset_waits_for_tx_complete(void **state)
     cfg.fn_tp_send = order_tp_send;
     cfg.fn_reset = gate_reset_cb;
     cfg.fn_tx_complete = fake_tx_complete;
-    cfg.get_time_ms = fake_now; /* override mock_get_time: no will_return needed */
+    cfg.get_time_ms = fake_now;
     g_fake_now = 1000;
-    g_fake_now_step = 0; /* time frozen => never times out */
+    g_fake_now_step = 0; /* time frozen: only tx_complete can release the reset */
     g_txc_calls = 0;
     g_txc_true_after = 3;
     g_reset_called = 0;
-    g_reset_at_txc_calls = 0;
 
     uint8_t request[] = {0x11, 0x01};
     uds_input_sdu(&ctx, request, sizeof(request));
 
-    assert_int_equal(g_reset_called, 1);   /* reset happened */
-    assert_true(g_txc_calls >= 4);         /* polled until true */
-    assert_true(g_reset_at_txc_calls > 3); /* only after tx_complete returned true */
+    /* Response is on the wire, but the reset has NOT run in the RX path... */
     assert_int_equal(g_tx_buf[0], 0x51);
     assert_int_equal(g_tx_buf[1], 0x01);
+    assert_int_equal(g_reset_called, 0);
+    assert_int_equal(g_txc_calls, 0); /* ...and fn_tx_complete was not polled yet */
+
+    /* ...each uds_process polls fn_tx_complete exactly once (no spin). */
+    int ticks = 0;
+    while ((g_reset_called == 0) && (ticks < 20)) {
+        uds_process(&ctx);
+        ticks++;
+        assert_int_equal(g_txc_calls, ticks);
+    }
+    assert_int_equal(g_reset_called, 1);
+    assert_int_equal(ticks, 4); /* true_after == 3 => releases on the 4th poll */
 }
 
-/* A transport that never completes must not hang the ECU: reset is forced
- * after reset_tx_wait_ms. */
+/* #98: with no fn_tx_complete the reset still must not fire in the RX path; it is
+ * deferred and drained by uds_process once reset_tx_wait_ms has elapsed — a
+ * non-blocking, configurable generalisation of a fixed post-response delay. */
+static void test_ecu_reset_no_hook_deferred_by_time(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = order_tp_send;
+    cfg.fn_reset = gate_reset_cb; /* no fn_tx_complete configured */
+    cfg.get_time_ms = fake_now;
+    cfg.reset_tx_wait_ms = 50u;
+    g_fake_now = 0;
+    g_fake_now_step = 10; /* +10ms per get_time call */
+    g_reset_called = 0;
+    g_txc_calls = 0;
+
+    uint8_t request[] = {0x11, 0x01};
+    uds_input_sdu(&ctx, request, sizeof(request));
+    assert_int_equal(g_reset_called, 0); /* not fired synchronously in RX path */
+
+    int ticks = 0;
+    while ((g_reset_called == 0) && (ticks < 50)) {
+        uds_process(&ctx);
+        ticks++;
+    }
+    assert_int_equal(g_reset_called, 1); /* fired once the budget elapsed */
+}
+
+/* A transport that never completes must not strand the ECU: uds_process forces
+ * the deferred reset once reset_tx_wait_ms has elapsed (non-blocking backstop). */
 static void test_ecu_reset_tx_complete_timeout_forces_reset(void **state)
 {
     (void) state;
@@ -438,16 +520,22 @@ static void test_ecu_reset_tx_complete_timeout_forces_reset(void **state)
     cfg.get_time_ms = fake_now;
     cfg.reset_tx_wait_ms = 50u;
     g_fake_now = 0;
-    g_fake_now_step = 10; /* +10ms per call => crosses 50ms */
+    g_fake_now_step = 10; /* +10ms per get_time call => crosses 50ms */
     g_txc_calls = 0;
     g_txc_true_after = 1000000; /* never true */
     g_reset_called = 0;
 
     uint8_t request[] = {0x11, 0x01};
     uds_input_sdu(&ctx, request, sizeof(request));
+    assert_int_equal(g_reset_called, 0); /* not fired in the RX path */
 
-    assert_int_equal(g_reset_called, 1); /* forced despite tx never complete */
-    assert_true(g_txc_calls < 100);      /* loop terminated, no hang */
+    int ticks = 0;
+    while ((g_reset_called == 0) && (ticks < 100)) {
+        uds_process(&ctx);
+        ticks++;
+    }
+    assert_int_equal(g_reset_called, 1); /* forced despite tx never completing */
+    assert_true(ticks < 100);            /* terminated via the timeout, no hang */
 }
 
 int main(void)
@@ -462,7 +550,8 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_rapid_shutdown_power_down_time),
         cmocka_unit_test(test_ecu_reset_no_reset_when_send_fails),
         cmocka_unit_test(test_ecu_reset_secured_defers_until_outer_response),
-        cmocka_unit_test(test_ecu_reset_waits_for_tx_complete),
+        cmocka_unit_test(test_ecu_reset_drained_by_process_one_poll_per_tick),
+        cmocka_unit_test(test_ecu_reset_no_hook_deferred_by_time),
         cmocka_unit_test(test_ecu_reset_tx_complete_timeout_forces_reset),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

@@ -307,22 +307,37 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
             break;
     }
 
-    /* Deferred reset runs only after the response is on the wire, and never
-     * during a captured (0x84/0x86 inner) dispatch: a 0x11 nested in a 0x84 must
-     * not reboot before the OUTER secured response is emitted, and the outer
-     * handler may cancel the reset if it fails to emit (NRC). While capturing,
-     * leave reset_pending set for the outer dispatch's execute_handler to run. */
-    if (!ctx->scratch.secure_capturing && ctx->scratch.reset_pending) {
-        /* Only reset if the response actually reached the transport: a tester
-         * left without its confirmation must not be desynchronised by a reboot.
-         * uds_internal_run_pending_reset clears reset_pending and, when
-         * fn_tx_complete is configured, waits for the response to clear the wire
-         * before invoking fn_reset (issue #88). */
-        if (emit_ok) {
-            uds_internal_run_pending_reset(ctx);
+    /* A disruptive action the handler deferred (ECUReset 0x11, LinkControl 0x87
+     * transition) runs only after the response is on the wire, and never during
+     * a captured (0x84/0x86 inner) dispatch: a 0x11 nested in a 0x84 must not
+     * reboot before the OUTER secured response is emitted, and the outer handler
+     * may cancel it if it fails to emit (NRC). While capturing, the per-dispatch
+     * decision is left in scratch for the outer dispatch's execute_handler. */
+    if (!ctx->scratch.secure_capturing) {
+        uint8_t kind = (uint8_t) UDS_POSTTX_NONE;
+        uint8_t arg = 0u;
+        if (ctx->scratch.reset_pending) {
+            kind = (uint8_t) UDS_POSTTX_RESET;
+            arg = ctx->scratch.reset_pending_type;
         }
-        else {
+        else if (ctx->scratch.link_transition_pending) {
+            kind = (uint8_t) UDS_POSTTX_LINK_CONTROL;
+            arg = ctx->scratch.posttx_arg; /* transitionMode sub-function */
+        }
+
+        if (kind != (uint8_t) UDS_POSTTX_NONE) {
+            /* Promote to a non-blocking post-TX action that uds_process drains
+             * once the response has cleared the wire (issue #88/#98) — never via
+             * a busy-wait. Skipped if the response was not emitted: a tester left
+             * without its confirmation must not be desynchronised by a reboot or
+             * a link switch. */
+            if (emit_ok) {
+                ctx->server.posttx_kind = kind;
+                ctx->server.posttx_arg = arg;
+                ctx->server.posttx_deadline_set = false;
+            }
             ctx->scratch.reset_pending = false;
+            ctx->scratch.link_transition_pending = false;
         }
     }
 }
@@ -698,6 +713,11 @@ void uds_process(uds_ctx_t *ctx)
     if (ctx->config->fn_mutex_unlock) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
     }
+
+    /* Drain any disruptive action deferred until its response is on the wire
+     * (ECUReset 0x11, LinkControl 0x87 transition). Run outside the mutex: the
+     * action may reboot or take time, and must not hold the lock. */
+    uds_internal_run_posttx_action(ctx, now);
 }
 
 void uds_input_sdu(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
@@ -761,36 +781,58 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
     }
 }
 
-/* Fire the deferred ECU reset (issue #88). reset_pending lives in per-dispatch
- * scratch under the framework-emission model; the secure-capturing / emit_ok
- * gating is owned by execute_handler, so this runs only once the framework has
- * decided the reset should proceed. When fn_tx_complete is provided, wait
- * (bounded by reset_tx_wait_ms) until the just-emitted response is on the wire,
- * so a rebooting fn_reset cannot drop it. */
-void uds_internal_run_pending_reset(uds_ctx_t *ctx)
+/* Drain a deferred post-TX action (issue #88/#98). execute_handler promotes a
+ * handler's deferred decision into ctx->server.posttx_* once the response has
+ * been emitted; this runs it from the uds_process() tick as soon as
+ * fn_tx_complete reports the response is on the wire, or once reset_tx_wait_ms
+ * elapses. It polls transmit-complete at most once per tick — never spins — so a
+ * rebooting fn_reset cannot drop the just-emitted response and a cooperative RTOS
+ * thread is never starved. */
+void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
 {
-    if (!ctx->scratch.reset_pending) {
-        return;
-    }
-    ctx->scratch.reset_pending = false;
-    if (ctx->config->fn_reset == NULL) {
+    if (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE) {
         return;
     }
 
-    if (ctx->config->fn_tx_complete != NULL) {
-        uint16_t budget = (ctx->config->reset_tx_wait_ms != 0u) ? ctx->config->reset_tx_wait_ms
-                                                                : UDS_DEFAULT_RESET_TX_WAIT_MS;
-        uint32_t start = ctx->config->get_time_ms();
-        while (!ctx->config->fn_tx_complete(ctx)) {
-            if ((uint32_t) (ctx->config->get_time_ms() - start) >= (uint32_t) budget) {
-                uds_internal_log(ctx, UDS_LOG_INFO,
-                                 "reset: TX-complete wait timed out, forcing reset");
-                break;
+    /* Latch the wait window the first tick we observe the action; the response is
+     * already queued by the time uds_process runs. */
+    if (!ctx->server.posttx_deadline_set) {
+        ctx->server.posttx_wait_start = now;
+        ctx->server.posttx_deadline_set = true;
+    }
+
+    bool tx_done = (ctx->config->fn_tx_complete != NULL) ? ctx->config->fn_tx_complete(ctx) : false;
+    uint16_t budget = (ctx->config->reset_tx_wait_ms != 0u) ? ctx->config->reset_tx_wait_ms
+                                                            : UDS_DEFAULT_RESET_TX_WAIT_MS;
+    bool deadline = (uint32_t) (now - ctx->server.posttx_wait_start) >= (uint32_t) budget;
+    if (!tx_done && !deadline) {
+        return; /* still draining; try again next uds_process() tick */
+    }
+    if (!tx_done && deadline) {
+        uds_internal_log(ctx, UDS_LOG_INFO, "post-TX action: transmit-wait timed out, forcing");
+    }
+
+    uint8_t kind = ctx->server.posttx_kind;
+    uint8_t arg = ctx->server.posttx_arg;
+    /* Clear before invoking: the action may reboot and never return, and a
+     * returning action must not run twice. */
+    ctx->server.posttx_kind = (uint8_t) UDS_POSTTX_NONE;
+    ctx->server.posttx_deadline_set = false;
+
+    switch (kind) {
+        case (uint8_t) UDS_POSTTX_RESET:
+            if (ctx->config->fn_reset != NULL) {
+                ctx->config->fn_reset(ctx, arg);
             }
-        }
+            break;
+        case (uint8_t) UDS_POSTTX_LINK_CONTROL:
+            if (ctx->config->fn_link_control != NULL) {
+                (void) ctx->config->fn_link_control(ctx, arg, ctx->server.link_ctrl_param);
+            }
+            break;
+        default:
+            break;
     }
-
-    ctx->config->fn_reset(ctx, ctx->scratch.reset_pending_type);
 }
 
 int uds_emit_response(uds_ctx_t *ctx, uint16_t len)
