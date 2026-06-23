@@ -71,22 +71,31 @@ jobs:
               echo "All host examples built and ran."
             '
 
-  # The STM32H563 secure-boot bootloader is the one firmware example built by no
-  # other gate. It cross-compiles with arm-none-eabi-gcc and needs the STM32
-  # CMSIS + mbedTLS-3.6 source trees, which a Zephyr west workspace provides at
-  # the paths the bootloader Makefile defaults to. (The h5 firmwares are
-  # compile-checked per-PR in ci.yml core-gate and fully built + sim-run in
-  # nightly-h5-gate.)
-  firmware-bootloader:
+  # The ARM firmware examples are cross-compiled and heavy to build, so they are
+  # gated here (nightly) rather than in the fast per-PR core-gate. A udslib
+  # public-API change can silently break them — exactly how the v2.0.0 client
+  # split broke h5_uds_tester — so this job builds all three against the current
+  # headers. The h5 full ELF + dual-MCU sim run additionally live in
+  # nightly-h5-gate; here we only need the compile to catch API drift.
+  firmware:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ARM GCC toolchain + west
+      - name: Install toolchains + west
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi python3-pip
+          # clang: h5 cross compile (--target=arm-none-eabi). gcc-arm-none-eabi:
+          # the H563 bootloader. west: fetch the STM32 CMSIS + mbedTLS modules.
+          sudo apt-get install -y clang gcc-arm-none-eabi python3-pip
           pip3 install --no-cache-dir --break-system-packages west
+
+      - name: Compile-check h5 firmware examples (udslib API gate)
+        run: |
+          # `objs` builds every translation unit against the udslib headers but
+          # skips the link, so no cross linker (rust-lld) is needed.
+          make -C examples/h5_uds_ecu_full/firmware objs UDSLIB_DIR="$PWD"
+          make -C examples/h5_uds_tester/firmware  objs UDSLIB_DIR="$PWD"
 
       - name: Initialise Zephyr workspace (STM32 CMSIS + mbedTLS-3.6 modules)
         run: |
@@ -112,4 +121,4 @@ jobs:
             echo "=== bootloader test: $t ==="
             make -C "$BL/bootloader" "$t"
           done
-          echo "Bootloader firmware + host tests OK."
+          echo "All firmware examples built; bootloader host tests OK."
