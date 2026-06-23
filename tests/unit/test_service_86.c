@@ -324,6 +324,48 @@ static void test_roe_setup_echo_overflow_nrc(void **state)
     assert_int_equal(region.canary, 0xBB);
 }
 
+/* §2: roe_emit_slot must not copy into tx_buffer when 3+cap would exceed
+ * tx_buffer_size.  Strategy: set up and start with a normal-sized buffer, then
+ * shrink tx_buffer_size to 6 before the trigger.  The inner DID read response
+ * is 5 bytes (62 F1 90 DE AD), so the ROE emit frame would need 3+5=8 bytes —
+ * exceeding the shrunken limit of 6.  A canary byte at g_tx_buf[6] must remain
+ * intact, and no tp_send must be called. */
+static void test_roe_emit_overflow_skipped(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.did_table = k_did_table;
+
+    uint8_t setup[] = {0x86, 0x03, 0x02, 0xF1, 0x90, 0x22, 0xF1, 0x90};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 9);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, setup, sizeof(setup));
+
+    uint8_t start[] = {0x86, 0x05};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, start, sizeof(start));
+
+    /* Shrink the tx window so 3+5=8 byte emit frame no longer fits.
+     * Place a canary at the new limit to catch any out-of-bounds write. */
+    cfg.tx_buffer_size = 6u;
+    uint8_t canary_val = 0xCC;
+    g_tx_buf[6] = canary_val;
+
+    /* Trigger: emit would need 8 bytes but tx_buffer_size=6 -> skip.
+     * No tp_send call expected (cmocka fails if it is called).
+     * The slot matched so emitted=1, but no frame was sent. */
+    int emitted = uds_roe_trigger(&ctx, 0x03, 0xF190u);
+    assert_int_equal(emitted, 1); /* slot matched */
+    assert_int_equal(g_tx_buf[6], canary_val); /* no overflow past byte 6 */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -335,6 +377,7 @@ int main(void)
         cmocka_unit_test(test_roe_serialize_roundtrip),
         cmocka_unit_test(test_roe_compare_fires),
         cmocka_unit_test(test_roe_setup_echo_overflow_nrc),
+        cmocka_unit_test(test_roe_emit_overflow_skipped),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

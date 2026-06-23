@@ -194,6 +194,14 @@ static void roe_emit_slot(uds_ctx_t *ctx, const uds_roe_slot_t *slot)
         return;
     }
 
+    /* Guard: drop the emit silently when the assembled frame would exceed the
+     * configured tx_buffer_size.  ROE emits are asynchronous — there is no live
+     * request to answer with an NRC — so a silent drop is the correct action,
+     * exactly as for the cap <= 0 case above. */
+    if (((uint16_t) cap + 3u) > ctx->config->tx_buffer_size) {
+        return;
+    }
+
     uint8_t *tx = ctx->config->tx_buffer;
     tx[0] = (uint8_t) ROE_RESP_SID;
     tx[1] = slot->event_type;
