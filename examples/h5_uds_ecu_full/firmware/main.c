@@ -117,6 +117,7 @@ void *__aeabi_memclr8(void *dst, size_t n)
 #define FDCAN_REG_IR 0x050u
 #define FDCAN_REG_RXF0S 0x090u
 #define FDCAN_REG_RXF0A 0x094u
+#define FDCAN_REG_TXBRP 0x0C8u /* TX Buffer Request Pending */
 #define FDCAN_REG_TXBAR 0x0CCu
 
 #define FDCAN_RAM_BASE 0x800u
@@ -300,11 +301,26 @@ static const uds_did_entry_t g_ecu_dids[2] = {
 
 /* ---- Service callbacks — all fn_* hooks, mirroring examples/host_sim/main.c ---- */
 
+/* True once every FDCAN TX buffer has been transmitted (mailbox drained):
+ * TXBRP == 0. Gates the reset so the 0x51 response reaches the bus first. */
+static bool fn_tx_complete(uds_ctx_t *ctx)
+{
+    (void) ctx;
+    return REG32(fdcan_reg(FDCAN_REG_TXBRP)) == 0u;
+}
+
+/* Real Cortex-M system reset via SCB->AIRCR SYSRESETREQ. Never returns. */
 static void fn_reset(uds_ctx_t *ctx, uint8_t type)
 {
     (void) ctx;
     (void) type;
     uart_puts("ECU_RESET\n");
+    volatile uint32_t *aircr = (volatile uint32_t *) 0xE000ED0Cu;
+    __asm volatile("dsb 0xF" ::: "memory");
+    *aircr = (uint32_t) ((0x5FAu << 16) | (*aircr & 0x700u) | (1u << 2));
+    __asm volatile("dsb 0xF" ::: "memory");
+    for (;;) {
+    }
 }
 
 static int fn_dtc_read(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, uint16_t req_len,
@@ -570,6 +586,7 @@ int main(void)
 
     /* Service callbacks — all 27 ISO-14229-1 services, idiomatic udslib. */
     cfg.fn_reset = fn_reset;
+    cfg.fn_tx_complete = fn_tx_complete; /* hold reset until 0x51 is on the wire */
     cfg.fn_dtc_read = fn_dtc_read;
     cfg.fn_dtc_clear = fn_dtc_clear;
     cfg.fn_security_seed = fn_security_seed;
