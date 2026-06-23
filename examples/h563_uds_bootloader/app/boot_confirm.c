@@ -41,8 +41,8 @@
 
 /* The two NSKEYR unlock magic values (RM0481 §7.3.1) — architectural
  * constants, not register addresses. */
-#define FLASH_NSKEY1    0x45670123UL
-#define FLASH_NSKEY2    0xCDEF89ABUL
+#define FLASH_NSKEY1 0x45670123UL
+#define FLASH_NSKEY2 0xCDEF89ABUL
 
 /* Finite cap on the BSY spin so a stuck flash controller cannot hang the app
  * (mirrors FLASH_BSY_TIMEOUT in the bootloader's flash_h5.h). */
@@ -52,7 +52,7 @@
  * Boot-state sector number within the active bank (sector 11, 0-based).
  * Erase at 0x08016000 (bank_base + 11 * 8 KB = bank_base + 0x16000).
  */
-#define BOOT_STATE_SECTOR  11u
+#define BOOT_STATE_SECTOR 11u
 
 /* ---------------------------------------------------------------------------
  * boot_confirm
@@ -71,9 +71,9 @@ RAMFUNC void boot_confirm(void)
      * it via NSCR.BKSEL.  This matches the bootloader's flash_erase_sector(),
      * which likewise selects the erase target by physical bank index.
      */
-    uint32_t cr = FLASH_CR_SER
-                | (((uint32_t) BOOT_STATE_SECTOR << FLASH_CR_SNB_Pos) & FLASH_CR_SNB_Msk)
-                | FLASH_CR_START;
+    uint32_t cr = FLASH_CR_SER |
+                  (((uint32_t) BOOT_STATE_SECTOR << FLASH_CR_SNB_Pos) & FLASH_CR_SNB_Msk) |
+                  FLASH_CR_START;
     if ((FLASH->OPTSR_CUR & FLASH_OPTSR_SWAP_BANK) != 0u) {
         cr |= FLASH_CR_BKSEL; /* bank 2 is the running bank */
     }

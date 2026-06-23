@@ -19,7 +19,7 @@
 #define MBEDTLS_AES_C
 #define MBEDTLS_CIPHER_C
 #define MBEDTLS_CMAC_C
-#define MBEDTLS_AES_ROM_TABLES  /* saves ~10KB RAM, uses ROM for S-boxes */
+#define MBEDTLS_AES_ROM_TABLES /* saves ~10KB RAM, uses ROM for S-boxes */
 
 /*
  * Image authenticity (secure boot): RSA-2048 PKCS#1 v1.5 signature

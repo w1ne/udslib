@@ -26,8 +26,8 @@ void Reset(void)
     }
 }
 
-__attribute__((section(".isr_vector"), used)) void (*const g_vectors[16])(void) = {
-    (void (*)(void)) &_estack,
+__attribute__((section(".isr_vector"), used)) void (* const g_vectors[16])(void) = {
+    (void (*)(void)) & _estack,
     Reset,
     Default_Handler,
     Default_Handler,

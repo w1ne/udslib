@@ -70,22 +70,21 @@ void Reset(void)
  * Slot 3:  HardFault
  * Remaining slots unused — Default_Handler keeps the core halted on any fault.
  */
-__attribute__((section(".isr_vector"), used))
-void (* const g_vectors[])(void) = {
-    (void (*)(void)) &_estack,  /* 0: initial MSP */
-    Reset,                       /* 1: Reset */
-    Default_Handler,             /* 2: NMI */
-    Default_Handler,             /* 3: HardFault */
-    Default_Handler,             /* 4: MemManage */
-    Default_Handler,             /* 5: BusFault */
-    Default_Handler,             /* 6: UsageFault */
-    0,                           /* 7: reserved */
-    0,                           /* 8: reserved */
-    0,                           /* 9: reserved */
-    0,                           /* 10: reserved */
-    Default_Handler,             /* 11: SVCall */
-    Default_Handler,             /* 12: DebugMon */
-    0,                           /* 13: reserved */
-    Default_Handler,             /* 14: PendSV */
-    Default_Handler,             /* 15: SysTick */
+__attribute__((section(".isr_vector"), used)) void (* const g_vectors[])(void) = {
+    (void (*)(void)) & _estack, /* 0: initial MSP */
+    Reset,                      /* 1: Reset */
+    Default_Handler,            /* 2: NMI */
+    Default_Handler,            /* 3: HardFault */
+    Default_Handler,            /* 4: MemManage */
+    Default_Handler,            /* 5: BusFault */
+    Default_Handler,            /* 6: UsageFault */
+    0,                          /* 7: reserved */
+    0,                          /* 8: reserved */
+    0,                          /* 9: reserved */
+    0,                          /* 10: reserved */
+    Default_Handler,            /* 11: SVCall */
+    Default_Handler,            /* 12: DebugMon */
+    0,                          /* 13: reserved */
+    Default_Handler,            /* 14: PendSV */
+    Default_Handler,            /* 15: SysTick */
 };

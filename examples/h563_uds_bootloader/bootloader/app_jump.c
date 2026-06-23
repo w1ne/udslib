@@ -10,12 +10,12 @@
 #include <stdint.h>
 
 /* SCB->VTOR register (Cortex-M33 System Control Block) */
-#define SCB_VTOR  (*(volatile uint32_t *) 0xE000ED08UL)
+#define SCB_VTOR (*(volatile uint32_t *) 0xE000ED08UL)
 
 /* Size of a bank's app region: BANK_SIZE(1MB) - BL_REGION_SIZE(96KB).
  * This is the addressable window from app_base; image_validate() uses it to
  * confirm the header + payload + signature all fit inside the region. */
-#define APP_REGION_SIZE  (0x100000UL - 0x18000UL)
+#define APP_REGION_SIZE (0x100000UL - 0x18000UL)
 
 int app_is_valid(uint32_t app_base)
 {
@@ -49,9 +49,9 @@ __attribute__((noreturn)) void app_jump(uint32_t app_base)
         "bx  %1\n"
         :
         : "r"(sp), "r"(pc)
-        :
-    );
+        :);
 
     /* Unreachable — satisfies the noreturn attribute with no UB. */
-    for (;;) {}
+    for (;;) {
+    }
 }

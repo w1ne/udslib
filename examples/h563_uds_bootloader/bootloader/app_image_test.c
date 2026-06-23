@@ -43,14 +43,15 @@
 
 /* ----- helpers ----------------------------------------------------------- */
 
-#define CHECK(cond, msg) \
-    do { \
-        if (!(cond)) { \
+#define CHECK(cond, msg)                        \
+    do {                                        \
+        if (!(cond)) {                          \
             fprintf(stderr, "FAIL: %s\n", msg); \
-            g_rc = 1; \
-        } else { \
-            printf("PASS: %s\n", msg); \
-        } \
+            g_rc = 1;                           \
+        }                                       \
+        else {                                  \
+            printf("PASS: %s\n", msg);          \
+        }                                       \
     } while (0)
 
 static int g_rc = 0;
@@ -161,8 +162,7 @@ int main(void)
     /* Buffer too small for the claimed header+payload+signature → rejected. */
     CHECK(image_validate(img, OTA_IMAGE_HDR_SIZE) == 0,
           "buffer too small for claimed payload is rejected");
-    CHECK(image_validate(img, len - 1u) == 0,
-          "buffer one byte short of signature end is rejected");
+    CHECK(image_validate(img, len - 1u) == 0, "buffer one byte short of signature end is rejected");
 
     free(img);
 
@@ -173,7 +173,8 @@ int main(void)
         if (!bad) {
             fprintf(stderr, "FAIL: could not read app_bsigbad_image.bin\n");
             g_rc = 1;
-        } else {
+        }
+        else {
             CHECK(image_validate(bad, blen) == 0,
                   "CRC-good signature-bad image is rejected (signature gate)");
             free(bad);
@@ -182,7 +183,8 @@ int main(void)
 
     if (g_rc == 0) {
         printf("\nAll image-test cases PASS\n");
-    } else {
+    }
+    else {
         fprintf(stderr, "\nSome image-test cases FAILED\n");
     }
     return g_rc;

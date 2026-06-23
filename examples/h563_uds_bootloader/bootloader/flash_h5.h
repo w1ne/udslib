@@ -45,7 +45,7 @@
  * Leaving the macro empty off-target keeps those host links clean.
  * ------------------------------------------------------------------------- */
 #if defined(__arm__)
-#define RAMFUNC  __attribute__((section(".ramfunc"), noinline, long_call))
+#define RAMFUNC __attribute__((section(".ramfunc"), noinline, long_call))
 #else
 #define RAMFUNC
 #endif
@@ -56,11 +56,11 @@
  * OPTKEYR keys — unlock option byte writes
  * These are architectural magic values, not register addresses.
  * ------------------------------------------------------------------------- */
-#define FLASH_NSKEY1        0x45670123UL
-#define FLASH_NSKEY2        0xCDEF89ABUL
+#define FLASH_NSKEY1 0x45670123UL
+#define FLASH_NSKEY2 0xCDEF89ABUL
 
-#define FLASH_OPTKEY1       0x08192A3BUL
-#define FLASH_OPTKEY2       0x4C5D6E7FUL
+#define FLASH_OPTKEY1 0x08192A3BUL
+#define FLASH_OPTKEY2 0x4C5D6E7FUL
 
 /* ---------------------------------------------------------------------------
  * Aggregate of all program/erase error flags in NSSR (RM0481 §7.8.7).
@@ -69,8 +69,7 @@
  * writing a 1 to the corresponding bit in NSCCR (NOT by writing NSSR).  The
  * individual bit macros come from the CMSIS device header (FLASH_SR_*).
  * ------------------------------------------------------------------------- */
-#define NSSR_ERR_MASK \
-    (FLASH_SR_WRPERR | FLASH_SR_PGSERR | FLASH_SR_STRBERR | FLASH_SR_INCERR)
+#define NSSR_ERR_MASK (FLASH_SR_WRPERR | FLASH_SR_PGSERR | FLASH_SR_STRBERR | FLASH_SR_INCERR)
 
 /* ---------------------------------------------------------------------------
  * Bounded-wait iteration cap.
@@ -81,22 +80,22 @@
  * op (an 8 KB sector erase is a few ms) yet finite so a faulted controller can
  * no longer hang the CPU.
  * ------------------------------------------------------------------------- */
-#define FLASH_BSY_TIMEOUT   0x10000000UL
+#define FLASH_BSY_TIMEOUT 0x10000000UL
 
 /* ---------------------------------------------------------------------------
  * Driver error codes (returned by flash_program / flash_erase_sector).
  * Any non-zero value propagates as a programming failure to the UDS layer.
  * ------------------------------------------------------------------------- */
-#define FLASH_OK            0
-#define FLASH_ERR_TIMEOUT   1            /* BSY never cleared within the cap */
-#define FLASH_ERR_HW        2            /* NSSR reported a program/erase error */
+#define FLASH_OK 0
+#define FLASH_ERR_TIMEOUT 1 /* BSY never cleared within the cap */
+#define FLASH_ERR_HW 2      /* NSSR reported a program/erase error */
 
 /* ---------------------------------------------------------------------------
  * System reset key for SCB AIRCR  (ARMv8-M ARM §B3.2.6).
  * VECTKEY=0x05FA | SYSRESETREQ.  Kept as a named constant so the reset write
  * matches the architectural value exactly.
  * ------------------------------------------------------------------------- */
-#define AIRCR_RESET_KEY     (0x05FA0004UL)
+#define AIRCR_RESET_KEY (0x05FA0004UL)
 
 /* ---------------------------------------------------------------------------
  * Public API
