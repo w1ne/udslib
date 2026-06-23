@@ -663,7 +663,9 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    /* Load image file */
+    /* Load image file. The whole file is transferred verbatim, so a signed OTA
+     * image (header + payload + 256-byte RSA-2048 signature) flows through with
+     * no logic change — the trailing signature is part of img_size. */
     FILE *f = fopen(img_path, "rb");
     if (f == NULL) {
         fprintf(stderr, "Cannot open image file: %s\n", img_path);
@@ -907,8 +909,8 @@ int main(int argc, char **argv)
             printf("   TX block seq=0x%02X offset=%u/%u\r", seq, offset, img_size);
             fflush(stdout);
 
-            /* Wrap sequence counter: 0x01..0xFF, then back to 0x01 */
-            seq = (uint8_t) (seq == 0xFFu ? 0x01u : seq + 1u);
+            /* Wrap block-sequence-counter per ISO 14229-1 §14.3: 0xFF -> 0x00 */
+            seq = (uint8_t) (seq == 0xFFu ? 0x00u : seq + 1u);
         }
         free(req_buf);
         printf("\n   OK (%u blocks)\n", offset);

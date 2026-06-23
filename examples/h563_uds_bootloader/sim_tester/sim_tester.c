@@ -19,6 +19,7 @@
 #include "app_b_image_blob.h"
 #include "../bootloader/fdcan.h"
 #include "../bootloader/flash_h5.h"
+#include "../bootloader/sec_cmac.h"
 
 #include <string.h>
 #include <stdbool.h>
@@ -93,24 +94,19 @@ typedef enum
     ST_DONE,     /* OTA complete; server resets */
 } tester_state_t;
 
-/*
- * Pre-computed AES-128-CMAC(DEMO_SECRET, DEMO_SEED) for the fixed demo
- * credentials.  The sim does not implement DSP multiply instructions used by
- * mbedTLS, so the key is pre-computed on the host and baked in here.
- *
- * To recompute: make cmac-test in the bootloader directory and inspect output,
- * or run: aes_cmac(DEMO_SECRET, DEMO_SEED, 16, out) on a host build.
- */
-static const uint8_t DEMO_CMAC_KEY[16] = {0x5F, 0xAC, 0xED, 0x58, 0x61, 0xBA, 0xC1, 0x37,
-                                          0x66, 0x8A, 0xD5, 0x25, 0x4D, 0xED, 0xB2, 0x44};
+#define SEC_SECRET_LEN 16u
+#define SEC_SEED_LEN 16u
+#define SEC_KEY_LEN 16u
 
 /* Tester context */
 static struct
 {
     tester_state_t state;
-    uint8_t seed_rx[16]; /* seed received from server (verified matches DEMO_SEED) */
-    uint32_t td_offset;  /* bytes of APP_B_IMAGE already sent */
-    uint8_t td_seq;      /* next TD sequence number (1-based) */
+    uint8_t secret[SEC_SECRET_LEN]; /* shared CMAC secret (from sim_tester_init) */
+    uint8_t seed_rx[16];            /* seed received from the server's 0x67 01 response */
+    uint8_t seed_len;               /* number of seed bytes actually received */
+    uint32_t td_offset;             /* bytes of APP_B_IMAGE already sent */
+    uint8_t td_seq;                 /* next TD sequence number (1-based) */
     /* ISO-TP RX reassembler for server responses */
     uint8_t rx_sdu[128];
     uint8_t rx_len;
@@ -156,10 +152,15 @@ void sim_tester_rx(const uint8_t *data, uint8_t len)
 /* ---------------------------------------------------------------------------
  * sim_tester_init — called once after uds_init()
  * ------------------------------------------------------------------------- */
-void sim_tester_init(const uint8_t *secret_ignored, const uint8_t *seed_ignored)
+void sim_tester_init(const uint8_t *secret, const uint8_t *seed)
 {
-    (void) secret_ignored; /* pre-computed key baked in as DEMO_CMAC_KEY */
-    (void) seed_ignored;   /* server uses a fixed internal seed; we receive it */
+    /* Store the shared CMAC secret; the SecurityAccess key is computed live in
+     * ST_KEY_SEND as AES-128-CMAC(secret, seed-from-server).  The seed argument
+     * is intentionally unused: the tester reads the seed from the server's
+     * 0x67 01 response rather than assuming a fixed value, which is what a real
+     * tester must do once the server returns a TRNG-derived per-attempt nonce. */
+    (void) seed;
+    memcpy(g_t.secret, secret, SEC_SECRET_LEN);
     g_t.state = ST_COPY_BL;
 }
 
@@ -240,12 +241,13 @@ void sim_tester_poll(void)
         case ST_SEED_WAIT:
             if (g_t.rx_ready) {
                 if (g_t.rx_len >= 3u && g_t.rx_sdu[0] == 0x67u && g_t.rx_sdu[1] == 0x01u) {
-                    /* Positive response: copy seed bytes */
+                    /* Positive response: copy the seed bytes the SERVER chose. */
                     uint8_t seed_len = (uint8_t) (g_t.rx_len - 2u);
-                    if (seed_len > 16u) {
-                        seed_len = 16u;
+                    if (seed_len > sizeof(g_t.seed_rx)) {
+                        seed_len = (uint8_t) sizeof(g_t.seed_rx);
                     }
                     memcpy(g_t.seed_rx, &g_t.rx_sdu[2], seed_len);
+                    g_t.seed_len = seed_len;
                     g_t.rx_ready = false;
                     g_t.state = ST_KEY_SEND;
                 }
@@ -257,10 +259,19 @@ void sim_tester_poll(void)
             break;
 
         case ST_KEY_SEND: {
+            /* Compute the SecurityAccess key LIVE: AES-128-CMAC(secret, seed) over
+             * the seed the server returned, using the same one-shot the bootloader
+             * verifies with.  No baked-in key. */
+            uint8_t key[SEC_KEY_LEN];
+            if (aes_cmac(g_t.secret, g_t.seed_rx, g_t.seed_len, key) != 0) {
+                uart_puts("SIM: CMAC FAIL\n");
+                for (;;) {
+                }
+            }
             buf[0] = 0x27u;
             buf[1] = 0x02u; /* SecurityAccess, sendKey */
-            memcpy(&buf[2], DEMO_CMAC_KEY, 16u);
-            tester_send_sf(buf, 18u);
+            memcpy(&buf[2], key, SEC_KEY_LEN);
+            tester_send_sf(buf, (uint8_t) (2u + SEC_KEY_LEN));
             g_t.rx_ready = false;
             g_t.state = ST_KEY_WAIT;
             break;

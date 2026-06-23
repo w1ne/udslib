@@ -367,6 +367,89 @@ static void test_ecu_reset_88_reboot_response_on_wire(void **state)
     assert_int_equal(g_tx_buf[1], 0x01);
 }
 
+/* --- issue #88: TX-complete gate before reset --- */
+static uint32_t g_fake_now;
+static uint32_t g_fake_now_step;
+static uint32_t fake_now(void)
+{
+    uint32_t t = g_fake_now;
+    g_fake_now += g_fake_now_step;
+    return t;
+}
+
+static int g_txc_calls;
+static int g_txc_true_after;     /* return true once call count exceeds this */
+static int g_reset_at_txc_calls; /* g_txc_calls observed when reset fired */
+
+static bool fake_tx_complete(uds_ctx_t *ctx)
+{
+    (void) ctx;
+    g_txc_calls++;
+    return g_txc_calls > g_txc_true_after;
+}
+
+static void gate_reset_cb(uds_ctx_t *ctx, uint8_t type)
+{
+    (void) ctx;
+    (void) type;
+    g_reset_called++;
+    g_reset_at_txc_calls = g_txc_calls;
+}
+
+/* Reset must wait until fn_tx_complete reports the frame is on the wire. */
+static void test_ecu_reset_waits_for_tx_complete(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = order_tp_send;
+    cfg.fn_reset = gate_reset_cb;
+    cfg.fn_tx_complete = fake_tx_complete;
+    cfg.get_time_ms = fake_now; /* override mock_get_time: no will_return needed */
+    g_fake_now = 1000;
+    g_fake_now_step = 0; /* time frozen => never times out */
+    g_txc_calls = 0;
+    g_txc_true_after = 3;
+    g_reset_called = 0;
+    g_reset_at_txc_calls = 0;
+
+    uint8_t request[] = {0x11, 0x01};
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    assert_int_equal(g_reset_called, 1);   /* reset happened */
+    assert_true(g_txc_calls >= 4);         /* polled until true */
+    assert_true(g_reset_at_txc_calls > 3); /* only after tx_complete returned true */
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_tx_buf[1], 0x01);
+}
+
+/* A transport that never completes must not hang the ECU: reset is forced
+ * after reset_tx_wait_ms. */
+static void test_ecu_reset_tx_complete_timeout_forces_reset(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_tp_send = order_tp_send;
+    cfg.fn_reset = gate_reset_cb;
+    cfg.fn_tx_complete = fake_tx_complete;
+    cfg.get_time_ms = fake_now;
+    cfg.reset_tx_wait_ms = 50u;
+    g_fake_now = 0;
+    g_fake_now_step = 10; /* +10ms per call => crosses 50ms */
+    g_txc_calls = 0;
+    g_txc_true_after = 1000000; /* never true */
+    g_reset_called = 0;
+
+    uint8_t request[] = {0x11, 0x01};
+    uds_input_sdu(&ctx, request, sizeof(request));
+
+    assert_int_equal(g_reset_called, 1); /* forced despite tx never complete */
+    assert_true(g_txc_calls < 100);      /* loop terminated, no hang */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -379,6 +462,8 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_rapid_shutdown_power_down_time),
         cmocka_unit_test(test_ecu_reset_no_reset_when_send_fails),
         cmocka_unit_test(test_ecu_reset_secured_defers_until_outer_response),
+        cmocka_unit_test(test_ecu_reset_waits_for_tx_complete),
+        cmocka_unit_test(test_ecu_reset_tx_complete_timeout_forces_reset),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

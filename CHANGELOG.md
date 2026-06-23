@@ -40,6 +40,7 @@ API**, not the wire behaviour.
   reassembled SDUs are delivered to a custom handler instead of the server
   `uds_input_sdu`, so one ISO-TP channel can feed a UDS server or a UDS client.
   Default (no handler) preserves server delivery.
+- **ECUReset (0x11) — wait for the response to be on the wire before resetting**: a new optional `fn_tx_complete(ctx)` config hook lets the library hold the reset until the positive `0x51` response has physically left the transport (TX mailbox drained), not merely been queued. It is bounded by the new `reset_tx_wait_ms` budget (`0` = `UDS_DEFAULT_RESET_TX_WAIT_MS`, 50 ms) so a stuck transport can never hang the ECU; when the hook is unset, behaviour is unchanged (immediate reset). This closes a real-hardware race: a `fn_reset` that calls `NVIC_SystemReset()` could reboot before the FDCAN frame was arbitrated onto the bus, so a tester saw silence after `11 01` and only `11 81` (suppressPosRsp) appeared to work. The H5 example now polls FDCAN `TXBRP` in `fn_tx_complete` and performs a real `NVIC_SystemReset`. (#88)
 
 ### Changed
 - A handler that returns without describing a result now fails closed

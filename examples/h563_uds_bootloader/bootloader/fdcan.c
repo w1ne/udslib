@@ -3,27 +3,20 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define REG32(addr) (*(volatile uint32_t *) (uintptr_t) (addr))
+#include "stm32h563xx.h"
 
-/* ---- USART3 (UART over PA10/PB10 on H563 Nucleo) ---- */
-#define USART3_BASE 0x40004800u
-#define USART3_CR1 REG32(USART3_BASE + 0x00u)
-#define USART3_ISR REG32(USART3_BASE + 0x1Cu)
-#define USART3_TDR REG32(USART3_BASE + 0x28u)
-#define USART_ISR_TXE (1u << 7)
-#define USART_CR1_UE (1u << 0)
-#define USART_CR1_TE (1u << 3)
-
+/* ---- USART3 (UART over PA10/PB10 on H563 Nucleo) ----
+ * Register access via the CMSIS USART_TypeDef instance and bit macros. */
 void uart_init(void)
 {
-    USART3_CR1 = USART_CR1_UE | USART_CR1_TE;
+    USART3->CR1 = USART_CR1_UE | USART_CR1_TE;
 }
 
 void uart_putc(char c)
 {
-    while ((USART3_ISR & USART_ISR_TXE) == 0u) {
+    while ((USART3->ISR & USART_ISR_TXE) == 0u) {
     }
-    USART3_TDR = (uint32_t) (uint8_t) c;
+    USART3->TDR = (uint32_t) (uint8_t) c;
 }
 
 void uart_puts(const char *s)
@@ -33,32 +26,20 @@ void uart_puts(const char *s)
     }
 }
 
-/* ---- FDCAN1 ---- */
-#define FDCAN1_BASE 0x4000A400u
-#define FDCAN_REG_TEST 0x010u
-#define FDCAN_REG_CCCR 0x018u
-#define FDCAN_REG_IR 0x050u
-#define FDCAN_REG_RXF0S 0x090u
-#define FDCAN_REG_RXF0A 0x094u
-#define FDCAN_REG_TXBAR 0x0CCu
-
-#define FDCAN_RAM_BASE 0x800u
+/* ---- FDCAN1 ----
+ * Control/status registers via the CMSIS FDCAN_GlobalTypeDef instance; the
+ * message RAM via the CMSIS SRAMCAN base.  The element offsets below are this
+ * firmware's configured message-RAM layout (one TX buffer + one RX FIFO 0
+ * element), expressed relative to SRAMCAN_BASE (= FDCAN1 base + 0x800). */
 #define FDCAN_RXF0_ELEM0 0x0B0u
 #define FDCAN_TXBUF0 0x278u
 
-#define CCCR_INIT (1u << 0)
-#define CCCR_CCE (1u << 1)
 #define TX_T1_BRS (1u << 20)
 #define TX_T1_FDF (1u << 21)
 
-static uint32_t fdcan_reg(uint32_t offset)
-{
-    return FDCAN1_BASE + offset;
-}
-
 static uint32_t fdcan_ram(uint32_t offset)
 {
-    return FDCAN1_BASE + FDCAN_RAM_BASE + offset;
+    return (uint32_t) SRAMCAN_BASE + offset;
 }
 
 static uint8_t len_to_dlc(uint8_t len)
@@ -129,18 +110,16 @@ void fdcan_start(void)
 #ifdef SIM_OTA_TESTER
     /* Internal loopback: CCCR.TEST enables the TEST register; TEST.LBCK
      * routes TX back into RXF0 so the tester and server share one FIFO. */
-#define CCCR_TEST (1u << 7)
-#define TEST_LBCK (1u << 4)
-    REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE | CCCR_TEST;
-    REG32(fdcan_reg(FDCAN_REG_TEST)) = TEST_LBCK;
-    REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_TEST; /* clear INIT, keep TEST */
-    while ((REG32(fdcan_reg(FDCAN_REG_CCCR)) & CCCR_INIT) != 0u) {
+    FDCAN1->CCCR = FDCAN_CCCR_INIT | FDCAN_CCCR_CCE | FDCAN_CCCR_TEST;
+    FDCAN1->TEST = FDCAN_TEST_LBCK;
+    FDCAN1->CCCR = FDCAN_CCCR_TEST; /* clear INIT, keep TEST */
+    while ((FDCAN1->CCCR & FDCAN_CCCR_INIT) != 0u) {
     }
 #else
-    REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE;
-    REG32(fdcan_reg(FDCAN_REG_TEST)) = 0u;
-    REG32(fdcan_reg(FDCAN_REG_CCCR)) = 0u;
-    while ((REG32(fdcan_reg(FDCAN_REG_CCCR)) & CCCR_INIT) != 0u) {
+    FDCAN1->CCCR = FDCAN_CCCR_INIT | FDCAN_CCCR_CCE;
+    FDCAN1->TEST = 0u;
+    FDCAN1->CCCR = 0u;
+    while ((FDCAN1->CCCR & FDCAN_CCCR_INIT) != 0u) {
     }
 #endif
 }
@@ -151,29 +130,30 @@ int fdcan_send_frame(uint32_t id, const uint8_t *data, uint8_t len, bool fd)
         return -1;
     }
     uint32_t base = fdcan_ram(FDCAN_TXBUF0);
-    REG32(base + 0u) = (id & 0x7FFu) << 18u;
-    REG32(base + 4u) = ((uint32_t) len_to_dlc(len) << 16u) | (fd ? (TX_T1_FDF | TX_T1_BRS) : 0u);
+    *(volatile uint32_t *) (uintptr_t) (base + 0u) = (id & 0x7FFu) << 18u;
+    *(volatile uint32_t *) (uintptr_t) (base + 4u) =
+        ((uint32_t) len_to_dlc(len) << 16u) | (fd ? (TX_T1_FDF | TX_T1_BRS) : 0u);
     write_payload(base + 8u, data, len);
-    REG32(fdcan_reg(FDCAN_REG_TXBAR)) = 1u;
+    FDCAN1->TXBAR = 1u;
     return 0;
 }
 
 bool fdcan_poll_rx_frame(can_frame_t *frame)
 {
-    uint32_t rxf0s = REG32(fdcan_reg(FDCAN_REG_RXF0S));
+    uint32_t rxf0s = FDCAN1->RXF0S;
     if ((rxf0s & 0x7Fu) == 0u) {
         return false;
     }
     uint32_t get_index = (rxf0s >> 8u) & 0x3Fu;
     uint32_t base = fdcan_ram(FDCAN_RXF0_ELEM0 + get_index * 72u);
-    uint32_t r0 = REG32(base + 0u);
-    uint32_t r1 = REG32(base + 4u);
+    uint32_t r0 = *(volatile uint32_t *) (uintptr_t) (base + 0u);
+    uint32_t r1 = *(volatile uint32_t *) (uintptr_t) (base + 4u);
     frame->id = (r0 >> 18u) & 0x7FFu;
     frame->len = dlc_to_len((uint8_t) ((r1 >> 16u) & 0x0Fu));
     frame->fd = (r1 & TX_T1_FDF) != 0u;
     read_payload(base + 8u, frame->data, frame->len);
-    REG32(fdcan_reg(FDCAN_REG_RXF0A)) = get_index;
-    REG32(fdcan_reg(FDCAN_REG_IR)) = REG32(fdcan_reg(FDCAN_REG_IR));
+    FDCAN1->RXF0A = get_index;
+    FDCAN1->IR = FDCAN1->IR;
     return true;
 }
 

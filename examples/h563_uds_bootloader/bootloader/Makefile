@@ -5,7 +5,11 @@ else
 TARGET    := h563_uds_bootloader
 endif
 BUILD_DIR := build
-UDSLIB_DIR ?= /tmp/udslib-labwired-scope
+# Default to the udslib repo root: this example lives at
+# <repo>/examples/h563_uds_bootloader/bootloader, so the root is three levels
+# up. A fresh checkout builds with no UDSLIB_DIR override; check-udslib below
+# verifies the resolved path really is a udslib checkout.
+UDSLIB_DIR ?= $(abspath $(CURDIR)/../../..)
 CC        := arm-none-eabi-gcc
 
 # mbedTLS 3.6 source tree (override with MBEDTLS_DIR=... ; defaults to the copy
@@ -13,12 +17,29 @@ CC        := arm-none-eabi-gcc
 # build is portable to any checkout / CI machine).
 MBEDTLS_DIR ?= $(UDSLIB_DIR)/zephyr-workspace/modules/crypto/mbedtls-3.6
 
+# STM32H5 vendor sources (CMSIS device header + LL drivers). Located the same
+# way mbedTLS is: under the udslib zephyr workspace, derived from UDSLIB_DIR so
+# the build is portable to any checkout / CI machine. Override CUBE_DIR /
+# CMSIS_DIR to point at a different matched set if needed.
+ZEPHYR_WS  ?= $(UDSLIB_DIR)/zephyr-workspace
+CUBE_DIR   ?= $(ZEPHYR_WS)/modules/hal/stm32/stm32cube/stm32h5xx
+CMSIS_DIR  ?= $(ZEPHYR_WS)/modules/hal/cmsis_6/CMSIS/Core/Include
+
+# Include paths + device select for the ST CMSIS device header and LL drivers.
+# -DSTM32H563xx selects stm32h563xx.h from the umbrella; -DUSE_FULL_LL_DRIVER
+# is the LL convention (the RNG/bus inline helpers used here do not strictly
+# require it, but the define keeps the LL headers in their full configuration).
+STM32_CFLAGS := -I$(CMSIS_DIR) \
+                -I$(CUBE_DIR)/soc \
+                -I$(CUBE_DIR)/drivers/include \
+                -DSTM32H563xx -DUSE_FULL_LL_DRIVER
+
 # Cortex-M33, real newlib-nano libc: NO -ffreestanding / -fno-builtin, NO shim
 # include path. Standard headers + functions come from newlib.
 CPUFLAGS      := -mcpu=cortex-m33 -mthumb
 COMMON_CFLAGS := $(CPUFLAGS) -Os -g -ffunction-sections -fdata-sections \
                  -I. -I$(UDSLIB_DIR)/include -I$(UDSLIB_DIR)/src/core
-APP_CFLAGS   := $(COMMON_CFLAGS) -Wall -Wextra -Werror
+APP_CFLAGS   := $(COMMON_CFLAGS) $(STM32_CFLAGS) -Wall -Wextra -Werror
 UDS_CFLAGS   := $(COMMON_CFLAGS) -Wall -Wextra -Werror -Wno-unused-parameter \
                 -Wno-missing-field-initializers
 # mbedTLS: relaxed warnings, no -Werror; needs its own include paths + config.
@@ -36,12 +57,13 @@ LDFLAGS := $(CPUFLAGS) --specs=nano.specs --specs=nosys.specs -nostartfiles \
            -T bootloader.ld -Wl,--gc-sections \
            -Wl,-Map=$(BUILD_DIR)/$(TARGET).map
 
-APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c boot_state.c
+APP_SRCS     := startup.c main.c syscalls.c fdcan.c flash_h5.c ota_crc.c app_jump.c image_validate.c boot_state.c
 ifeq ($(SIM_TESTER),1)
 APP_SRCS     += ../sim_tester/sim_tester.c
 APP_CFLAGS   += -DSIM_OTA_TESTER -I../sim_tester -I..
 endif
-SEC_CMAC_SRC := sec_cmac.c
+SEC_CMAC_SRC  := sec_cmac.c
+SEC_RSA_SRC   := sec_rsa.c
 UDS_SRCS := \
   $(UDSLIB_DIR)/src/core/uds_core.c \
   $(UDSLIB_DIR)/src/services/uds_service_session.c \
@@ -55,17 +77,35 @@ UDS_SRCS := \
   $(UDSLIB_DIR)/src/services/uds_service_roe.c \
   $(UDSLIB_DIR)/src/transport/uds_tp_isotp.c
 
+# mbedTLS modules:
+#   AES-CMAC path: aes, cipher, cipher_wrap, cmac
+#   RSA-2048 secure-boot path: rsa, rsa_alt_helpers, bignum, bignum_core,
+#                              sha256, md, oid, asn1parse, asn1write
+#     (asn1parse/asn1write are pulled in transitively: rsa.c's key-parse and
+#      PKCS#1 v1.5 DigestInfo helpers reference mbedtls_asn1_* symbols. The
+#      verify path imports n/e raw, but the symbols must still resolve at link.)
+#   shared: platform_util, constant_time
 MBEDTLS_SRCS := \
   $(MBEDTLS_DIR)/library/aes.c \
   $(MBEDTLS_DIR)/library/cipher.c \
   $(MBEDTLS_DIR)/library/cipher_wrap.c \
   $(MBEDTLS_DIR)/library/cmac.c \
+  $(MBEDTLS_DIR)/library/rsa.c \
+  $(MBEDTLS_DIR)/library/rsa_alt_helpers.c \
+  $(MBEDTLS_DIR)/library/bignum.c \
+  $(MBEDTLS_DIR)/library/bignum_core.c \
+  $(MBEDTLS_DIR)/library/sha256.c \
+  $(MBEDTLS_DIR)/library/md.c \
+  $(MBEDTLS_DIR)/library/oid.c \
+  $(MBEDTLS_DIR)/library/asn1parse.c \
+  $(MBEDTLS_DIR)/library/asn1write.c \
   $(MBEDTLS_DIR)/library/platform_util.c \
   $(MBEDTLS_DIR)/library/constant_time.c
 
 APP_OBJS      := $(patsubst %.c,$(BUILD_DIR)/%.o,$(filter-out ../sim_tester/%.c,$(APP_SRCS))) \
                  $(if $(filter ../sim_tester/%.c,$(APP_SRCS)),$(BUILD_DIR)/sim_tester/sim_tester.o)
 SEC_CMAC_OBJ  := $(BUILD_DIR)/sec_cmac.o
+SEC_RSA_OBJ   := $(BUILD_DIR)/sec_rsa.o
 UDS_OBJS      := $(patsubst $(UDSLIB_DIR)/%.c,$(BUILD_DIR)/udslib/%.o,$(UDS_SRCS))
 MBEDTLS_OBJS  := $(patsubst $(MBEDTLS_DIR)/library/%.c,$(BUILD_DIR)/mbedtls/%.o,$(MBEDTLS_SRCS))
 ELF           := $(BUILD_DIR)/$(TARGET).elf
@@ -76,8 +116,8 @@ check-udslib:
 	@test -f "$(UDSLIB_DIR)/include/uds/uds_core.h" || \
 	  (echo "UDSLIB_DIR must point at a UDSLib checkout (got: $(UDSLIB_DIR))" >&2; exit 1)
 
-$(ELF): $(APP_OBJS) $(SEC_CMAC_OBJ) $(UDS_OBJS) $(MBEDTLS_OBJS) bootloader.ld
-	$(CC) $(LDFLAGS) $(APP_OBJS) $(SEC_CMAC_OBJ) $(UDS_OBJS) $(MBEDTLS_OBJS) -o $@
+$(ELF): $(APP_OBJS) $(SEC_CMAC_OBJ) $(SEC_RSA_OBJ) $(UDS_OBJS) $(MBEDTLS_OBJS) bootloader.ld
+	$(CC) $(LDFLAGS) $(APP_OBJS) $(SEC_CMAC_OBJ) $(SEC_RSA_OBJ) $(UDS_OBJS) $(MBEDTLS_OBJS) -o $@
 
 $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 	$(CC) $(APP_CFLAGS) -c $< -o $@
@@ -94,9 +134,12 @@ $(BUILD_DIR)/mbedtls/%.o: $(MBEDTLS_DIR)/library/%.c | $(BUILD_DIR)
 	@mkdir -p $(dir $@)
 	$(CC) $(MBEDTLS_CFLAGS) -c $< -o $@
 
-# sec_cmac.c links against mbedTLS headers: compile with MBEDTLS_CFLAGS plus
-# -Werror (it is our code, held to the strict bar).
+# sec_cmac.c / sec_rsa.c link against mbedTLS headers: compile with
+# MBEDTLS_CFLAGS plus -Werror (our code, held to the strict bar).
 $(SEC_CMAC_OBJ): $(SEC_CMAC_SRC) | $(BUILD_DIR)
+	$(CC) $(MBEDTLS_CFLAGS) -Wall -Wextra -Werror -c $< -o $@
+
+$(SEC_RSA_OBJ): $(SEC_RSA_SRC) image_pubkey.h | $(BUILD_DIR)
 	$(CC) $(MBEDTLS_CFLAGS) -Wall -Wextra -Werror -c $< -o $@
 
 $(BUILD_DIR):
@@ -123,9 +166,66 @@ cmac-test: $(BUILD_DIR)
 	gcc $(CMAC_TEST_CFLAGS) $(CMAC_TEST_SRCS) -o $(BUILD_DIR)/cmac_test
 	$(BUILD_DIR)/cmac_test
 
-# Host unit test: validates OTA image header CRC/magic logic without MCU code.
-IMAGE_TEST_SRCS := app_image_test.c ota_crc.c
-IMAGE_TEST_CFLAGS := -O2 -g -I. -Wall -Wextra -Werror
+# Host test: RSA-2048 image authenticity. Verifies the committed signed
+# App-B image against the baked public key, proves a one-byte payload tamper is
+# rejected, and proves a CRC-good-but-signature-bad image is rejected. Compiles
+# sec_rsa.c + the mbedTLS RSA/SHA-256 modules and runs on the build host.
+RSA_TEST_SRCS := sec_rsa_test.c sec_rsa.c ota_crc.c \
+  $(MBEDTLS_DIR)/library/rsa.c \
+  $(MBEDTLS_DIR)/library/rsa_alt_helpers.c \
+  $(MBEDTLS_DIR)/library/bignum.c \
+  $(MBEDTLS_DIR)/library/bignum_core.c \
+  $(MBEDTLS_DIR)/library/sha256.c \
+  $(MBEDTLS_DIR)/library/md.c \
+  $(MBEDTLS_DIR)/library/oid.c \
+  $(MBEDTLS_DIR)/library/asn1parse.c \
+  $(MBEDTLS_DIR)/library/asn1write.c \
+  $(MBEDTLS_DIR)/library/platform_util.c \
+  $(MBEDTLS_DIR)/library/constant_time.c
+
+RSA_TEST_CFLAGS := -O2 -g \
+  -I$(MBEDTLS_DIR)/include \
+  -I$(MBEDTLS_DIR)/library \
+  -I. \
+  -DMBEDTLS_CONFIG_FILE='"bootloader_mbedtls_config.h"' \
+  -DIMG_DIR='"../app"' \
+  -Wall -Wextra -Wno-unused-function -Wno-unused-parameter \
+  -Wno-missing-field-initializers
+
+rsa-test: $(BUILD_DIR)
+	gcc $(RSA_TEST_CFLAGS) $(RSA_TEST_SRCS) -o $(BUILD_DIR)/rsa_test
+	$(BUILD_DIR)/rsa_test
+
+# Host unit test: validates the REAL bootloader validation core image_validate()
+# (the same function app_is_valid() wraps on the target) against real signed
+# image buffers. Links sec_rsa.c + the mbedTLS RSA/SHA-256 modules so the
+# signature path is genuinely exercised on the host (as rsa-test does).
+IMAGE_TEST_SRCS := app_image_test.c image_validate.c ota_crc.c sec_rsa.c \
+  $(MBEDTLS_DIR)/library/rsa.c \
+  $(MBEDTLS_DIR)/library/rsa_alt_helpers.c \
+  $(MBEDTLS_DIR)/library/bignum.c \
+  $(MBEDTLS_DIR)/library/bignum_core.c \
+  $(MBEDTLS_DIR)/library/sha256.c \
+  $(MBEDTLS_DIR)/library/md.c \
+  $(MBEDTLS_DIR)/library/oid.c \
+  $(MBEDTLS_DIR)/library/asn1parse.c \
+  $(MBEDTLS_DIR)/library/asn1write.c \
+  $(MBEDTLS_DIR)/library/platform_util.c \
+  $(MBEDTLS_DIR)/library/constant_time.c
+
+# Our TUs (app_image_test.c, image_validate.c, ota_crc.c, sec_rsa.c) are held to
+# -Werror; the mbedTLS modules are not (they emit benign warnings). gcc applies
+# the last -W flags, so list mbedTLS relaxations after -Werror — but that would
+# also relax our code. Instead compile in one go with the strict bar and the
+# mbedTLS-only relaxations that do not mask real bugs in our code.
+IMAGE_TEST_CFLAGS := -O2 -g \
+  -I. \
+  -I$(MBEDTLS_DIR)/include \
+  -I$(MBEDTLS_DIR)/library \
+  -DMBEDTLS_CONFIG_FILE='"bootloader_mbedtls_config.h"' \
+  -DIMG_DIR='"../app"' \
+  -Wall -Wextra -Werror \
+  -Wno-unused-function -Wno-unused-parameter -Wno-missing-field-initializers
 
 image-test: $(BUILD_DIR)
 	gcc $(IMAGE_TEST_CFLAGS) $(IMAGE_TEST_SRCS) -o $(BUILD_DIR)/image_test
@@ -140,7 +240,15 @@ bootstate-test: $(BUILD_DIR)
 	gcc $(BOOTSTATE_TEST_CFLAGS) $(BOOTSTATE_TEST_SRCS) -o $(BUILD_DIR)/bootstate_test
 	$(BUILD_DIR)/bootstate_test
 
+# Host unit test: validates the pure ota_version_allows() anti-rollback function.
+OTAVERSION_TEST_SRCS  := ota_version_test.c
+OTAVERSION_TEST_CFLAGS := -O2 -g -I. -Wall -Wextra -Werror
+
+otaversion-test: $(BUILD_DIR)
+	gcc $(OTAVERSION_TEST_CFLAGS) $(OTAVERSION_TEST_SRCS) -o $(BUILD_DIR)/otaversion_test
+	$(BUILD_DIR)/otaversion_test
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all check-udslib clean cmac-test image-test bootstate-test
+.PHONY: all check-udslib clean cmac-test rsa-test image-test bootstate-test otaversion-test

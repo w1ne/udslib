@@ -164,6 +164,8 @@ bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t form
                                  uint32_t *size);
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
 int uds_emit_response(uds_ctx_t *ctx, uint16_t len);
+/* Fire the deferred ECU reset (issue #88): TX-complete wait, then fn_reset. */
+void uds_internal_run_pending_reset(uds_ctx_t *ctx);
 
 /* --- Core Service Handlers --- */
 

@@ -313,11 +313,16 @@ static void execute_handler(uds_ctx_t *ctx, const uds_service_entry_t *service, 
      * handler may cancel the reset if it fails to emit (NRC). While capturing,
      * leave reset_pending set for the outer dispatch's execute_handler to run. */
     if (!ctx->scratch.secure_capturing && ctx->scratch.reset_pending) {
-        ctx->scratch.reset_pending = false;
         /* Only reset if the response actually reached the transport: a tester
-         * left without its confirmation must not be desynchronised by a reboot. */
-        if (emit_ok && ctx->config->fn_reset != NULL) {
-            ctx->config->fn_reset(ctx, ctx->scratch.reset_pending_type);
+         * left without its confirmation must not be desynchronised by a reboot.
+         * uds_internal_run_pending_reset clears reset_pending and, when
+         * fn_tx_complete is configured, waits for the response to clear the wire
+         * before invoking fn_reset (issue #88). */
+        if (emit_ok) {
+            uds_internal_run_pending_reset(ctx);
+        }
+        else {
+            ctx->scratch.reset_pending = false;
         }
     }
 }
@@ -754,6 +759,38 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
     if (ctx->config->fn_mutex_unlock != NULL) {
         ctx->config->fn_mutex_unlock(ctx->config->mutex_handle);
     }
+}
+
+/* Fire the deferred ECU reset (issue #88). reset_pending lives in per-dispatch
+ * scratch under the framework-emission model; the secure-capturing / emit_ok
+ * gating is owned by execute_handler, so this runs only once the framework has
+ * decided the reset should proceed. When fn_tx_complete is provided, wait
+ * (bounded by reset_tx_wait_ms) until the just-emitted response is on the wire,
+ * so a rebooting fn_reset cannot drop it. */
+void uds_internal_run_pending_reset(uds_ctx_t *ctx)
+{
+    if (!ctx->scratch.reset_pending) {
+        return;
+    }
+    ctx->scratch.reset_pending = false;
+    if (ctx->config->fn_reset == NULL) {
+        return;
+    }
+
+    if (ctx->config->fn_tx_complete != NULL) {
+        uint16_t budget = (ctx->config->reset_tx_wait_ms != 0u) ? ctx->config->reset_tx_wait_ms
+                                                                : UDS_DEFAULT_RESET_TX_WAIT_MS;
+        uint32_t start = ctx->config->get_time_ms();
+        while (!ctx->config->fn_tx_complete(ctx)) {
+            if ((uint32_t) (ctx->config->get_time_ms() - start) >= (uint32_t) budget) {
+                uds_internal_log(ctx, UDS_LOG_INFO,
+                                 "reset: TX-complete wait timed out, forcing reset");
+                break;
+            }
+        }
+    }
+
+    ctx->config->fn_reset(ctx, ctx->scratch.reset_pending_type);
 }
 
 int uds_emit_response(uds_ctx_t *ctx, uint16_t len)

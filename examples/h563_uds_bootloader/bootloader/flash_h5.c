@@ -1,8 +1,14 @@
 /**
  * flash_h5.c — STM32H563 Flash driver implementation
  *
- * Register map authoritative source: RM0481 §7 and stm32h563.svd.
- * See flash_h5.h for the full register/bit constant definitions.
+ * Register access via the ST CMSIS device header (stm32h563xx.h): the
+ * FLASH_TypeDef instance and the header's FLASH_CR_/FLASH_SR_/FLASH_CCR_/
+ * FLASH_OPTCR_/FLASH_OPTSR_ bit macros.  No register addresses are hand-typed.
+ * H5 FLASH is HAL-only in the Cube tree (no LL driver), so the CMSIS struct is
+ * the correct abstraction level.
+ *
+ * Register map authoritative source: RM0481 §7.
+ * See flash_h5.h for the API and the unlock-key/error-code constants.
  */
 
 #include "flash_h5.h"
@@ -17,7 +23,7 @@
 RAMFUNC static int flash_wait_bsy(void)
 {
     uint32_t guard = FLASH_BSY_TIMEOUT;
-    while ((FLASH_NSSR & NSSR_BSY) != 0u) {
+    while ((FLASH->NSSR & FLASH_SR_BSY) != 0u) {
         if (--guard == 0u) {
             return FLASH_ERR_TIMEOUT;
         }
@@ -31,15 +37,19 @@ RAMFUNC static int flash_wait_bsy(void)
  * Inspect NSSR after an operation.  If any error flag is set, clear it via
  * NSCCR (write-1-clears) and report FLASH_ERR_HW.  On a clean operation clear
  * the sticky EOP flag (also via NSCCR) and report FLASH_OK.
+ *
+ * The NSSR error/EOP bit positions match the NSCCR clear-bit positions
+ * (RM0481 §7.8.7 / §7.8.10), so a mask built from FLASH_SR_* clears the same
+ * bits when written to NSCCR.
  * ------------------------------------------------------------------------- */
 RAMFUNC static int flash_check_and_clear(void)
 {
-    uint32_t sr = FLASH_NSSR;
+    uint32_t sr = FLASH->NSSR;
     if ((sr & NSSR_ERR_MASK) != 0u) {
-        FLASH_NSCCR = sr & NSSR_ERR_MASK;
+        FLASH->NSCCR = sr & NSSR_ERR_MASK;
         return FLASH_ERR_HW;
     }
-    FLASH_NSCCR = NSSR_EOP;
+    FLASH->NSCCR = FLASH_SR_EOP;
     return FLASH_OK;
 }
 
@@ -47,13 +57,12 @@ RAMFUNC static int flash_check_and_clear(void)
  * flash_unlock
  *
  * Writes the two-step NSKEYR sequence to unlock the flash controller
- * for non-secure program and erase operations.
- * RM0481 §7.3.1 / stm32h563.svd NSKEYR @ offset 0x04.
+ * for non-secure program and erase operations.  RM0481 §7.3.1.
  * ------------------------------------------------------------------------- */
 void flash_unlock(void)
 {
-    FLASH_NSKEYR = FLASH_NSKEY1;
-    FLASH_NSKEYR = FLASH_NSKEY2;
+    FLASH->NSKEYR = FLASH_NSKEY1;
+    FLASH->NSKEYR = FLASH_NSKEY2;
 }
 
 /* ---------------------------------------------------------------------------
@@ -67,7 +76,7 @@ void flash_unlock(void)
  *   - len  a non-zero multiple of 16
  *   - flash_unlock() already called
  *
- * RM0481 §7.3.4 / stm32h563.svd NSCR @ 0x28, NSSR @ 0x20.
+ * RM0481 §7.3.4.
  * ------------------------------------------------------------------------- */
 RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
 {
@@ -75,7 +84,7 @@ RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
     const uint32_t *src = (const uint32_t *) (uintptr_t) data;
 
     /* Enable programming mode */
-    FLASH_NSCR |= NSCR_PG;
+    FLASH->NSCR |= FLASH_CR_PG;
 
     /*
      * Write in 16-byte (quad-word) groups.
@@ -88,20 +97,20 @@ RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
         dst[i + 3u] = src[i + 3u];
         /* Wait for the quad-word write to complete (bounded). */
         if (flash_wait_bsy() != FLASH_OK) {
-            FLASH_NSCR &= ~NSCR_PG;
+            FLASH->NSCR &= ~FLASH_CR_PG;
             return FLASH_ERR_TIMEOUT;
         }
         /* Check for a hardware program error (e.g. INCERR on a misaligned
          * quad-word, WRPERR on a protected sector).  On error the controller
          * has committed nothing; clear the flag and abort. */
         if (flash_check_and_clear() != FLASH_OK) {
-            FLASH_NSCR &= ~NSCR_PG;
+            FLASH->NSCR &= ~FLASH_CR_PG;
             return FLASH_ERR_HW;
         }
     }
 
     /* Clear programming enable */
-    FLASH_NSCR &= ~NSCR_PG;
+    FLASH->NSCR &= ~FLASH_CR_PG;
 
     return FLASH_OK;
 }
@@ -112,19 +121,19 @@ RAMFUNC int flash_program(uint32_t addr, const uint8_t *data, uint32_t len)
  * Initiates a sector erase and waits for completion.
  *
  * NSCR layout written:
- *   SER | (bank ? BKSEL : 0) | (sector << SNB_SHIFT) | STRT
+ *   SER | (bank ? BKSEL : 0) | (sector << SNB_Pos) | START
  *
- * RM0481 §7.3.5 / stm32h563.svd NSCR @ 0x28, NSSR @ 0x20.
+ * RM0481 §7.3.5.
  * ------------------------------------------------------------------------- */
 RAMFUNC int flash_erase_sector(uint8_t bank, uint32_t sector)
 {
-    uint32_t cr = NSCR_SER | ((uint32_t) (sector << NSCR_SNB_SHIFT) & NSCR_SNB_MASK) | NSCR_STRT;
+    uint32_t cr = FLASH_CR_SER | ((sector << FLASH_CR_SNB_Pos) & FLASH_CR_SNB_Msk) | FLASH_CR_START;
 
     if (bank != 0u) {
-        cr |= NSCR_BKSEL;
+        cr |= FLASH_CR_BKSEL;
     }
 
-    FLASH_NSCR = cr;
+    FLASH->NSCR = cr;
 
     if (flash_wait_bsy() != FLASH_OK) {
         return FLASH_ERR_TIMEOUT;
@@ -144,22 +153,21 @@ RAMFUNC int flash_erase_sector(uint8_t bank, uint32_t sector)
  *
  * NOTE: H5 has NO OBL_LAUNCH bit (unlike H7).  The swap is applied by the
  * hardware only after a system reset.  The LabWired sim resets the CPU
- * immediately upon OPTSTRT, so both paths are covered by this sequence.
+ * immediately upon OPTSTART, so both paths are covered by this sequence.
  *
- * RM0481 §7.3.3 + §7.8.6/7.8.8 / stm32h563.svd OPTKEYR 0x0C, OPTSR_PRG
- * 0x54, OPTCR 0x1C.  SCB AIRCR per ARMv8-M ARM §B3.2.6.
+ * RM0481 §7.3.3 + §7.8.6/7.8.8.  SCB AIRCR per ARMv8-M ARM §B3.2.6.
  * ------------------------------------------------------------------------- */
 void flash_set_swap_and_reset(void)
 {
     /* Step 1: Unlock option bytes */
-    FLASH_OPTKEYR = FLASH_OPTKEY1;
-    FLASH_OPTKEYR = FLASH_OPTKEY2;
+    FLASH->OPTKEYR = FLASH_OPTKEY1;
+    FLASH->OPTKEYR = FLASH_OPTKEY2;
 
     /* Step 2: Set SWAP_BANK in the programming register */
-    FLASH_OPTSR_PRG |= OPTSR_SWAP_BANK;
+    FLASH->OPTSR_PRG |= FLASH_OPTSR_SWAP_BANK;
 
-    /* Step 3: Commit — OPTSTRT programs the option byte */
-    FLASH_OPTCR |= OPTCR_OPTSTRT;
+    /* Step 3: Commit — OPTSTART programs the option byte */
+    FLASH->OPTCR |= FLASH_OPTCR_OPTSTART;
 
     /* Step 4: Wait for the option byte write to complete (bounded).
      * A timeout here intentionally falls through to the system reset rather
@@ -168,9 +176,9 @@ void flash_set_swap_and_reset(void)
     (void) flash_wait_bsy();
 
     /* Step 5: System reset — swap takes effect on next boot (real HW path).
-     *         On the sim the CPU has already rebooted at OPTSTRT; the reset
+     *         On the sim the CPU has already rebooted at OPTSTART; the reset
      *         below is the hardware-correct path and is unreachable there. */
-    SCB_AIRCR = AIRCR_RESET_KEY;
+    SCB->AIRCR = AIRCR_RESET_KEY;
 
     /* Should not reach here */
     for (;;) {
@@ -188,24 +196,24 @@ void flash_set_swap_and_reset(void)
  *   target_bank == 0 → clear SWAP_BANK  (bank 1 / 0x08000000 becomes active)
  *   target_bank == 1 → set   SWAP_BANK  (bank 2 / 0x08100000 becomes active)
  *
- * RM0481 §7.3.3 / stm32h563.svd OPTKEYR 0x0C, OPTSR_PRG 0x54, OPTCR 0x1C.
+ * RM0481 §7.3.3.
  * ------------------------------------------------------------------------- */
 void flash_swap_to_bank_and_reset(uint8_t target_bank)
 {
     /* Step 1: Unlock option bytes */
-    FLASH_OPTKEYR = FLASH_OPTKEY1;
-    FLASH_OPTKEYR = FLASH_OPTKEY2;
+    FLASH->OPTKEYR = FLASH_OPTKEY1;
+    FLASH->OPTKEYR = FLASH_OPTKEY2;
 
     /* Step 2: Write the desired SWAP_BANK value explicitly (set or clear) */
     if (target_bank != 0u) {
-        FLASH_OPTSR_PRG |= OPTSR_SWAP_BANK;
+        FLASH->OPTSR_PRG |= FLASH_OPTSR_SWAP_BANK;
     }
     else {
-        FLASH_OPTSR_PRG &= ~OPTSR_SWAP_BANK;
+        FLASH->OPTSR_PRG &= ~FLASH_OPTSR_SWAP_BANK;
     }
 
     /* Step 3: Commit the option byte write */
-    FLASH_OPTCR |= OPTCR_OPTSTRT;
+    FLASH->OPTCR |= FLASH_OPTCR_OPTSTART;
 
     /* Step 4: Wait for the option byte write to complete (bounded).
      * A timeout here intentionally falls through to the system reset rather
@@ -214,7 +222,7 @@ void flash_swap_to_bank_and_reset(uint8_t target_bank)
     (void) flash_wait_bsy();
 
     /* Step 5: System reset — swap takes effect on next boot. */
-    SCB_AIRCR = AIRCR_RESET_KEY;
+    SCB->AIRCR = AIRCR_RESET_KEY;
 
     /* Should not reach here */
     for (;;) {
@@ -227,9 +235,9 @@ void flash_swap_to_bank_and_reset(uint8_t target_bank)
  * Reads OPTSR_CUR.SWAP_BANK (bit 31) to determine the currently active bank.
  * Returns 1 if bank 2 is active (SWAP_BANK set), 0 if bank 1 is active.
  *
- * RM0481 §7.8.8 / stm32h563.svd OPTSR_CUR @ 0x50.
+ * RM0481 §7.8.8.
  * ------------------------------------------------------------------------- */
 uint8_t flash_active_bank(void)
 {
-    return ((FLASH_OPTSR_CUR & OPTSR_SWAP_BANK) != 0u) ? 1u : 0u;
+    return ((FLASH->OPTSR_CUR & FLASH_OPTSR_SWAP_BANK) != 0u) ? 1u : 0u;
 }
