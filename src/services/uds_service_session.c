@@ -62,7 +62,7 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
 
     /* C-19: Advertise P2/P2* from the single resolved source (ctx->session).
      * Values were resolved exactly once by uds_init; do not re-read config. */
-    uint16_t p2          = ctx->session.p2_ms;
+    uint16_t p2 = ctx->session.p2_ms;
     uint16_t p2_star_val = (uint16_t) (ctx->session.p2_star_ms / 10u); /* ISO unit: 10ms */
 
     ctx->config->tx_buffer[2] = (uint8_t) ((p2 >> 8) & 0xFFu);
