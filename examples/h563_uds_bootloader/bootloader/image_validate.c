@@ -19,7 +19,7 @@
  * range. (The genuine app links _estack = ORIGIN(RAM) + LENGTH(RAM) = RAM_END.)
  */
 #define RAM_BASE 0x20000000UL
-#define RAM_END  0x200A0000UL
+#define RAM_END 0x200A0000UL
 
 int image_validate(const uint8_t *img, size_t avail)
 {
@@ -43,8 +43,8 @@ int image_validate(const uint8_t *img, size_t avail)
     /* 3. Header + payload + signature must all fit within the buffer/region.
      * Use size_t arithmetic; image_size is already bounded above so this cannot
      * overflow. */
-    size_t needed = (size_t) OTA_IMAGE_HDR_SIZE + (size_t) hdr->image_size +
-                    (size_t) OTA_IMAGE_SIG_SIZE;
+    size_t needed =
+        (size_t) OTA_IMAGE_HDR_SIZE + (size_t) hdr->image_size + (size_t) OTA_IMAGE_SIG_SIZE;
     if (needed > avail) {
         return 0;
     }

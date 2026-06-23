@@ -14,8 +14,7 @@ int aes_cmac(const uint8_t *key, const uint8_t *msg, size_t msg_len, uint8_t out
     const uint8_t *input = (msg_len == 0u) ? s_dummy : msg;
 
     /* keylen is in BITS for the mbedTLS CMAC one-shot. */
-    const mbedtls_cipher_info_t *ci =
-        mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
+    const mbedtls_cipher_info_t *ci = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
     if (ci == NULL) {
         return -1;
     }

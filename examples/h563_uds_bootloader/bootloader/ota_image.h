@@ -9,10 +9,10 @@
  *
  * Layout in flash for a bank's app slot (app_base = bank_base + 0x18000):
  *
- *   [app_base+0x000 .. app_base+0x010)              ota_image_header_t (magic/image_size/crc32/version)
- *   [app_base+0x010 .. app_base+0x400)              RESERVED padding (filled with 0xFF by mkimage.py)
- *   [app_base+0x400 .. +0x400+image_size)           app payload; the app's Cortex-M vector
- *                                                    table starts at app_base + 0x400 = app_base
+ *   [app_base+0x000 .. app_base+0x010)              ota_image_header_t
+ * (magic/image_size/crc32/version) [app_base+0x010 .. app_base+0x400)              RESERVED padding
+ * (filled with 0xFF by mkimage.py) [app_base+0x400 .. +0x400+image_size)           app payload; the
+ * app's Cortex-M vector table starts at app_base + 0x400 = app_base
  *                                                    + OTA_IMAGE_HDR_SIZE.
  *   [app_base+0x400+image_size .. +image_size+0x100) RSA-2048 PKCS#1 v1.5 signature (256 bytes)
  *
@@ -46,13 +46,14 @@
 
 #include <stdint.h>
 
-#define OTA_IMAGE_MAGIC  0xC0DEBEEFu
+#define OTA_IMAGE_MAGIC 0xC0DEBEEFu
 
-typedef struct {
-    uint32_t magic;       /**< Must equal OTA_IMAGE_MAGIC. */
-    uint32_t image_size;  /**< Payload size in bytes (excludes the 0x400-byte header). */
-    uint32_t crc32;       /**< CRC-32/ISO-HDLC over [app_base+0x400, app_base+0x400+image_size). */
-    uint32_t version;     /**< App version (informational, e.g. 0x00010000 = v1.0.0). */
+typedef struct
+{
+    uint32_t magic;      /**< Must equal OTA_IMAGE_MAGIC. */
+    uint32_t image_size; /**< Payload size in bytes (excludes the 0x400-byte header). */
+    uint32_t crc32;      /**< CRC-32/ISO-HDLC over [app_base+0x400, app_base+0x400+image_size). */
+    uint32_t version;    /**< App version (informational, e.g. 0x00010000 = v1.0.0). */
 } ota_image_header_t;
 
 /**
@@ -60,21 +61,21 @@ typedef struct {
  * Only the first 16 bytes are the ota_image_header_t struct; bytes [16..0x400) are
  * RESERVED padding (0xFF).  The app's vector table starts at app_base + OTA_IMAGE_HDR_SIZE.
  */
-#define OTA_IMAGE_HDR_SIZE  0x400u
+#define OTA_IMAGE_HDR_SIZE 0x400u
 
 /**
  * RSA-2048 PKCS#1 v1.5 signature size in bytes (256 raw big-endian bytes).
  * Appended immediately after the payload. The signature lives at
  *   app_base + OTA_IMAGE_HDR_SIZE + image_size .. + OTA_IMAGE_SIG_SIZE
  */
-#define OTA_IMAGE_SIG_SIZE  256u
+#define OTA_IMAGE_SIG_SIZE 256u
 
 /**
  * Maximum permitted payload size for the H563 dual-bank layout:
  *   app region = BANK_SIZE(1MB) - BL_REGION_SIZE(96KB) = 0xE8000 bytes
  *   minus the 0x400-byte header leaves 0xE7C00 bytes for the payload.
  */
-#define OTA_IMAGE_MAX_PAYLOAD  (0xE8000u - OTA_IMAGE_HDR_SIZE)
+#define OTA_IMAGE_MAX_PAYLOAD (0xE8000u - OTA_IMAGE_HDR_SIZE)
 
 /* ---------------------------------------------------------------------------
  * Anti-rollback policy (configurable)

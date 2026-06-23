@@ -15,7 +15,8 @@ uint32_t ota_crc32_update(uint32_t crc, const uint8_t *buf, uint32_t len)
         for (int b = 0; b < 8; b++) {
             if (crc & 1u) {
                 crc = (crc >> 1u) ^ CRC32_POLY;
-            } else {
+            }
+            else {
                 crc >>= 1u;
             }
         }

@@ -138,13 +138,11 @@ static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t
  * the next attempt's seed, and therefore its expected AES-CMAC key, differ.
  * ------------------------------------------------------------------------- */
 #define SEC_SEED_LEN 16u
-#define SEC_KEY_LEN  16u
+#define SEC_KEY_LEN 16u
 
 /* DEMO_SECRET — example key only; MUST be replaced before production use. */
-static const uint8_t DEMO_SECRET[16] = {
-    0xA3, 0xF1, 0x7C, 0x28, 0xB6, 0x4E, 0xD9, 0x05,
-    0x71, 0xCC, 0x3A, 0x8F, 0x52, 0x0B, 0xE4, 0x96
-};
+static const uint8_t DEMO_SECRET[16] = {0xA3, 0xF1, 0x7C, 0x28, 0xB6, 0x4E, 0xD9, 0x05,
+                                        0x71, 0xCC, 0x3A, 0x8F, 0x52, 0x0B, 0xE4, 0x96};
 
 /* ---------------------------------------------------------------------------
  * H563 RNG (TRNG) — RM0481, accessed via the STM32H5 LL driver
@@ -164,7 +162,7 @@ static const uint8_t DEMO_SECRET[16] = {
 /* Bound on the per-word DRDY poll so an unclocked/stuck RNG never hangs the
  * bootloader.  At the 32 MHz reset clock the RNG produces a word every few
  * microseconds; this loop bound is generous yet finite. */
-#define RNG_DRDY_POLL_MAX  200000u
+#define RNG_DRDY_POLL_MAX 200000u
 
 /* Constant-time comparison to avoid leaking how many bytes matched. */
 static int ct_equal(const uint8_t *a, const uint8_t *b, size_t len)
@@ -244,31 +242,32 @@ static int bl_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, c
  * ------------------------------------------------------------------------- */
 
 /* Bank geometry */
-#define BANK_SIZE        0x100000UL   /* 1 MB per bank */
-#define BL_REGION_SIZE   0x18000UL    /* 96 KB bootloader (sectors 0-11) */
-#define SECTOR_SIZE      0x2000UL     /* 8 KB per sector */
-#define SECTORS_PER_BANK 128u         /* 1 MB / 8 KB */
+#define BANK_SIZE 0x100000UL     /* 1 MB per bank */
+#define BL_REGION_SIZE 0x18000UL /* 96 KB bootloader (sectors 0-11) */
+#define SECTOR_SIZE 0x2000UL     /* 8 KB per sector */
+#define SECTORS_PER_BANK 128u    /* 1 MB / 8 KB */
 
 /* First app sector index within a bank */
 #define APP_SECTOR_FIRST 12u
 /* Last app sector index within a bank (inclusive) */
-#define APP_SECTOR_LAST  (SECTORS_PER_BANK - 1u)
+#define APP_SECTOR_LAST (SECTORS_PER_BANK - 1u)
 
 /* 16-byte staging buffer — H5 requires quad-word aligned program operations */
 #define STAGE_SZ 16u
 
-static struct {
-    uint8_t  inactive_bank;   /* 0 = bank1, 1 = bank2 */
-    uint32_t app_base;        /* first writable byte of inactive app region */
-    uint32_t app_end;         /* one past last writable byte */
-    uint32_t dl_addr;         /* RequestDownload target base */
-    uint32_t dl_size;         /* RequestDownload declared size */
-    uint32_t write_cursor;    /* next flash address to program */
-    uint32_t bytes_written;   /* total bytes passed to flash (pre-padding) */
-    uint8_t  stage[STAGE_SZ]; /* 16-byte alignment staging buffer */
-    uint8_t  stage_used;      /* bytes currently in staging buffer */
-    bool     dl_active;       /* true between RequestDownload and TransferExit */
-    uint8_t  bsc_expected;    /* next expected block-sequence-counter (ISO 14229 §14.3) */
+static struct
+{
+    uint8_t inactive_bank;   /* 0 = bank1, 1 = bank2 */
+    uint32_t app_base;       /* first writable byte of inactive app region */
+    uint32_t app_end;        /* one past last writable byte */
+    uint32_t dl_addr;        /* RequestDownload target base */
+    uint32_t dl_size;        /* RequestDownload declared size */
+    uint32_t write_cursor;   /* next flash address to program */
+    uint32_t bytes_written;  /* total bytes passed to flash (pre-padding) */
+    uint8_t stage[STAGE_SZ]; /* 16-byte alignment staging buffer */
+    uint8_t stage_used;      /* bytes currently in staging buffer */
+    bool dl_active;          /* true between RequestDownload and TransferExit */
+    uint8_t bsc_expected;    /* next expected block-sequence-counter (ISO 14229 §14.3) */
 } g_flash_state;
 
 /* Return bank base address for bank index (0 or 1). */
@@ -288,13 +287,12 @@ static uint32_t bank_base(uint8_t bank)
  */
 static uint32_t active_app_version(void)
 {
-    uint8_t  active        = flash_active_bank();
-    uint32_t active_app    = bank_base(active) + BL_REGION_SIZE;
+    uint8_t active = flash_active_bank();
+    uint32_t active_app = bank_base(active) + BL_REGION_SIZE;
     if (!app_is_valid(active_app)) {
         return 0u; /* no current version to compare against */
     }
-    const ota_image_header_t *hdr =
-        (const ota_image_header_t *) (uintptr_t) active_app;
+    const ota_image_header_t *hdr = (const ota_image_header_t *) (uintptr_t) active_app;
     return hdr->version;
 }
 
@@ -371,7 +369,7 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
     }
 
     uint8_t inactive = flash_active_bank() ? 0u : 1u;
-    uint32_t base    = bank_base(inactive) + BL_REGION_SIZE;
+    uint32_t base = bank_base(inactive) + BL_REGION_SIZE;
     uint32_t end_off = bank_base(inactive) + BANK_SIZE;
 
     /*
@@ -393,17 +391,17 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
 
     /* Arm the transfer state. */
     g_flash_state.inactive_bank = inactive;
-    g_flash_state.app_base      = base;
-    g_flash_state.app_end       = end_off;
-    g_flash_state.dl_addr       = addr;
-    g_flash_state.dl_size       = size;
-    g_flash_state.write_cursor  = addr;
+    g_flash_state.app_base = base;
+    g_flash_state.app_end = end_off;
+    g_flash_state.dl_addr = addr;
+    g_flash_state.dl_size = size;
+    g_flash_state.write_cursor = addr;
     g_flash_state.bytes_written = 0u;
-    g_flash_state.stage_used    = 0u;
-    g_flash_state.dl_active     = true;
+    g_flash_state.stage_used = 0u;
+    g_flash_state.dl_active = true;
     /* First TransferData block after RequestDownload carries counter 0x01
      * (ISO 14229-1 §14.3). */
-    g_flash_state.bsc_expected  = 0x01u;
+    g_flash_state.bsc_expected = 0x01u;
 
     uart_puts("BL: download armed\n");
     return UDS_OK;
@@ -455,8 +453,7 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
     if ((g_flash_state.bytes_written + len) > g_flash_state.dl_size) {
         return -(int) 0x71; /* transferDataSuspended */
     }
-    if ((g_flash_state.write_cursor + len + g_flash_state.stage_used) >
-        g_flash_state.app_end) {
+    if ((g_flash_state.write_cursor + len + g_flash_state.stage_used) > g_flash_state.app_end) {
         return -(int) 0x71;
     }
 
@@ -486,8 +483,7 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
 
     /* Block accepted — advance expected counter (wrap 0xFF -> 0x00). */
     g_flash_state.bsc_expected =
-        (g_flash_state.bsc_expected == 0xFFu) ? 0x00u
-                                              : (uint8_t) (g_flash_state.bsc_expected + 1u);
+        (g_flash_state.bsc_expected == 0xFFu) ? 0x00u : (uint8_t) (g_flash_state.bsc_expected + 1u);
     return UDS_OK;
 }
 
@@ -527,7 +523,7 @@ static int bl_transfer_exit(uds_ctx_t *ctx)
  *   0xFF03  PerformRollback          — tester-commanded revert to the other bank (no return)
  */
 static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t *data,
-                               uint16_t len, uint8_t *out_buf, uint16_t max_len)
+                              uint16_t len, uint8_t *out_buf, uint16_t max_len)
 {
     (void) type;
     (void) data;
@@ -555,12 +551,12 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * app_end so they are not transiently zeroed between the erase and the
          * next RequestDownload.
          */
-        g_flash_state.dl_active     = false;
-        g_flash_state.dl_addr       = 0u;
-        g_flash_state.dl_size       = 0u;
-        g_flash_state.write_cursor  = 0u;
+        g_flash_state.dl_active = false;
+        g_flash_state.dl_addr = 0u;
+        g_flash_state.dl_size = 0u;
+        g_flash_state.write_cursor = 0u;
         g_flash_state.bytes_written = 0u;
-        g_flash_state.stage_used    = 0u;
+        g_flash_state.stage_used = 0u;
         memset(g_flash_state.stage, 0, sizeof(g_flash_state.stage));
         return 0;
     }
@@ -571,9 +567,9 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          *
          * Validates the OTA image header written to the inactive bank's app region.
          * The downloaded image has the form:
-         *   [dl_addr+0x000 .. +0x010)             ota_image_header_t (magic, image_size, crc32, version)
-         *   [dl_addr+0x010 .. +0x400)             RESERVED padding (0xFF)
-         *   [dl_addr+0x400 .. +0x400+image_size)  app payload
+         *   [dl_addr+0x000 .. +0x010)             ota_image_header_t (magic, image_size, crc32,
+         * version) [dl_addr+0x010 .. +0x400)             RESERVED padding (0xFF) [dl_addr+0x400 ..
+         * +0x400+image_size)  app payload
          *   [.. +0x400+image_size+0x100)          RSA-2048 PKCS#1 v1.5 signature (256B)
          *
          * Verification:
@@ -617,7 +613,7 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * depth.  Upgrades (>=) always pass.  See ota_image.h.
          */
         if (pass) {
-            uint32_t current   = active_app_version();
+            uint32_t current = active_app_version();
             uint32_t candidate = hdr->version;
             if (!ota_version_allows(candidate, current, OTA_ANTIROLLBACK_ENFORCE)) {
                 uart_puts("BL: rollback blocked\n");
@@ -631,7 +627,8 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         out_buf[0] = pass;
         if (pass) {
             uart_puts("BL: image check PASS\n");
-        } else {
+        }
+        else {
             uart_puts("BL: image check FAIL\n");
         }
         return 1;
@@ -661,8 +658,8 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * (the 2nd OTA activates from bank 1 → bank 0, which the OR form
          * cannot express).
          */
-        uint8_t  active    = flash_active_bank();
-        uint8_t  inactive  = active ? 0u : 1u;
+        uint8_t active = flash_active_bank();
+        uint8_t inactive = active ? 0u : 1u;
         uint32_t inactive_base = 0x08000000UL + (uint32_t) inactive * 0x100000UL;
 
         /* Re-validate the inactive image (CRC + RSA signature) immediately
@@ -679,8 +676,7 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
         /* Anti-rollback re-check (defense in depth, see 0xFF01 and ota_image.h):
          * refuse to swap to an image older than the currently-active one. */
         {
-            const ota_image_header_t *cand =
-                (const ota_image_header_t *) (uintptr_t) inactive_app;
+            const ota_image_header_t *cand = (const ota_image_header_t *) (uintptr_t) inactive_app;
             if (!ota_version_allows(cand->version, active_app_version(),
                                     OTA_ANTIROLLBACK_ENFORCE)) {
                 uart_puts("BL: rollback blocked\n");
@@ -726,10 +722,10 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
          * A power loss after clear but before swap leaves the current bank
          * active; on the next boot the tester can retry.
          */
-        uint8_t  active     = flash_active_bank();
-        uint8_t  other      = active ? 0u : 1u;
+        uint8_t active = flash_active_bank();
+        uint8_t other = active ? 0u : 1u;
         uint32_t other_base = 0x08000000UL + (uint32_t) other * 0x100000UL;
-        uint32_t other_app  = other_base + BL_REGION_SIZE;
+        uint32_t other_app = other_base + BL_REGION_SIZE;
 
         /* Refuse rollback if the other bank does not hold a bootable image. */
         if (!app_is_valid(other_app)) {
@@ -769,16 +765,14 @@ static int bl_read_did(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, uint16_t max_
     return -(int) 0x31; /* requestOutOfRange */
 }
 
-static const uds_did_entry_t g_did_table[] = {
-    {0xF1A0u, 1u, 0u, 0u, bl_read_did, NULL, NULL}
-};
+static const uds_did_entry_t g_did_table[] = {{0xF1A0u, 1u, 0u, 0u, bl_read_did, NULL, NULL}};
 
 /* ---------------------------------------------------------------------------
  * UDS context
  * ------------------------------------------------------------------------- */
-static uds_ctx_t  g_uds;
-static uint8_t    g_rx_buf[512];
-static uint8_t    g_tx_buf[512];
+static uds_ctx_t g_uds;
+static uint8_t g_rx_buf[512];
+static uint8_t g_tx_buf[512];
 
 /* ---------------------------------------------------------------------------
  * main
@@ -816,8 +810,8 @@ int main(void)
      *     bank never has its boot-state touched.
      */
     {
-        uint8_t  active_bank     = flash_active_bank();
-        uint32_t active_base     = 0x08000000UL + (uint32_t) active_bank * 0x100000UL;
+        uint8_t active_bank = flash_active_bank();
+        uint32_t active_base = 0x08000000UL + (uint32_t) active_bank * 0x100000UL;
         uint32_t active_app_base = active_base + 0x18000UL;
 
         boot_state_t bs;
@@ -833,7 +827,8 @@ int main(void)
             boot_state_clear(active_base);
             /* Swap back to the other bank (the known-good one). */
             flash_set_swap_and_reset(); /* does not return */
-            for (;;) {}
+            for (;;) {
+            }
         }
 
         if (decision == BOOT_DECISION_BUMP_AND_JUMP) {
@@ -854,42 +849,42 @@ int main(void)
     fdcan_start();
 
     /* ISO-TP FD: TX=0x7E8, RX=0x7E0 (standard OBD diagnostic IDs). */
-    uds_tp_isotp_init(&g_isotp, can_send, BL_TX_ID, BL_RX_ID,
-                      g_isotp_tx_sdu, (uint16_t) sizeof(g_isotp_tx_sdu));
+    uds_tp_isotp_init(&g_isotp, can_send, BL_TX_ID, BL_RX_ID, g_isotp_tx_sdu,
+                      (uint16_t) sizeof(g_isotp_tx_sdu));
     uds_tp_isotp_set_fd(&g_isotp, true);
 
     /* Configure the UDS server. */
     uds_config_t cfg;
     memset(&cfg, 0, sizeof(cfg));
-    cfg.ecu_address      = 0x10u;
-    cfg.get_time_ms      = get_time_ms;
-    cfg.fn_tp_send       = isotp_send_adapter;
-    cfg.p2_ms            = 50u;
-    cfg.p2_star_ms       = 5000u;
-    cfg.rx_buffer        = g_rx_buf;
-    cfg.rx_buffer_size   = (uint16_t) sizeof(g_rx_buf);
-    cfg.tx_buffer        = g_tx_buf;
-    cfg.tx_buffer_size   = (uint16_t) sizeof(g_tx_buf);
+    cfg.ecu_address = 0x10u;
+    cfg.get_time_ms = get_time_ms;
+    cfg.fn_tp_send = isotp_send_adapter;
+    cfg.p2_ms = 50u;
+    cfg.p2_star_ms = 5000u;
+    cfg.rx_buffer = g_rx_buf;
+    cfg.rx_buffer_size = (uint16_t) sizeof(g_rx_buf);
+    cfg.tx_buffer = g_tx_buf;
+    cfg.tx_buffer_size = (uint16_t) sizeof(g_tx_buf);
 
     /* DID table: 0xF1A0 active bank indicator. */
     cfg.did_table.entries = g_did_table;
-    cfg.did_table.count   = 1u;
+    cfg.did_table.count = 1u;
 
     /* Gate reprogramming services (0x34/0x36/0x37/0x31/0x27) to the
      * programming session (ISO 14229-1 sensible defaults). */
     cfg.restrict_sessions = true;
 
     /* 0x27 Security Access via AES-128-CMAC (DEMO key — see DEMO_SECRET). */
-    cfg.fn_security_seed     = bl_security_seed;
-    cfg.fn_security_key      = bl_security_key;
+    cfg.fn_security_seed = bl_security_seed;
+    cfg.fn_security_key = bl_security_key;
     cfg.security_max_attempts = 3u;
-    cfg.security_delay_ms    = 10000u;
+    cfg.security_delay_ms = 10000u;
 
     /* Flash reprogramming callbacks. */
     cfg.fn_request_download = bl_request_download;
-    cfg.fn_transfer_data    = bl_transfer_data;
-    cfg.fn_transfer_exit    = bl_transfer_exit;
-    cfg.fn_routine_control  = bl_routine_control;
+    cfg.fn_transfer_data = bl_transfer_data;
+    cfg.fn_transfer_exit = bl_transfer_exit;
+    cfg.fn_routine_control = bl_routine_control;
 
     if (uds_init(&g_uds, &cfg) != UDS_OK) {
         uart_puts("BL: uds_init FAIL\n");

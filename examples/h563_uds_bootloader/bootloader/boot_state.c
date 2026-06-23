@@ -65,14 +65,12 @@ uint32_t boot_state_count_attempts(const uint8_t *slots, uint32_t max_slots)
  * ------------------------------------------------------------------------- */
 void boot_state_read(uint32_t bank_base, boot_state_t *out)
 {
-    const boot_state_t *hdr =
-        (const boot_state_t *) (uintptr_t) sector_addr(bank_base);
-    out->magic    = hdr->magic;
-    out->pending  = hdr->pending;
+    const boot_state_t *hdr = (const boot_state_t *) (uintptr_t) sector_addr(bank_base);
+    out->magic = hdr->magic;
+    out->pending = hdr->pending;
     out->reserved = hdr->reserved;
     out->attempts = boot_state_count_attempts(
-        (const uint8_t *) (uintptr_t) attempt_slot_base(bank_base),
-        BOOT_STATE_ATTEMPT_SLOTS);
+        (const uint8_t *) (uintptr_t) attempt_slot_base(bank_base), BOOT_STATE_ATTEMPT_SLOTS);
 }
 
 /* ---------------------------------------------------------------------------
@@ -96,8 +94,8 @@ RAMFUNC void boot_state_prepare(uint32_t bank_base)
 RAMFUNC void boot_state_mark_pending(uint32_t bank_base)
 {
     boot_state_t hdr;
-    hdr.magic    = BOOT_STATE_MAGIC;
-    hdr.pending  = 1u;
+    hdr.magic = BOOT_STATE_MAGIC;
+    hdr.pending = 1u;
     hdr.attempts = 0xFFFFFFFFu; /* not stored in header; keep erased pattern */
     hdr.reserved = 0xFFFFFFFFu;
 
@@ -125,8 +123,7 @@ RAMFUNC void boot_state_clear(uint32_t bank_base)
 RAMFUNC void boot_state_bump_attempts(uint32_t bank_base)
 {
     uint32_t used = boot_state_count_attempts(
-        (const uint8_t *) (uintptr_t) attempt_slot_base(bank_base),
-        BOOT_STATE_ATTEMPT_SLOTS);
+        (const uint8_t *) (uintptr_t) attempt_slot_base(bank_base), BOOT_STATE_ATTEMPT_SLOTS);
 
     if (used >= BOOT_STATE_ATTEMPT_SLOTS) {
         /* No reserved slot left; the count already forces ROLLBACK. */

@@ -52,21 +52,19 @@
 /* ---------------------------------------------------------------------------
  * Constants
  * ------------------------------------------------------------------------- */
-#define TESTER_ID   0x7E0u
-#define ECU_ID      0x7E8u
+#define TESTER_ID 0x7E0u
+#define ECU_ID 0x7E8u
 
 /* Inactive app base formula: bank_base + BL_REGION_SIZE
  * bank_base = 0x08000000 + bank * 0x100000
  * BL_REGION_SIZE = 0x18000 (96 KB bootloader) */
-#define BANK_BASE_OFFSET  0x08000000UL
-#define BANK_SIZE         0x100000UL
-#define BL_REGION_SIZE    0x18000UL
+#define BANK_BASE_OFFSET 0x08000000UL
+#define BANK_SIZE 0x100000UL
+#define BL_REGION_SIZE 0x18000UL
 
 /* DEMO_SECRET — must match bootloader/main.c DEMO_SECRET exactly */
-static const uint8_t DEMO_SECRET[16] = {
-    0xA3, 0xF1, 0x7C, 0x28, 0xB6, 0x4E, 0xD9, 0x05,
-    0x71, 0xCC, 0x3A, 0x8F, 0x52, 0x0B, 0xE4, 0x96
-};
+static const uint8_t DEMO_SECRET[16] = {0xA3, 0xF1, 0x7C, 0x28, 0xB6, 0x4E, 0xD9, 0x05,
+                                        0x71, 0xCC, 0x3A, 0x8F, 0x52, 0x0B, 0xE4, 0x96};
 
 /* ---------------------------------------------------------------------------
  * CAN FD helpers
@@ -75,14 +73,13 @@ static const uint8_t DEMO_SECRET[16] = {
 /** Round up payload length to the nearest valid CAN FD DLC size. */
 static uint8_t canfd_round_len(uint16_t n)
 {
-    static const uint8_t dlc_sizes[] = {0, 1, 2, 3, 4, 5, 6, 7, 8,
-                                         12, 16, 20, 24, 32, 48, 64};
+    static const uint8_t dlc_sizes[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
     /* Guard: zero-length payload must still produce a valid 1-byte frame */
     if (n == 0u) {
         n = 1u;
     }
     for (int i = 0; i < 16; i++) {
-        if ((uint16_t)dlc_sizes[i] >= n) {
+        if ((uint16_t) dlc_sizes[i] >= n) {
             return dlc_sizes[i];
         }
     }
@@ -103,7 +100,7 @@ static int can_recv_frame(int sock, struct canfd_frame *fr, int timeout_ms)
     struct timeval tv;
     FD_ZERO(&rd);
     FD_SET(sock, &rd);
-    tv.tv_sec  = timeout_ms / 1000;
+    tv.tv_sec = timeout_ms / 1000;
     tv.tv_usec = (timeout_ms % 1000) * 1000;
 
     int r = select(sock + 1, &rd, NULL, NULL, &tv);
@@ -136,13 +133,13 @@ static int can_send_frame(int sock, uint32_t can_id, const uint8_t *payload, uin
     struct canfd_frame fr;
     memset(&fr, 0, sizeof(fr));
     fr.can_id = can_id & CAN_SFF_MASK;
-    uint8_t padded = canfd_round_len((uint16_t)plen);
-    fr.len   = padded;
+    uint8_t padded = canfd_round_len((uint16_t) plen);
+    fr.len = padded;
     fr.flags = CANFD_BRS;
     memcpy(fr.data, payload, plen);
     /* Pad remaining bytes with 0xCC (CAN FD padding convention) */
     if (padded > plen) {
-        memset(&fr.data[plen], 0xCCu, (size_t)(padded - plen));
+        memset(&fr.data[plen], 0xCCu, (size_t) (padded - plen));
     }
     ssize_t n = write(sock, &fr, sizeof(fr));
     if (n != sizeof(fr)) {
@@ -156,8 +153,8 @@ static int can_send_frame(int sock, uint32_t can_id, const uint8_t *payload, uin
  * ISO-TP FD (hand-rolled, single-message request/response)
  * ------------------------------------------------------------------------- */
 
-#define ISOTP_SF_MAX  62u   /* CAN FD SF max data bytes (byte 0 = PCI) */
-#define ISOTP_FF_DATA 62u   /* CAN FD FF first-frame data bytes after 2-byte PCI */
+#define ISOTP_SF_MAX 62u  /* CAN FD SF max data bytes (byte 0 = PCI) */
+#define ISOTP_FF_DATA 62u /* CAN FD FF first-frame data bytes after 2-byte PCI */
 
 /**
  * Send an ISO-TP SDU on `tx_id`.
@@ -173,24 +170,24 @@ static int can_send_frame(int sock, uint32_t can_id, const uint8_t *payload, uin
  * @param len       SDU length.
  * @return 0 on success, -1 on error.
  */
-static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
-                      const uint8_t *data, uint16_t len)
+static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id, const uint8_t *data,
+                      uint16_t len)
 {
     uint8_t frame_buf[64];
 
     if (len <= ISOTP_SF_MAX) {
         /* Single Frame */
-        frame_buf[0] = (uint8_t)len;
+        frame_buf[0] = (uint8_t) len;
         memcpy(&frame_buf[1], data, len);
-        return can_send_frame(sock, tx_id, frame_buf, (uint8_t)(1u + len));
+        return can_send_frame(sock, tx_id, frame_buf, (uint8_t) (1u + len));
     }
 
     /* First Frame */
-    frame_buf[0] = (uint8_t)(0x10u | ((len >> 8u) & 0x0Fu));
-    frame_buf[1] = (uint8_t)(len & 0xFFu);
+    frame_buf[0] = (uint8_t) (0x10u | ((len >> 8u) & 0x0Fu));
+    frame_buf[1] = (uint8_t) (len & 0xFFu);
     uint16_t ff_data = (len > ISOTP_FF_DATA) ? ISOTP_FF_DATA : len;
     memcpy(&frame_buf[2], data, ff_data);
-    if (can_send_frame(sock, tx_id, frame_buf, (uint8_t)(2u + ff_data)) != 0) {
+    if (can_send_frame(sock, tx_id, frame_buf, (uint8_t) (2u + ff_data)) != 0) {
         return -1;
     }
 
@@ -222,10 +219,10 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
      *   0xF1-0xF9 : 100-900 µs (in 100 µs steps)
      *   other     : treat as 0 (undefined, be conservative)
      */
-    uint8_t fc_fs         = fc_frame.data[0] & 0x0Fu;
+    uint8_t fc_fs = fc_frame.data[0] & 0x0Fu;
     uint8_t fc_block_size = fc_frame.data[1];
-    uint8_t fc_stmin_raw  = fc_frame.data[2];
-    unsigned int stmin_us;   /* inter-CF gap in microseconds */
+    uint8_t fc_stmin_raw = fc_frame.data[2];
+    unsigned int stmin_us; /* inter-CF gap in microseconds */
 
     if (fc_fs == 2u) {
         fprintf(stderr, "isotp_send: FC Overflow — ECU cannot receive\n");
@@ -234,17 +231,19 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
     /* fc_fs == 1 (Wait) is handled per-FC receive below */
 
     if (fc_stmin_raw <= 0x7Fu) {
-        stmin_us = (unsigned int)fc_stmin_raw * 1000u; /* ms → µs */
-    } else if (fc_stmin_raw >= 0xF1u && fc_stmin_raw <= 0xF9u) {
-        stmin_us = (unsigned int)(fc_stmin_raw - 0xF0u) * 100u; /* 100-900 µs */
-    } else {
+        stmin_us = (unsigned int) fc_stmin_raw * 1000u; /* ms → µs */
+    }
+    else if (fc_stmin_raw >= 0xF1u && fc_stmin_raw <= 0xF9u) {
+        stmin_us = (unsigned int) (fc_stmin_raw - 0xF0u) * 100u; /* 100-900 µs */
+    }
+    else {
         stmin_us = 0u; /* reserved range — treat as 0 */
     }
 
     /* Send Consecutive Frames, respecting block_size and STmin */
-    uint16_t sent          = ff_data;
-    uint8_t  sn            = 1u;
-    uint8_t  cfs_in_block  = 0u; /* CFs sent since last FC */
+    uint16_t sent = ff_data;
+    uint8_t sn = 1u;
+    uint8_t cfs_in_block = 0u; /* CFs sent since last FC */
 
     while (sent < len) {
         /*
@@ -264,18 +263,19 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
                     continue; /* ignore other IDs */
                 }
                 if ((fc_frame.data[0] & 0xF0u) != 0x30u) {
-                    fprintf(stderr, "isotp_send: expected FC, got 0x%02X\n",
-                            fc_frame.data[0]);
+                    fprintf(stderr, "isotp_send: expected FC, got 0x%02X\n", fc_frame.data[0]);
                     return -1;
                 }
-                fc_fs         = fc_frame.data[0] & 0x0Fu;
+                fc_fs = fc_frame.data[0] & 0x0Fu;
                 fc_block_size = fc_frame.data[1];
-                fc_stmin_raw  = fc_frame.data[2];
+                fc_stmin_raw = fc_frame.data[2];
                 if (fc_stmin_raw <= 0x7Fu) {
-                    stmin_us = (unsigned int)fc_stmin_raw * 1000u;
-                } else if (fc_stmin_raw >= 0xF1u && fc_stmin_raw <= 0xF9u) {
-                    stmin_us = (unsigned int)(fc_stmin_raw - 0xF0u) * 100u;
-                } else {
+                    stmin_us = (unsigned int) fc_stmin_raw * 1000u;
+                }
+                else if (fc_stmin_raw >= 0xF1u && fc_stmin_raw <= 0xF9u) {
+                    stmin_us = (unsigned int) (fc_stmin_raw - 0xF0u) * 100u;
+                }
+                else {
                     stmin_us = 0u;
                 }
                 if (fc_fs == 2u) {
@@ -289,20 +289,20 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
             }
         }
 
-        uint16_t remain = (uint16_t)(len - sent);
-        uint8_t  chunk  = (remain > 63u) ? 63u : (uint8_t)remain;
-        frame_buf[0] = (uint8_t)(0x20u | (sn & 0x0Fu));
+        uint16_t remain = (uint16_t) (len - sent);
+        uint8_t chunk = (remain > 63u) ? 63u : (uint8_t) remain;
+        frame_buf[0] = (uint8_t) (0x20u | (sn & 0x0Fu));
         memcpy(&frame_buf[1], data + sent, chunk);
-        if (can_send_frame(sock, tx_id, frame_buf, (uint8_t)(1u + chunk)) != 0) {
+        if (can_send_frame(sock, tx_id, frame_buf, (uint8_t) (1u + chunk)) != 0) {
             return -1;
         }
-        sent = (uint16_t)(sent + chunk);
-        sn   = (uint8_t)((sn + 1u) & 0x0Fu);
+        sent = (uint16_t) (sent + chunk);
+        sn = (uint8_t) ((sn + 1u) & 0x0Fu);
         cfs_in_block++;
 
         /* Honor STmin inter-frame gap */
         if (stmin_us > 0u && sent < len) {
-            usleep((useconds_t)stmin_us);
+            usleep((useconds_t) stmin_us);
         }
     }
     return 0;
@@ -323,9 +323,8 @@ static int isotp_send(int sock, uint32_t tx_id, uint32_t fc_rx_id,
  * @param timeout_ms  Receive timeout in milliseconds.
  * @return 0 on success, -1 on error, 1 on timeout.
  */
-static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id,
-                      uint8_t *buf, uint16_t *out_len, uint16_t buf_cap,
-                      int timeout_ms)
+static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id, uint8_t *buf, uint16_t *out_len,
+                      uint16_t buf_cap, int timeout_ms)
 {
     struct canfd_frame fr;
     *out_len = 0;
@@ -362,14 +361,15 @@ static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id,
                 return -1;
             }
             sf_len = fr.data[1];
-            off    = 2u;
-        } else {
+            off = 2u;
+        }
+        else {
             /* Classic SF: [0x0L][data...] */
             sf_len = fr.data[0] & 0x0Fu;
-            off    = 1u;
+            off = 1u;
         }
-        if (sf_len == 0u || sf_len > (uint8_t)buf_cap ||
-                (uint32_t)off + (uint32_t)sf_len > (uint32_t)fr.len) {
+        if (sf_len == 0u || sf_len > (uint8_t) buf_cap ||
+            (uint32_t) off + (uint32_t) sf_len > (uint32_t) fr.len) {
             fprintf(stderr, "isotp_recv: SF len=%u out of range (off=%u, frame_len=%u, cap=%u)\n",
                     sf_len, off, fr.len, buf_cap);
             return -1;
@@ -381,15 +381,14 @@ static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id,
 
     if (pci_type == 1u) {
         /* First Frame */
-        uint16_t total_len = (uint16_t)(((uint16_t)(fr.data[0] & 0x0Fu) << 8u) |
-                                        (uint16_t)fr.data[1]);
+        uint16_t total_len =
+            (uint16_t) (((uint16_t) (fr.data[0] & 0x0Fu) << 8u) | (uint16_t) fr.data[1]);
         if (total_len > buf_cap) {
-            fprintf(stderr, "isotp_recv: FF total_len=%u exceeds buf_cap=%u\n",
-                    total_len, buf_cap);
+            fprintf(stderr, "isotp_recv: FF total_len=%u exceeds buf_cap=%u\n", total_len, buf_cap);
             return -1;
         }
 
-        uint16_t ff_data = (uint16_t)(fr.len - 2u); /* bytes after 2-byte PCI */
+        uint16_t ff_data = (uint16_t) (fr.len - 2u); /* bytes after 2-byte PCI */
         if (ff_data > total_len) {
             ff_data = total_len;
         }
@@ -419,16 +418,16 @@ static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id,
             }
             uint8_t sn = fr.data[0] & 0x0Fu;
             if (sn != (expected_sn & 0x0Fu)) {
-                fprintf(stderr, "isotp_recv: CF SN mismatch: got %u, expected %u\n",
-                        sn, expected_sn & 0x0Fu);
+                fprintf(stderr, "isotp_recv: CF SN mismatch: got %u, expected %u\n", sn,
+                        expected_sn & 0x0Fu);
                 return -1;
             }
-            expected_sn = (uint8_t)((expected_sn + 1u) & 0x0Fu);
+            expected_sn = (uint8_t) ((expected_sn + 1u) & 0x0Fu);
 
-            uint16_t remain = (uint16_t)(total_len - received);
-            uint8_t  chunk  = (uint8_t)((fr.len - 1u) < remain ? (fr.len - 1u) : remain);
+            uint16_t remain = (uint16_t) (total_len - received);
+            uint8_t chunk = (uint8_t) ((fr.len - 1u) < remain ? (fr.len - 1u) : remain);
             memcpy(&buf[received], &fr.data[1], chunk);
-            received = (uint16_t)(received + chunk);
+            received = (uint16_t) (received + chunk);
         }
 
         *out_len = total_len;
@@ -453,16 +452,14 @@ static int isotp_recv(int sock, uint32_t rx_id, uint32_t fc_tx_id,
  * @param resp_len Output: number of bytes in response.
  * @return 0 on success, -1 on error.
  */
-static int do_request(int sock,
-                      const uint8_t *req, uint16_t req_len,
-                      uint8_t *resp, uint16_t *resp_len)
+static int do_request(int sock, const uint8_t *req, uint16_t req_len, uint8_t *resp,
+                      uint16_t *resp_len)
 {
     if (isotp_send(sock, TESTER_ID, ECU_ID, req, req_len) != 0) {
         fprintf(stderr, "do_request: send failed\n");
         return -1;
     }
-    int rc = isotp_recv(sock, ECU_ID, TESTER_ID,
-                        resp, resp_len, 512u, 2000);
+    int rc = isotp_recv(sock, ECU_ID, TESTER_ID, resp, resp_len, 512u, 2000);
     if (rc != 0) {
         fprintf(stderr, "do_request: recv failed (rc=%d)\n", rc);
         return -1;
@@ -480,8 +477,7 @@ static int do_request(int sock,
  */
 static int compute_key(const uint8_t *seed, uint16_t seed_len, uint8_t *key_out)
 {
-    const mbedtls_cipher_info_t *ci =
-        mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
+    const mbedtls_cipher_info_t *ci = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
     if (ci == NULL) {
         fprintf(stderr, "compute_key: mbedtls_cipher_info_from_type failed\n");
         return -1;
@@ -530,9 +526,9 @@ static int open_can_socket(const char *iface)
 
     struct sockaddr_can addr;
     memset(&addr, 0, sizeof(addr));
-    addr.can_family  = AF_CAN;
+    addr.can_family = AF_CAN;
     addr.can_ifindex = ifr.ifr_ifindex;
-    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) != 0) {
         perror("bind");
         close(sock);
         return -1;
@@ -559,13 +555,14 @@ static void print_hex(const char *label, const uint8_t *data, uint16_t len)
 int main(int argc, char **argv)
 {
     if (argc != 3) {
-        fprintf(stderr, "Usage:\n"
+        fprintf(stderr,
+                "Usage:\n"
                 "  %s <can-iface> <image.bin>  — full OTA download + activate\n"
                 "  %s <can-iface> --rollback   — tester-commanded rollback (0xFF03)\n",
                 argv[0], argv[0]);
         return 1;
     }
-    const char *iface    = argv[1];
+    const char *iface = argv[1];
     const char *img_path = argv[2];
 
     /* --rollback mode: open session, authenticate, send 0xFF03, done. */
@@ -576,7 +573,7 @@ int main(int argc, char **argv)
         }
         printf("[flash_tool] Rollback mode on %s\n", iface);
 
-        uint8_t  resp[512];
+        uint8_t resp[512];
         uint16_t resp_len;
 
         /* Step 1: DiagnosticSessionControl(programming) */
@@ -686,8 +683,8 @@ int main(int argc, char **argv)
         return 1;
     }
     rewind(f);
-    uint32_t img_size = (uint32_t)img_size_l;
-    uint8_t *img_buf  = (uint8_t *)malloc(img_size);
+    uint32_t img_size = (uint32_t) img_size_l;
+    uint8_t *img_buf = (uint8_t *) malloc(img_size);
     if (img_buf == NULL) {
         fprintf(stderr, "malloc(%u) failed\n", img_size);
         fclose(f);
@@ -710,7 +707,7 @@ int main(int argc, char **argv)
     }
     printf("[flash_tool] CAN FD socket on %s ready\n", iface);
 
-    uint8_t  resp[512];
+    uint8_t resp[512];
     uint16_t resp_len;
 
     /* ------------------------------------------------------------------
@@ -725,8 +722,8 @@ int main(int argc, char **argv)
         }
         print_hex("   resp", resp, resp_len);
         if (resp_len < 2u || resp[0] != 0x50u || resp[1] != 0x02u) {
-            fprintf(stderr, "FAIL: expected 0x50 0x02, got 0x%02X 0x%02X\n",
-                    resp[0], resp_len > 1u ? resp[1] : 0u);
+            fprintf(stderr, "FAIL: expected 0x50 0x02, got 0x%02X 0x%02X\n", resp[0],
+                    resp_len > 1u ? resp[1] : 0u);
             goto err;
         }
         printf("   OK\n");
@@ -736,7 +733,7 @@ int main(int argc, char **argv)
      * Step 2: ReadDataByIdentifier(0xF1A0) — active bank
      * ------------------------------------------------------------------ */
     printf("\n[2/9] ReadDataByIdentifier(0xF1A0) — active bank...\n");
-    uint8_t  active_bank;
+    uint8_t active_bank;
     uint32_t inactive_app_base;
     {
         uint8_t req[] = {0x22u, 0xF1u, 0xA0u};
@@ -751,12 +748,11 @@ int main(int argc, char **argv)
             goto err;
         }
         active_bank = resp[3];
-        uint8_t inactive_bank = (uint8_t)(active_bank ^ 0x01u);
-        inactive_app_base = BANK_BASE_OFFSET +
-                            (uint32_t)inactive_bank * BANK_SIZE +
-                            BL_REGION_SIZE;
-        printf("   active bank=%u  inactive bank=%u  target base=0x%08X\n",
-               active_bank, inactive_bank, inactive_app_base);
+        uint8_t inactive_bank = (uint8_t) (active_bank ^ 0x01u);
+        inactive_app_base =
+            BANK_BASE_OFFSET + (uint32_t) inactive_bank * BANK_SIZE + BL_REGION_SIZE;
+        printf("   active bank=%u  inactive bank=%u  target base=0x%08X\n", active_bank,
+               inactive_bank, inactive_app_base);
         printf("   OK\n");
     }
 
@@ -774,8 +770,7 @@ int main(int argc, char **argv)
         print_hex("   resp", resp, resp_len);
         /* Expected: 0x67 0x01 <16 seed bytes> */
         if (resp_len < 18u || resp[0] != 0x67u || resp[1] != 0x01u) {
-            fprintf(stderr, "FAIL: expected 0x67 0x01 + 16 seed bytes (got %u bytes)\n",
-                    resp_len);
+            fprintf(stderr, "FAIL: expected 0x67 0x01 + 16 seed bytes (got %u bytes)\n", resp_len);
             goto err;
         }
         memcpy(seed, &resp[2], 16u);
@@ -806,8 +801,8 @@ int main(int argc, char **argv)
         }
         print_hex("   resp", resp, resp_len);
         if (resp_len < 2u || resp[0] != 0x67u || resp[1] != 0x02u) {
-            fprintf(stderr, "FAIL: SecurityAccess rejected (0x%02X 0x%02X)\n",
-                    resp[0], resp_len > 1u ? resp[1] : 0u);
+            fprintf(stderr, "FAIL: SecurityAccess rejected (0x%02X 0x%02X)\n", resp[0],
+                    resp_len > 1u ? resp[1] : 0u);
             goto err;
         }
         printf("   OK — security unlocked\n");
@@ -817,25 +812,24 @@ int main(int argc, char **argv)
      * Step 5: RequestDownload — 0x34
      * ALFID=0x44: 4-byte addr, 4-byte size
      * ------------------------------------------------------------------ */
-    printf("\n[5/9] RequestDownload (addr=0x%08X size=%u)...\n",
-           inactive_app_base, img_size);
+    printf("\n[5/9] RequestDownload (addr=0x%08X size=%u)...\n", inactive_app_base, img_size);
     uint32_t max_block_len = 4095u; /* default if parse fails */
     {
         /* ALFID=0x44: 4-byte address + 4-byte memory size (ISO 14229-1 §14.4.2) */
         uint8_t req11[11];
         req11[0] = 0x34u;
-        req11[1] = 0x00u;       /* dataFormatIdentifier */
-        req11[2] = 0x44u;       /* addressAndLengthFormatIdentifier: 4+4 */
+        req11[1] = 0x00u; /* dataFormatIdentifier */
+        req11[2] = 0x44u; /* addressAndLengthFormatIdentifier: 4+4 */
         /* Address (big-endian) */
-        req11[3] = (uint8_t)(inactive_app_base >> 24u);
-        req11[4] = (uint8_t)(inactive_app_base >> 16u);
-        req11[5] = (uint8_t)(inactive_app_base >>  8u);
-        req11[6] = (uint8_t)(inactive_app_base        );
+        req11[3] = (uint8_t) (inactive_app_base >> 24u);
+        req11[4] = (uint8_t) (inactive_app_base >> 16u);
+        req11[5] = (uint8_t) (inactive_app_base >> 8u);
+        req11[6] = (uint8_t) (inactive_app_base);
         /* Size (big-endian) */
-        req11[7] = (uint8_t)(img_size >> 24u);
-        req11[8] = (uint8_t)(img_size >> 16u);
-        req11[9] = (uint8_t)(img_size >>  8u);
-        req11[10]= (uint8_t)(img_size        );
+        req11[7] = (uint8_t) (img_size >> 24u);
+        req11[8] = (uint8_t) (img_size >> 16u);
+        req11[9] = (uint8_t) (img_size >> 8u);
+        req11[10] = (uint8_t) (img_size);
 
         if (do_request(sock, req11, sizeof(req11), resp, &resp_len) != 0) {
             fprintf(stderr, "FAIL: no response to 0x34\n");
@@ -853,8 +847,8 @@ int main(int argc, char **argv)
          *   resp[1] = lengthFormatIdentifier (high nibble = number of block-length bytes)
          *   resp[2..] = maxNumberOfBlockLength (MSB-first)
          */
-        uint8_t  len_bytes = (uint8_t)((resp[1] >> 4u) & 0x0Fu);
-        if (len_bytes > 0u && resp_len >= (uint16_t)(2u + len_bytes)) {
+        uint8_t len_bytes = (uint8_t) ((resp[1] >> 4u) & 0x0Fu);
+        if (len_bytes > 0u && resp_len >= (uint16_t) (2u + len_bytes)) {
             uint32_t mbl = 0u;
             for (uint8_t i = 0u; i < len_bytes; i++) {
                 mbl = (mbl << 8u) | resp[2u + i];
@@ -876,36 +870,36 @@ int main(int argc, char **argv)
      * Step 6: TransferData — 0x36 × N
      * chunk size = max_block_len - 2 (SID + seq)
      * ------------------------------------------------------------------ */
-    printf("\n[6/9] TransferData (%u bytes in chunks of %u)...\n",
-           img_size, max_block_len - 2u);
+    printf("\n[6/9] TransferData (%u bytes in chunks of %u)...\n", img_size, max_block_len - 2u);
     {
         /* max_block_len is guaranteed > 1 (default 4095 or validated from response) */
         uint32_t chunk_data_size = max_block_len - 2u; /* subtract SID + blockSequenceCounter */
-        uint8_t *req_buf = (uint8_t *)malloc(max_block_len);
+        uint8_t *req_buf = (uint8_t *) malloc(max_block_len);
         if (req_buf == NULL) {
             fprintf(stderr, "FAIL: malloc chunk buffer\n");
             goto err;
         }
 
         uint32_t offset = 0u;
-        uint8_t  seq    = 0x01u;
+        uint8_t seq = 0x01u;
 
         while (offset < img_size) {
             uint32_t remain = img_size - offset;
-            uint32_t chunk  = (remain < chunk_data_size) ? remain : chunk_data_size;
+            uint32_t chunk = (remain < chunk_data_size) ? remain : chunk_data_size;
 
             req_buf[0] = 0x36u;
             req_buf[1] = seq;
             memcpy(&req_buf[2], img_buf + offset, chunk);
 
-            uint16_t req_total = (uint16_t)(2u + chunk);
+            uint16_t req_total = (uint16_t) (2u + chunk);
             if (do_request(sock, req_buf, req_total, resp, &resp_len) != 0) {
                 fprintf(stderr, "FAIL: TransferData no response (offset=%u)\n", offset);
                 free(req_buf);
                 goto err;
             }
             if (resp_len < 2u || resp[0] != 0x76u || resp[1] != seq) {
-                fprintf(stderr, "FAIL: TransferData NACK (resp[0]=0x%02X resp[1]=0x%02X seq=0x%02X)\n",
+                fprintf(stderr,
+                        "FAIL: TransferData NACK (resp[0]=0x%02X resp[1]=0x%02X seq=0x%02X)\n",
                         resp[0], resp_len > 1u ? resp[1] : 0u, seq);
                 free(req_buf);
                 goto err;
@@ -916,7 +910,7 @@ int main(int argc, char **argv)
             fflush(stdout);
 
             /* Wrap block-sequence-counter per ISO 14229-1 §14.3: 0xFF -> 0x00 */
-            seq = (uint8_t)(seq == 0xFFu ? 0x00u : seq + 1u);
+            seq = (uint8_t) (seq == 0xFFu ? 0x00u : seq + 1u);
         }
         free(req_buf);
         printf("\n   OK (%u blocks)\n", offset);
@@ -952,8 +946,8 @@ int main(int argc, char **argv)
         }
         print_hex("   resp", resp, resp_len);
         /* Expected: 0x71 0x01 0xFF 0x01 <result> */
-        if (resp_len < 5u || resp[0] != 0x71u || resp[1] != 0x01u ||
-                resp[2] != 0xFFu || resp[3] != 0x01u) {
+        if (resp_len < 5u || resp[0] != 0x71u || resp[1] != 0x01u || resp[2] != 0xFFu ||
+            resp[3] != 0x01u) {
             fprintf(stderr, "FAIL: unexpected CheckProgramming response\n");
             goto err;
         }
@@ -990,4 +984,3 @@ err:
     free(img_buf);
     return 1;
 }
-

@@ -16,7 +16,7 @@ void uart_putc(char c)
 {
     while ((USART3->ISR & USART_ISR_TXE) == 0u) {
     }
-    USART3->TDR = (uint32_t)(uint8_t) c;
+    USART3->TDR = (uint32_t) (uint8_t) c;
 }
 
 void uart_puts(const char *s)
@@ -31,11 +31,11 @@ void uart_puts(const char *s)
  * message RAM via the CMSIS SRAMCAN base.  The element offsets below are this
  * firmware's configured message-RAM layout (one TX buffer + one RX FIFO 0
  * element), expressed relative to SRAMCAN_BASE (= FDCAN1 base + 0x800). */
-#define FDCAN_RXF0_ELEM0  0x0B0u
-#define FDCAN_TXBUF0      0x278u
+#define FDCAN_RXF0_ELEM0 0x0B0u
+#define FDCAN_TXBUF0 0x278u
 
-#define TX_T1_BRS  (1u << 20)
-#define TX_T1_FDF  (1u << 21)
+#define TX_T1_BRS (1u << 20)
+#define TX_T1_FDF (1u << 21)
 
 static uint32_t fdcan_ram(uint32_t offset)
 {
@@ -44,7 +44,7 @@ static uint32_t fdcan_ram(uint32_t offset)
 
 static uint8_t len_to_dlc(uint8_t len)
 {
-    if (len <= 8u)  return len;
+    if (len <= 8u) return len;
     if (len <= 12u) return 9u;
     if (len <= 16u) return 10u;
     if (len <= 20u) return 11u;
@@ -63,33 +63,45 @@ static uint8_t dlc_to_len(uint8_t dlc)
 static void write_payload(uint32_t payload_addr, const uint8_t *data, uint8_t len)
 {
     /* Write 16 zero words to clear the element (up to 64-byte CAN-FD payload). */
-    volatile uint32_t *wp = (volatile uint32_t *)(uintptr_t)payload_addr;
+    volatile uint32_t *wp = (volatile uint32_t *) (uintptr_t) payload_addr;
     for (uint32_t i = 0u; i < 16u; ++i) {
         wp[i] = 0u;
     }
     /* Pack payload bytes into 32-bit words (little-endian: byte 0 in LSB). */
-    uint8_t nwords = (uint8_t)((len + 3u) >> 2u);
+    uint8_t nwords = (uint8_t) ((len + 3u) >> 2u);
     for (uint8_t w = 0u; w < nwords; ++w) {
-        uint8_t base = (uint8_t)(w * 4u);
-        uint32_t word = (uint32_t)data[base];
-        if ((uint8_t)(base + 1u) < len) { word |= (uint32_t)data[base + 1u] << 8u; }
-        if ((uint8_t)(base + 2u) < len) { word |= (uint32_t)data[base + 2u] << 16u; }
-        if ((uint8_t)(base + 3u) < len) { word |= (uint32_t)data[base + 3u] << 24u; }
+        uint8_t base = (uint8_t) (w * 4u);
+        uint32_t word = (uint32_t) data[base];
+        if ((uint8_t) (base + 1u) < len) {
+            word |= (uint32_t) data[base + 1u] << 8u;
+        }
+        if ((uint8_t) (base + 2u) < len) {
+            word |= (uint32_t) data[base + 2u] << 16u;
+        }
+        if ((uint8_t) (base + 3u) < len) {
+            word |= (uint32_t) data[base + 3u] << 24u;
+        }
         wp[w] = word;
     }
 }
 
 static void read_payload(uint32_t payload_addr, uint8_t *data, uint8_t len)
 {
-    const volatile uint32_t *rp = (const volatile uint32_t *)(uintptr_t)payload_addr;
-    uint8_t nwords = (uint8_t)((len + 3u) >> 2u);
+    const volatile uint32_t *rp = (const volatile uint32_t *) (uintptr_t) payload_addr;
+    uint8_t nwords = (uint8_t) ((len + 3u) >> 2u);
     for (uint8_t w = 0u; w < nwords; ++w) {
         uint32_t word = rp[w];
-        uint8_t base  = (uint8_t)(w * 4u);
-        data[base] = (uint8_t)(word & 0xFFu);
-        if ((uint8_t)(base + 1u) < len) { data[base + 1u] = (uint8_t)((word >> 8u) & 0xFFu); }
-        if ((uint8_t)(base + 2u) < len) { data[base + 2u] = (uint8_t)((word >> 16u) & 0xFFu); }
-        if ((uint8_t)(base + 3u) < len) { data[base + 3u] = (uint8_t)((word >> 24u) & 0xFFu); }
+        uint8_t base = (uint8_t) (w * 4u);
+        data[base] = (uint8_t) (word & 0xFFu);
+        if ((uint8_t) (base + 1u) < len) {
+            data[base + 1u] = (uint8_t) ((word >> 8u) & 0xFFu);
+        }
+        if ((uint8_t) (base + 2u) < len) {
+            data[base + 2u] = (uint8_t) ((word >> 16u) & 0xFFu);
+        }
+        if ((uint8_t) (base + 3u) < len) {
+            data[base + 3u] = (uint8_t) ((word >> 24u) & 0xFFu);
+        }
     }
 }
 
@@ -118,8 +130,8 @@ int fdcan_send_frame(uint32_t id, const uint8_t *data, uint8_t len, bool fd)
         return -1;
     }
     uint32_t base = fdcan_ram(FDCAN_TXBUF0);
-    *(volatile uint32_t *)(uintptr_t)(base + 0u) = (id & 0x7FFu) << 18u;
-    *(volatile uint32_t *)(uintptr_t)(base + 4u) =
+    *(volatile uint32_t *) (uintptr_t) (base + 0u) = (id & 0x7FFu) << 18u;
+    *(volatile uint32_t *) (uintptr_t) (base + 4u) =
         ((uint32_t) len_to_dlc(len) << 16u) | (fd ? (TX_T1_FDF | TX_T1_BRS) : 0u);
     write_payload(base + 8u, data, len);
     FDCAN1->TXBAR = 1u;
@@ -133,15 +145,15 @@ bool fdcan_poll_rx_frame(can_frame_t *frame)
         return false;
     }
     uint32_t get_index = (rxf0s >> 8u) & 0x3Fu;
-    uint32_t base      = fdcan_ram(FDCAN_RXF0_ELEM0 + get_index * 72u);
-    uint32_t r0        = *(volatile uint32_t *)(uintptr_t)(base + 0u);
-    uint32_t r1        = *(volatile uint32_t *)(uintptr_t)(base + 4u);
-    frame->id  = (r0 >> 18u) & 0x7FFu;
-    frame->len = dlc_to_len((uint8_t)((r1 >> 16u) & 0x0Fu));
-    frame->fd  = (r1 & TX_T1_FDF) != 0u;
+    uint32_t base = fdcan_ram(FDCAN_RXF0_ELEM0 + get_index * 72u);
+    uint32_t r0 = *(volatile uint32_t *) (uintptr_t) (base + 0u);
+    uint32_t r1 = *(volatile uint32_t *) (uintptr_t) (base + 4u);
+    frame->id = (r0 >> 18u) & 0x7FFu;
+    frame->len = dlc_to_len((uint8_t) ((r1 >> 16u) & 0x0Fu));
+    frame->fd = (r1 & TX_T1_FDF) != 0u;
     read_payload(base + 8u, frame->data, frame->len);
     FDCAN1->RXF0A = get_index;
-    FDCAN1->IR    = FDCAN1->IR;
+    FDCAN1->IR = FDCAN1->IR;
     return true;
 }
 
