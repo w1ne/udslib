@@ -111,3 +111,6 @@ add_uds_test(test_p2_single_source unit/test_p2_single_source.c)
 
 # §5b hardening: configurable S3 session timeout regression.
 add_uds_test(test_s3_configurable unit/test_s3_configurable.c)
+
+# §5c hardening: expose receiver Block Size / STmin via setters.
+add_uds_test(test_tp_bs_stmin_setters unit/test_tp_bs_stmin_setters.c)
