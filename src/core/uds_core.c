@@ -607,6 +607,10 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
         ctx->session.p2_star_ms = 5000u;
     }
 
+    /* Resolve S3 once (single source of truth for the session-revert check).
+     * Precedence: s3_ms non-zero → used directly; zero → UDS_S3_TIMEOUT_MS default. */
+    ctx->session.s3_ms = (config->s3_ms > 0u) ? config->s3_ms : UDS_S3_TIMEOUT_MS;
+
     if (config->strict_compliance) {
         if (ctx->session.p2_ms < UDS_P2_MIN_SAFE_MS) ctx->session.p2_ms = UDS_P2_MIN_SAFE_MS;
         if (ctx->session.p2_star_ms < UDS_P2_STAR_MIN_SAFE_MS)
@@ -644,7 +648,7 @@ void uds_process(uds_ctx_t *ctx)
 
     /* S3 Timer: Revert to Default Session if no activity */
     if (ctx->session.active != UDS_SESSION_ID_DEFAULT) {
-        if ((now - ctx->session.last_msg_time) > UDS_S3_TIMEOUT_MS) {
+        if ((now - ctx->session.last_msg_time) > ctx->session.s3_ms) {
             ctx->session.active = UDS_SESSION_ID_DEFAULT;
             ctx->security.level = 0u;
             ctx->security.authenticated = false;

@@ -108,3 +108,6 @@ add_uds_test(test_init_validation unit/test_init_validation.c)
 
 # §5a hardening: P2/P2* single source of truth regression.
 add_uds_test(test_p2_single_source unit/test_p2_single_source.c)
+
+# §5b hardening: configurable S3 session timeout regression.
+add_uds_test(test_s3_configurable unit/test_s3_configurable.c)

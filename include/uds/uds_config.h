@@ -771,6 +771,19 @@ typedef struct
      */
     uint16_t p2_star_server_max;
 
+    /**
+     * @brief S3 server session-timeout in ms (ISO 14229-1 parameter S3).
+     *
+     * When the tester is absent for longer than S3, the stack reverts to the
+     * default diagnostic session and relocks security. Resolved once in
+     * uds_init() into ctx->session.s3_ms.
+     *
+     * Precedence:
+     *   s3_ms > 0   — used directly.
+     *   s3_ms == 0  — UDS_S3_TIMEOUT_MS (5000 ms) is applied.
+     */
+    uint32_t s3_ms;
+
 } uds_config_t;
 
 /* --- Internal Context --- */
@@ -792,6 +805,7 @@ typedef struct uds_session_state
     uint32_t p2_star_ms;    /**< Current P2* server timeout */
     uint8_t comm_state;     /**< CommunicationControl (0x28) state (uds_comm_control_type_t) */
     uint8_t dtc_setting_disabled; /**< ControlDTCSetting (0x85): 1 = DTC setting off, 0 = on */
+    uint32_t s3_ms; /**< Resolved S3 server timeout; 0 at runtime is replaced by UDS_S3_TIMEOUT_MS */
 } uds_session_state_t;
 
 /** SecurityAccess (0x27) / Authentication (0x29) state. */
