@@ -573,6 +573,12 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
         return UDS_ERR_INVALID_ARG;
     }
 
+    /* Enforce minimum buffer floors */
+    if (config->tx_buffer_size < UDS_MIN_TX_BUFFER_SIZE ||
+        config->rx_buffer_size < UDS_MIN_RX_BUFFER_SIZE) {
+        return UDS_ERR_INVALID_ARG;
+    }
+
     memset(ctx, 0, sizeof(uds_ctx_t));
     ctx->config = config;
     ctx->session.active = UDS_SESSION_ID_DEFAULT; /* Default Session */

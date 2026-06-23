@@ -102,3 +102,6 @@ target_link_options(test_tp_addressing PRIVATE -Wl,--wrap=uds_input_sdu -Wl,--wr
 
 # Regression for issue #42 part 2: functional addressing end to end.
 add_uds_test(test_issue42_functional unit/test_issue42_functional.c)
+
+# §2b hardening: enforce minimum buffer sizes at uds_init().
+add_uds_test(test_init_validation unit/test_init_validation.c)
