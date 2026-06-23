@@ -138,10 +138,10 @@ jobs:
                   echo \"\$out\"
                   case \$ex in
                     auth_challenge_mbedtls)
-                      echo \"\$out\" | grep -q 'ctx.authenticated = true'
+                      echo \"\$out\" | grep -q 'ctx.security.authenticated = true'
                       echo \"\$out\" | grep -q '69 03 02' ;;
                     security_access_mbedtls)
-                      echo \"\$out\" | grep -q 'ctx.security_level = 2'
+                      echo \"\$out\" | grep -q 'ctx.security.level = 2'
                       echo \"\$out\" | grep -q '7F BA 33' ;;
                   esac
                   make -C examples/\$ex clean

@@ -150,7 +150,7 @@ static void test_rdbi_security_denied(void **state)
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
     cfg.did_table = g_test_table;
-    ctx.security_level = 1; /* Locked (assuming Level 2 required for 0xSEC1) */
+    ctx.security.level = 1; /* Locked (assuming Level 2 required for 0xSEC1) */
 
     /* 0xSEC1 = 0x5E 0xC1 */
     uint8_t request[] = {0x22, 0x5E, 0xC1};
@@ -175,7 +175,7 @@ static void test_wdbi_security_denied(void **state)
     uds_config_t cfg;
     setup_ctx(&ctx, &cfg);
     cfg.did_table = g_test_table;
-    ctx.security_level = 1;
+    ctx.security.level = 1;
 
     /* 0x5EC1 requires Level 2 (mask 0x04) */
     uint8_t request[] = {0x2E, 0x5E, 0xC1, 0x01, 0x02, 0x03, 0x04};
@@ -231,7 +231,7 @@ static void test_rdbi_session_gating(void **state)
     uint8_t req[] = {0x22, 0x77, 0x01};
 
     /* Programming session: allowed. */
-    ctx.active_session = 0x02; /* programming */
+    ctx.session.active = 0x02; /* programming */
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     expect_any(mock_tp_send, data);
@@ -241,7 +241,7 @@ static void test_rdbi_session_gating(void **state)
     assert_int_equal(g_tx_buf[0], 0x62);
 
     /* Extended session: must be rejected, not silently allowed. */
-    ctx.active_session = 0x03; /* extended */
+    ctx.session.active = 0x03; /* extended */
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     expect_any(mock_tp_send, data);

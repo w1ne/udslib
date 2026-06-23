@@ -142,7 +142,7 @@ static void test_full_lifecycle(void **state)
     uint8_t resp_sess[] = {0x50, 0x03, 0x00, 0x32, 0x01, 0xF4};
     verify_response(resp_sess, 6);
 
-    assert_int_equal(g_ctx.active_session, 0x03);
+    assert_int_equal(g_ctx.session.active, 0x03);
 
     /* 3. Security Access (0x27 0x01) */
     uint8_t req_seed[] = {0x27, 0x01};
@@ -160,7 +160,7 @@ static void test_full_lifecycle(void **state)
     uint8_t resp_unlock[] = {0x67, 0x02};
     verify_response(resp_unlock, 2);
 
-    assert_int_equal(g_ctx.security_level, 1);
+    assert_int_equal(g_ctx.security.level, 1);
 
     /* 5. Write Data (0x2E 0x01 0x00) */
     /* Requires Security? Assuming 0x2E requires security in core?
@@ -180,7 +180,7 @@ static void test_full_lifecycle(void **state)
     /* Advance time close to timeout */
     g_time_ms += 4000;
     uds_process(&g_ctx);
-    assert_int_equal(g_ctx.active_session, 0x03); /* Still Extended */
+    assert_int_equal(g_ctx.session.active, 0x03); /* Still Extended */
 
     uint8_t req_tp[] = {0x3E, 0x00};
     send_to_uds(req_tp, sizeof(req_tp));
@@ -191,7 +191,7 @@ static void test_full_lifecycle(void **state)
     /* 7. Timeout */
     g_time_ms += 6000; /* > 5000ms S3 */
     uds_process(&g_ctx);
-    assert_int_equal(g_ctx.active_session, 0x01); /* Reverted to Default */
+    assert_int_equal(g_ctx.session.active, 0x01); /* Reverted to Default */
 }
 
 int main(void)

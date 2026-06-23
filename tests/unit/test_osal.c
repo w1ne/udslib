@@ -33,12 +33,13 @@ static uint32_t get_time_mutable(void)
     return g_osal_time;
 }
 
-static int mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void mock_pending_handler(struct uds_ctx *ctx, const uint8_t *data, uint16_t len,
+                                 uds_result_t *out)
 {
     (void) ctx;
     (void) data;
     (void) len;
-    return UDS_PENDING;
+    uds_pending(out);
 }
 
 static void mock_mutex_lock(void *handle)
@@ -136,7 +137,7 @@ static void test_osal_unlocks_on_rcrrp_limit(void **state)
     /* Start the async request: handler returns UDS_PENDING -> first 0x78. */
     uint8_t req[] = {0x99};
     uds_input_sdu(&ctx, req, 1);
-    assert_true(ctx.p2_msg_pending);
+    assert_true(ctx.server.p2_msg_pending);
 
     /* First P2* expiry: sends a repeated 0x78, rcrrp_count -> 1. */
     g_osal_time = 200;

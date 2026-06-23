@@ -49,9 +49,9 @@ static void test_periodic_read_setup(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req, 3);
-    assert_int_equal(ctx.periodic_count, 1);
-    assert_int_equal(ctx.periodic_ids[0], 0xE1);
-    assert_int_equal(ctx.periodic_rates[0], 0x01);
+    assert_int_equal(ctx.server.periodic_count, 1);
+    assert_int_equal(ctx.server.periodic_ids[0], 0xE1);
+    assert_int_equal(ctx.server.periodic_rates[0], 0x01);
 }
 
 static void test_periodic_scheduler_trigger(void **state)
@@ -61,10 +61,10 @@ static void test_periodic_scheduler_trigger(void **state)
     cfg.fn_periodic_read = mock_periodic_read;
 
     /* Manually setup state */
-    ctx.periodic_ids[0] = 0xE1;
-    ctx.periodic_rates[0] = 0x01; /* Fast: 100ms */
-    ctx.periodic_timers[0] = 1000;
-    ctx.periodic_count = 1;
+    ctx.server.periodic_ids[0] = 0xE1;
+    ctx.server.periodic_rates[0] = 0x01; /* Fast: 100ms */
+    ctx.server.periodic_timers[0] = 1000;
+    ctx.server.periodic_count = 1;
 
     /* Trigger scheduler at T=1000 */
     will_return(mock_get_time, 1000);
@@ -75,7 +75,7 @@ static void test_periodic_scheduler_trigger(void **state)
     uds_process(&ctx);
 
     /* Check timer reset */
-    assert_int_equal(ctx.periodic_timers[0], 1100);
+    assert_int_equal(ctx.server.periodic_timers[0], 1100);
 }
 
 /* The scheduler deadline comparison must survive a 32-bit millisecond wrap:
@@ -86,10 +86,10 @@ static void test_periodic_scheduler_wraparound(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_periodic_read = mock_periodic_read;
 
-    ctx.periodic_ids[0] = 0xE1;
-    ctx.periodic_rates[0] = 0x01;         /* Fast: 100ms */
-    ctx.periodic_timers[0] = 0xFFFFFF00u; /* deadline just before wrap */
-    ctx.periodic_count = 1;
+    ctx.server.periodic_ids[0] = 0xE1;
+    ctx.server.periodic_rates[0] = 0x01;         /* Fast: 100ms */
+    ctx.server.periodic_timers[0] = 0xFFFFFF00u; /* deadline just before wrap */
+    ctx.server.periodic_count = 1;
 
     /* Clock has wrapped past the deadline. */
     will_return(mock_get_time, 0x00000100u);
@@ -100,7 +100,7 @@ static void test_periodic_scheduler_wraparound(void **state)
     uds_process(&ctx);
 
     /* Fired despite the wrap; next deadline = now + 100ms. */
-    assert_int_equal(ctx.periodic_timers[0], 0x00000100u + 100u);
+    assert_int_equal(ctx.server.periodic_timers[0], 0x00000100u + 100u);
 }
 
 static void test_periodic_read_stop(void **state)
@@ -108,8 +108,8 @@ static void test_periodic_read_stop(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
 
-    ctx.periodic_ids[0] = 0xE1;
-    ctx.periodic_count = 1;
+    ctx.server.periodic_ids[0] = 0xE1;
+    ctx.server.periodic_count = 1;
 
     /* 2A 04 E1 (Stop ID 0xE1) */
     uint8_t req[] = {0x2A, 0x04, 0xE1};
@@ -123,8 +123,8 @@ static void test_periodic_read_stop(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req, 3);
-    assert_int_equal(ctx.periodic_count, 0);
-    assert_int_equal(ctx.periodic_ids[0], 0x00);
+    assert_int_equal(ctx.server.periodic_count, 0);
+    assert_int_equal(ctx.server.periodic_ids[0], 0x00);
 }
 
 /* Registering a periodic read with no fn_periodic_read configured must be
@@ -146,7 +146,7 @@ static void test_periodic_read_requires_callback(void **state)
 
     assert_int_equal(g_tx_buf[0], 0x7F);
     assert_int_equal(g_tx_buf[2], 0x22);
-    assert_int_equal(ctx.periodic_count, 0);
+    assert_int_equal(ctx.server.periodic_count, 0);
 }
 
 int main(void)

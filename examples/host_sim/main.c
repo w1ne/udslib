@@ -186,7 +186,7 @@ static int did_read_active_session(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, u
 {
     (void) did;
     if (max_len < 1u) return -0x22; /* ConditionsNotCorrect */
-    buf[0] = ctx->active_session;
+    buf[0] = ctx->session.active;
     return 1;
 }
 
@@ -463,7 +463,7 @@ int main(int argc, char **argv)
         uds_tp_isotp_process(&g_isotp, now);
 
         /* Mock "Long Running" Async Operation for SID 0x31 */
-        if (ctx.p2_msg_pending && ctx.server_pending_sid == 0x31 && slow_op_start == 0) {
+        if (ctx.server.p2_msg_pending && ctx.server.pending_sid == 0x31 && slow_op_start == 0) {
             slow_op_start = now;
             printf("[APP] Starting 1.5s operation for SID 0x31...\n");
         }

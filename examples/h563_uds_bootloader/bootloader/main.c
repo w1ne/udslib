@@ -350,7 +350,7 @@ static int erase_app_sectors(uint8_t bank)
 static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
 {
     /* Security gate: 0x27 must have been completed before reprogramming. */
-    if (ctx->security_level < 1u) {
+    if (ctx->security.level < 1u) {
         return -(int) 0x33; /* securityAccessDenied */
     }
 
@@ -416,7 +416,7 @@ static int bl_request_download(uds_ctx_t *ctx, uint32_t addr, uint32_t size)
 static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *data, uint16_t len)
 {
     /* Security gate: 0x27 must have been completed before reprogramming. */
-    if (ctx->security_level < 1u) {
+    if (ctx->security.level < 1u) {
         return -(int) 0x33; /* securityAccessDenied */
     }
 
@@ -495,7 +495,7 @@ static int bl_transfer_data(uds_ctx_t *ctx, uint8_t sequence, const uint8_t *dat
 static int bl_transfer_exit(uds_ctx_t *ctx)
 {
     /* Security gate: 0x27 must have been completed before reprogramming. */
-    if (ctx->security_level < 1u) {
+    if (ctx->security.level < 1u) {
         return -(int) 0x33; /* securityAccessDenied */
     }
 
@@ -531,7 +531,7 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
     (void) max_len;
 
     /* Security gate: 0x27 must have been completed before reprogramming. */
-    if (ctx->security_level < 1u) {
+    if (ctx->security.level < 1u) {
         return -(int) 0x33; /* securityAccessDenied */
     }
 

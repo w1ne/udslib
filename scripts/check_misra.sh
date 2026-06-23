@@ -17,9 +17,12 @@ echo "--------------------------------------------------"
 
 # 1. Check for Standard Library usage in src/ (Rule 21.x)
 echo -n "[1/3] Checking for forbidden stdlib usage... "
-FORBIDDEN="malloc\|free\|printf\|fprintf\|sprintf\|exit\|abort\|realloc\|calloc"
-# Use -w to match whole words only to avoid flagging "transfer_exit"
-if grep -rnw "$FORBIDDEN" src/ | grep -v "uds_internal_log"; then
+FORBIDDEN="malloc|free|printf|fprintf|sprintf|exit|abort|realloc|calloc"
+# Match CALLS only: a word-boundary-delimited name immediately followed by '('.
+# Requiring the call paren means the same word appearing in a comment ("clear on
+# TX abort") or inside another identifier ("transfer_exit") is not flagged, while
+# a real abort()/malloc( still is.
+if grep -rnE "\b(${FORBIDDEN})[[:space:]]*\(" src/ | grep -v "uds_internal_log"; then
     echo -e "${RED}FAILED${NC}"
     echo "Found forbidden standard library calls in core code."
     exit 1

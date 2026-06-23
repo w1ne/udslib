@@ -144,6 +144,17 @@ typedef struct
     /* --- Timeout limits (ms); defaulted at init, overridable by the caller --- */
     uint32_t n_cr_ms; /**< Max wait for a consecutive frame during reception */
     uint32_t n_bs_ms; /**< Max wait for flow control after sending a First Frame */
+
+    /* Set when FC.CTS is received; cleared after the first CF is sent.
+     * The first CF after CTS must be sent immediately (ISO 15765-2 §6.5.5.5):
+     * STmin governs the gap between successive CFs only, not before the first. */
+    uint8_t first_cf_after_fc; /**< 1 = first CF pending, skip STmin wait once */
+
+    /* Optional generic SDU sink (see uds_isotp_set_sdu_handler). When set, a
+     * reassembled SDU is delivered here instead of to a server uds_input_sdu,
+     * so the transport can route to a server or a client without knowing which. */
+    void (*on_sdu)(void *cookie, const uint8_t *sdu, uint16_t len, uint8_t addr);
+    void *sdu_cookie;
 } uds_isotp_ctx_t;
 
 /* --- Public API --- */
@@ -226,13 +237,37 @@ void uds_tp_isotp_set_pad_byte(uds_isotp_ctx_t *iso, uint8_t pad_byte);
 int uds_isotp_send(uds_isotp_ctx_t *iso, const uint8_t *data, uint16_t len);
 
 /**
+ * @brief Generic reassembled-SDU sink.
+ *
+ * @param cookie Opaque pointer supplied to uds_isotp_set_sdu_handler().
+ * @param sdu    Reassembled service data unit (SID + payload).
+ * @param len    SDU length in bytes.
+ * @param addr   Addressing mode of the request (uds_addr_mode_t value).
+ */
+typedef void (*uds_isotp_sdu_fn)(void *cookie, const uint8_t *sdu, uint16_t len, uint8_t addr);
+
+/**
+ * @brief Route reassembled SDUs to a custom sink instead of a server.
+ *
+ * By default uds_isotp_rx_callback() delivers completed SDUs to the server
+ * uds_input_sdu(uds, ...). Set a handler to route them elsewhere — e.g. a UDS
+ * client's uds_client_handle_response() — keeping the transport role-agnostic.
+ * Pass fn == NULL to restore the default server delivery.
+ */
+void uds_isotp_set_sdu_handler(uds_isotp_ctx_t *iso, uds_isotp_sdu_fn fn, void *cookie);
+
+/**
  * @brief CAN Receive Callback.
  *
  * Feeds a raw CAN frame into the ISO-TP engine for reassembly. Completed SDUs
- * are delivered to the core via uds_input_sdu(uds, ...).
+ * are delivered to the SDU handler if one is set (see
+ * uds_isotp_set_sdu_handler), otherwise to the core via uds_input_sdu(uds, ...).
  *
  * @param iso  Pointer to the ISO-TP context.
- * @param uds  Pointer to the core stack context that receives reassembled SDUs.
+ * @param uds  Core stack context. Provides the reassembly buffer and clock via
+ *             uds->config; also the default SDU sink when no handler is set.
+ *             A pure client still passes a context whose config holds the
+ *             rx_buffer/tx_buffer, and sets an SDU handler to receive responses.
  * @param id   CAN ID of the received frame.
  * @param data Pointer to the CAN payload.
  * @param len  Length of the CAN payload (DLC).

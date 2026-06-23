@@ -13,87 +13,61 @@
 #include "uds/uds_dtc.h"
 #include <string.h>
 
-int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                   uds_result_t *out)
 {
     if (len < 2u) {
-        return uds_send_nrc(ctx, UDS_SID_ECU_RESET, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     uint8_t sub_raw = data[1];
     uint8_t sub = (uint8_t) (sub_raw & 0x7Fu);
-    bool suppress_pos_resp = (bool) ((sub_raw & 0x80u) != 0u);
 
     /* ISO 14229-1:2013 Table 21: 0x01-0x05 */
     if ((sub < 0x01u) || (sub > 0x05u)) {
-        return uds_send_nrc(ctx, UDS_SID_ECU_RESET, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        uds_nrc(out, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        return;
     }
 
     /* ISO 14229-1 (§ ECUReset): "The ECUReset positive response message (if
      * required) shall be sent before the reset is executed in the server(s)."
-     * A real reset reboots the MCU inside fn_reset and never returns, so the
-     * response must be on the wire first — otherwise the tester sees no answer.
-     * Emit the response (or honour suppressPosRsp), then perform the reset.
-     *
-     * When this 0x11 is the inner request of a SecuredDataTransmission (0x84),
-     * uds_send_response only captures the inner 0x51 — the response the tester
-     * actually receives is the outer secured frame, sent later by the 0x84
-     * handler. Queue the reset and let that handler run it after the outer send,
-     * so a synchronous fn_reset cannot reboot before the tester is answered. */
-    bool captured = ctx->secure_capturing;
-    int rc = UDS_OK;
+     * Build the positive response payload now; set reset_pending so the
+     * framework calls fn_reset AFTER the response has been emitted (or
+     * suppressed). On suppress path the framework skips the emit but still
+     * runs the deferred reset — exactly the ordering the canary tests verify. */
+    ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
+    ctx->config->tx_buffer[1] = sub;
+    ctx->scratch.reset_pending = true;
+    ctx->scratch.reset_pending_type = sub;
 
-    if (ctx->config->fn_reset != NULL) {
-        ctx->reset_pending = true;
-        ctx->reset_pending_type = sub;
+    /* ISO 14229-1: the enableRapidPowerShutDown (0x04) positive response
+     * carries an additional powerDownTime byte; all other reset types
+     * respond with SID + resetType only. */
+    uint16_t resp_len = 2u;
+    if (sub == (uint8_t) UDS_RESET_ENABLE_RAPID_SHUTDOWN) {
+        ctx->config->tx_buffer[2] = ctx->config->power_down_time;
+        resp_len = 3u;
     }
-
-    if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
-    }
-    else {
-        ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
-        ctx->config->tx_buffer[1] = sub;
-        /* ISO 14229-1: the enableRapidPowerShutDown (0x04) positive response
-         * carries an additional powerDownTime byte; all other reset types
-         * respond with SID + resetType only. */
-        uint16_t resp_len = 2u;
-        if (sub == (uint8_t) UDS_RESET_ENABLE_RAPID_SHUTDOWN) {
-            ctx->config->tx_buffer[2] = ctx->config->power_down_time;
-            resp_len = 3u;
-        }
-        rc = uds_send_response(ctx, resp_len);
-        if (rc != UDS_OK) {
-            /* Could not hand the response to the transport; skip the reset so
-             * the tester is not left desynchronised without a confirmation. */
-            ctx->reset_pending = false;
-            return rc;
-        }
-    }
-
-    /* For a normal (or suppressed) reset the wire transaction is complete, so
-     * run the reset now. For a captured (0x84) reset, leave it pending for the
-     * secured handler to run after the outer response is sent. */
-    if (!captured) {
-        uds_internal_run_pending_reset(ctx);
-    }
-
-    return rc;
+    uds_ok(out, resp_len);
 }
 
-int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out)
 {
     /* C-11: Minimum length is 3 bytes (SI+Control+Comm) */
     if (len < 3u) {
-        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     uint8_t sub_raw = data[1];
     uint8_t ctrl_type = (uint8_t) (sub_raw & 0x7Fu);
-    bool suppress_pos_resp = (bool) ((sub_raw & 0x80u) != 0u);
     uint8_t comm_type = data[2];
 
     if (ctrl_type > 0x05u) {
-        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        uds_nrc(out, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        return;
     }
 
     /* The enhanced-address sub-functions (0x04/0x05) carry a 2-byte
@@ -102,52 +76,46 @@ int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16
     bool enhanced = (ctrl_type == UDS_COMM_ENABLE_RX_DISABLE_TX_ENH) ||
                     (ctrl_type == UDS_COMM_ENABLE_RX_TX_ENH);
     if (enhanced && (len < 5u)) {
-        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
     uint16_t node_id = enhanced ? (uint16_t) (((uint16_t) data[3] << 8) | (uint16_t) data[4]) : 0u;
 
     /* ISO 14229-1: communicationType lower nibble must be 1, 2, or 3 */
     uint8_t type_nibble = (uint8_t) (comm_type & 0x0Fu);
     if ((type_nibble == 0u) || (type_nibble > 3u)) {
-        return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, UDS_NRC_REQUEST_OUT_OF_RANGE);
-    }
-
-    if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        uds_nrc(out, UDS_NRC_REQUEST_OUT_OF_RANGE);
+        return;
     }
 
     /* Check App Callback */
     if (ctx->config->fn_comm_control) {
         int ret = ctx->config->fn_comm_control(ctx, ctrl_type, comm_type, node_id);
         if (ret != UDS_OK) {
-            return uds_send_nrc(ctx, UDS_SID_COMM_CONTROL, (uint8_t) - (int32_t) ret);
+            uds_nrc(out, (uint8_t) - (int32_t) ret);
+            return;
         }
     }
 
-    ctx->comm_state = ctrl_type;
+    ctx->session.comm_state = ctrl_type;
     uds_internal_log(ctx, UDS_LOG_INFO, "Communication state changed");
-
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_COMM_CONTROL + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = ctrl_type;
-
-    return uds_send_response(ctx, 2u);
+    uds_ok(out, 2u);
 }
 
-int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                   uds_result_t *out)
 {
     if (len < 4u) {
-        return uds_send_nrc(ctx, UDS_SID_CLEAR_DTC,
-                            UDS_NRC_INCORRECT_LENGTH); /* Incorrect Msg Length */
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     if (!ctx->config->fn_dtc_clear) {
-        return uds_send_nrc(
-            ctx, UDS_SID_CLEAR_DTC,
-            UDS_NRC_CONDITIONS_NOT_CORRECT); /* Conditions Not Correct (No clear hook) */
+        uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
     }
 
     uint32_t group = (uint32_t) ((uint32_t) data[1] << 16u) |
@@ -155,11 +123,12 @@ int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t 
     int res = ctx->config->fn_dtc_clear(ctx, group);
 
     if (res != UDS_OK) {
-        return uds_send_nrc(ctx, UDS_SID_CLEAR_DTC, (uint8_t) - (int32_t) res);
+        uds_nrc(out, (uint8_t) - (int32_t) res);
+        return;
     }
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_CLEAR_DTC + UDS_RESPONSE_OFFSET);
-    return uds_send_response(ctx, 1u);
+    uds_ok(out, 1u);
 }
 
 /** Max DTC records gathered per ReadDTCInformation response (stack-bounded). */
@@ -178,7 +147,7 @@ static int uds_internal_dtc_by_status(uds_ctx_t *ctx, uint8_t sub, const uint8_t
     uint8_t status_mask = (sub == 0x0Au) ? 0u : data[2];
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -245,7 +214,7 @@ static int uds_internal_dtc_record(uds_ctx_t *ctx, uint8_t sub, const uint8_t *d
     uint8_t record_num = data[5];
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -295,7 +264,7 @@ static int uds_internal_dtc_by_severity(uds_ctx_t *ctx, uint8_t sub, const uint8
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -364,7 +333,7 @@ static int uds_internal_dtc_severity_info(uds_ctx_t *ctx, uint8_t sub, const uin
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -405,7 +374,7 @@ static int uds_internal_dtc_fault_counter(uds_ctx_t *ctx, uint8_t sub, bool supp
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -454,7 +423,7 @@ static int uds_internal_dtc_wwhobd(uds_ctx_t *ctx, uint8_t sub, const uint8_t *d
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -509,7 +478,7 @@ static int uds_internal_dtc_wwhobd_permanent(uds_ctx_t *ctx, uint8_t sub, const 
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -562,7 +531,7 @@ static int uds_internal_dtc_first_or_recent(uds_ctx_t *ctx, uint8_t sub, bool su
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -613,7 +582,7 @@ static int uds_internal_dtc_permanent(uds_ctx_t *ctx, uint8_t sub, bool suppress
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *tx = ctx->config->tx_buffer;
@@ -641,10 +610,12 @@ static int uds_internal_dtc_permanent(uds_ctx_t *ctx, uint8_t sub, bool suppress
     return uds_send_response(ctx, pos);
 }
 
-int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out)
 {
     if (len < 2u) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     uint8_t sub_raw = data[1];
@@ -656,60 +627,86 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
                      sub == 0x11u || sub == 0x12u || sub == 0x13u);
 
     if (req_mask && len < 3u) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
+
+    /* The static helpers below call uds_send_response/uds_send_nrc directly (legacy
+     * compat shim path). Signal NONE so execute_handler does not attempt a second
+     * emit after control returns here. */
 
     /* Structured subfunctions: library formats the ISO wire layout when the
      * application provides fn_dtc_list. Falls through to the raw fn_dtc_read
      * path below when fn_dtc_list is NULL (back-compat). */
     if (((sub == 0x01u) || (sub == 0x02u) || (sub == 0x0Au)) &&
         (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_by_status(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_by_status(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x04u) && (ctx->config->fn_dtc_snapshot != NULL)) {
-        return uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x06u) && (ctx->config->fn_dtc_extdata != NULL)) {
-        return uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_record(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if (((sub == 0x07u) || (sub == 0x08u)) && (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_by_severity(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_by_severity(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x09u) && (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_severity_info(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_severity_info(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x14u) && (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_fault_counter(ctx, sub, suppress_pos_resp);
+        (void) uds_internal_dtc_fault_counter(ctx, sub, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x42u) && (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_wwhobd(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_wwhobd(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x55u) && (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_wwhobd_permanent(ctx, sub, data, len, suppress_pos_resp);
+        (void) uds_internal_dtc_wwhobd_permanent(ctx, sub, data, len, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if (((sub == 0x0Bu) || (sub == 0x0Cu) || (sub == 0x0Du) || (sub == 0x0Eu)) &&
         (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_first_or_recent(ctx, sub, suppress_pos_resp);
+        (void) uds_internal_dtc_first_or_recent(ctx, sub, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if ((sub == 0x15u) && (ctx->config->fn_dtc_list != NULL)) {
-        return uds_internal_dtc_permanent(ctx, sub, suppress_pos_resp);
+        (void) uds_internal_dtc_permanent(ctx, sub, suppress_pos_resp);
+        uds_none(out);
+        return;
     }
 
     if (!ctx->config->fn_dtc_read) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        uds_nrc(out, UDS_NRC_CONDITIONS_NOT_CORRECT);
+        return;
     }
 
     if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        ctx->scratch.suppress_pos_resp = true;
     }
 
     uint8_t *out_payload = &ctx->config->tx_buffer[2];
@@ -719,40 +716,34 @@ int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint1
      * status/severity mask, DTC, record number, or memory selection it needs. */
     int written = ctx->config->fn_dtc_read(ctx, sub, data, len, out_payload, max_payload);
     if (written < 0) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) written);
-    }
-
-    if (suppress_pos_resp) {
-        return UDS_OK;
+        uds_nrc(out, (uint8_t) - (int32_t) written);
+        return;
     }
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
-    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 2u));
+    uds_ok(out, (uint16_t) ((uint16_t) written + 2u));
 }
 
-int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+void uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                             uds_result_t *out)
 {
     if (len < 2u) {
-        return uds_send_nrc(ctx, UDS_SID_CONTROL_DTC_SETTING, UDS_NRC_INCORRECT_LENGTH);
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
     }
 
     uint8_t sub_raw = data[1];
     uint8_t sub = (uint8_t) (sub_raw & 0x7Fu);
-    bool suppress_pos_resp = (bool) ((sub_raw & 0x80u) != 0u);
 
     if ((sub != 0x01u) && (sub != 0x02u)) { /* ON / OFF */
-        return uds_send_nrc(ctx, UDS_SID_CONTROL_DTC_SETTING, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
-    }
-
-    if (suppress_pos_resp) {
-        ctx->suppress_pos_resp = true;
+        uds_nrc(out, UDS_NRC_SUBFUNCTION_NOT_SUPPORTED);
+        return;
     }
 
     /* Process DTC Setting Control (usually global flag in ctx or config) */
-    /* ... application should probably handle this via a hook if needed ... */
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_CONTROL_DTC_SETTING + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
-    return uds_send_response(ctx, 2u);
+    uds_ok(out, 2u);
 }

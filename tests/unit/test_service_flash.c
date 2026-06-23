@@ -63,8 +63,8 @@ static void test_transfer_data_sequence_error(void **state)
     /* Sequence counter starts at 0x01. If 0x02 received first (inside an active
      * transfer) -> NRC 0x73 wrongBlockSequenceCounter (ISO 14229-1). */
     uint8_t req[] = {0x36, 0x02, 0xDE, 0xAD};
-    ctx.transfer_active = true; /* as if RequestDownload already accepted */
-    ctx.flash_sequence = 0;
+    ctx.server.transfer_active = true; /* as if RequestDownload already accepted */
+    ctx.server.flash_sequence = 0;
 
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
@@ -85,8 +85,8 @@ static void test_transfer_data_last_block_replay(void **state)
 
     /* First block (0x01) */
     uint8_t req1[] = {0x36, 0x01, 0xDE, 0xAD};
-    ctx.transfer_active = true; /* as if RequestDownload already accepted */
-    ctx.flash_sequence = 0;
+    ctx.server.transfer_active = true; /* as if RequestDownload already accepted */
+    ctx.server.flash_sequence = 0;
 
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
@@ -95,7 +95,7 @@ static void test_transfer_data_last_block_replay(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req1, 4);
-    assert_int_equal(ctx.flash_sequence, 0x01);
+    assert_int_equal(ctx.server.flash_sequence, 0x01);
 
     /* Repeat block (0x01) - Should be accepted without re-invoking callback increment or sequence
      * error */
@@ -108,7 +108,7 @@ static void test_transfer_data_last_block_replay(void **state)
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req2, 4);
-    assert_int_equal(ctx.flash_sequence, 0x01);
+    assert_int_equal(ctx.server.flash_sequence, 0x01);
 }
 
 static int mock_transfer_exit(struct uds_ctx *ctx)
@@ -160,7 +160,7 @@ static void test_transfer_exit_disarms_transfer(void **state)
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, dl, sizeof(dl));
     assert_int_equal(g_tx_buf[0], 0x74);
-    assert_true(ctx.transfer_active);
+    assert_true(ctx.server.transfer_active);
 
     /* First TransferData block accepted */
     uint8_t td[] = {0x36, 0x01, 0xDE, 0xAD};
@@ -181,7 +181,7 @@ static void test_transfer_exit_disarms_transfer(void **state)
     will_return(mock_tp_send, 0);
     uds_input_sdu(&ctx, te, sizeof(te));
     assert_int_equal(g_tx_buf[0], 0x77);
-    assert_false(ctx.transfer_active);
+    assert_false(ctx.server.transfer_active);
 
     /* TransferData after exit -> 0x24 again */
     uint8_t td2[] = {0x36, 0x02, 0xBE, 0xEF};

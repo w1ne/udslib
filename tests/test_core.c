@@ -99,12 +99,12 @@ static void test_invalid_sid_nrc(void **state)
     assert_int_equal(g_tx_buf[2], 0x11);
 }
 
-static int custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void custom_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) data;
     (void) len;
     ctx->config->tx_buffer[0] = 0xAA;
-    return uds_send_response(ctx, 1);
+    uds_ok(out, 1u);
 }
 
 static void test_custom_service_registration(void **state)
@@ -165,12 +165,13 @@ static void test_safety_gate_rejection(void **state)
 
 /* A handler that asks to send more than the TX buffer can hold. The core must
  * answer the tester with ResponseTooLong (0x14), not silently drop the frame. */
-static int oversize_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
+static void oversize_handler(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                             uds_result_t *out)
 {
     (void) data;
     (void) len;
     ctx->config->tx_buffer[0] = (uint8_t) (0x66u + 0x40u); /* positive-response SID */
-    return uds_send_response(ctx, (uint16_t) (ctx->config->tx_buffer_size + 1u));
+    uds_ok(out, (uint16_t) (ctx->config->tx_buffer_size + 1u));
 }
 
 static void test_response_too_long_nrc(void **state)

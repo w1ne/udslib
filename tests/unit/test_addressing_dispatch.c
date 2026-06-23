@@ -36,13 +36,15 @@ static uint32_t time_ms(void)
 }
 
 /* A service that echoes a fixed positive response (0x40|SID). */
-static int svc_ok(struct uds_ctx *ctx, const uint8_t *data, uint16_t len);
+static void svc_ok(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_result_t *out);
 
 /* A service that always returns NRC 0x22 (conditionsNotCorrect). */
-static int svc_nrc22(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void svc_nrc22(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
+    (void) ctx;
+    (void) data;
     (void) len;
-    return uds_send_nrc(ctx, data[0], 0x22u); /* conditionsNotCorrect */
+    uds_nrc(out, 0x22u); /* conditionsNotCorrect */
 }
 
 /*
@@ -66,11 +68,11 @@ static uds_config_t g_cfg;
 static uint8_t g_rx[64];
 static uint8_t g_txbuf[64];
 
-static int svc_ok(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+static void svc_ok(struct uds_ctx *ctx, const uint8_t *data, uint16_t len, uds_result_t *out)
 {
     (void) len;
     ctx->config->tx_buffer[0] = (uint8_t) (data[0] + 0x40u);
-    return uds_send_response(ctx, 1u);
+    uds_ok(out, 1u);
 }
 
 static int setup(void **state)
@@ -198,7 +200,7 @@ static void test_non_suppressable_nrc_functional(void **state)
  *   (a) Setup ROE onChangeOfDataIdentifier(DID=0) with serviceToRespondTo = {0xA1}
  *       (physical-only service) and start it — both via physical addressing.
  *   (b) Feed a functional request for 0xA0 (both-mode service) to SET
- *       ctx->req_addr_mode = UDS_ADDR_FUNCTIONAL, simulating a prior functional broadcast.
+ *       ctx->scratch.req_addr_mode = UDS_ADDR_FUNCTIONAL, simulating a prior functional broadcast.
  *   (c) Call uds_roe_trigger() which internally calls uds_internal_dispatch_captured()
  *       -> handle_request().  Without Fix A the addressing gate sees req_addr_mode ==
  *       UDS_ADDR_FUNCTIONAL, 0xA1 is physical-only, and silently returns — cap == 0,

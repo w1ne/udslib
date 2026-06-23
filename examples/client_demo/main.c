@@ -9,6 +9,7 @@
  */
 
 #include "uds/uds_core.h"
+#include "uds/uds_client.h"
 #include "uds/uds_isotp.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,9 +59,9 @@ static int isotp_send_adapter(struct uds_ctx* ctx, const uint8_t* data, uint16_t
     return uds_isotp_send(&g_isotp, data, len);
 }
 
-void on_response(uds_ctx_t* ctx, uint8_t sid, const uint8_t* data, uint16_t len)
+void on_response(uds_client_ctx_t* c, uint8_t sid, const uint8_t* data, uint16_t len)
 {
-    (void) ctx;
+    (void) c;
     printf("[CLIENT] Response Received: SID=%02X, Len=%d\n", sid, len);
     printf("[CLIENT] Data:");
     for (int i = 0; i < len; i++) printf(" %02X", data[i]);
@@ -68,6 +69,14 @@ void on_response(uds_ctx_t* ctx, uint8_t sid, const uint8_t* data, uint16_t len)
 
     if (sid == 0x50) printf("[CLIENT] Session changed OK\n");
     if (sid == 0x62) printf("[CLIENT] Read Data OK\n");
+}
+
+/* ISO-TP delivers a reassembled response SDU here; route it to the client. */
+static void on_sdu_to_client(void* cookie, const uint8_t* sdu, uint16_t len, uint8_t addr)
+{
+    (void) addr;
+    if (len == 0u) return;
+    uds_client_handle_response((uds_client_ctx_t*) cookie, sdu[0], sdu, len);
 }
 
 int main(int argc, char** argv)
@@ -101,13 +110,19 @@ int main(int argc, char** argv)
                         .tx_buffer_size = sizeof(tx_buf),
                         .fn_log = NULL};
 
+    /* The uds_ctx holds the transport config (rx/tx buffers, clock) used by the
+     * ISO-TP reassembly; it is never dispatched as a server here. */
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
+
+    /* Client role: separate context sharing the same transport config. */
+    uds_client_ctx_t client = {.config = &cfg, .pending_sid = 0, .cb = NULL};
+    uds_isotp_set_sdu_handler(&g_isotp, on_sdu_to_client, &client);
 
     // 1. Send Request
     printf("[CLIENT] Sending DiagnosticSessionControl (Extended)...\n");
     uint8_t sub = 0x03;
-    uds_client_request(&ctx, 0x10, &sub, 1, on_response);
+    uds_client_request(&client, 0x10, &sub, 1, on_response);
 
     // 2. Loop until response or timeout
     uint32_t start = get_time_ms();
@@ -130,7 +145,7 @@ int main(int argc, char** argv)
     // 3. Send Another Request
     printf("\n[CLIENT] Sending ReadDataByIdentifier (VIN)...\n");
     uint8_t did[] = {0xF1, 0x90};
-    uds_client_request(&ctx, 0x22, did, 2, on_response);
+    uds_client_request(&client, 0x22, did, 2, on_response);
 
     start = get_time_ms();
     while (get_time_ms() - start < 1000) {

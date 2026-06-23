@@ -15,6 +15,7 @@
 
 /* --- UDS Constants (ISO 14229-1) --- */
 
+#define UDS_NRC_GENERAL_REJECT 0x10u
 #define UDS_NRC_SERVICE_NOT_SUPPORTED 0x11u
 #define UDS_NRC_SUBFUNCTION_NOT_SUPPORTED 0x12u
 #define UDS_NRC_INCORRECT_LENGTH 0x13u
@@ -162,59 +163,83 @@ const uds_did_entry_t *uds_internal_find_did(uds_ctx_t *ctx, uint16_t id);
 bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t format, uint32_t *addr,
                                  uint32_t *size);
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
-
-/* Execute a deferred ECUReset (0x11) hook if one is pending, then clear the
- * flag. Called once the positive response — inner 0x51 for an unsecured reset,
- * or the outer 0x84 secured response for a wrapped one — is on the wire. */
+int uds_emit_response(uds_ctx_t *ctx, uint16_t len);
+/* Fire the deferred ECU reset (issue #88): TX-complete wait, then fn_reset. */
 void uds_internal_run_pending_reset(uds_ctx_t *ctx);
 
 /* --- Core Service Handlers --- */
 
 /* Session Services (0x10, 0x3E) */
-int uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_tester_present(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                        uds_result_t *out);
 
-/* Data Services (0x22, 0x24, 0x2E) */
-int uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+/* Data Services (0x22, 0x24, 0x2A, 0x2C, 0x2E) */
+void uds_internal_handle_read_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_read_scaling(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
+void uds_internal_handle_dynamic_did(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                     uds_result_t *out);
+void uds_internal_handle_write_data_by_id(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                          uds_result_t *out);
 
 /* Security Services (0x27, 0x29) */
-int uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_security_access(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_authentication(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                        uds_result_t *out);
 
 /* Maintenance Services (0x11, 0x14, 0x19, 0x28, 0x85) */
-int uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                   uds_result_t *out);
+void uds_internal_handle_comm_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
+void uds_internal_handle_clear_dtc(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                   uds_result_t *out);
+void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
+void uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                             uds_result_t *out);
 
 /* Flash Services (0x31, 0x34, 0x36, 0x37) */
-int uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_routine_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                         uds_result_t *out);
+void uds_internal_handle_request_download(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                          uds_result_t *out);
+void uds_internal_handle_transfer_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
+void uds_internal_handle_request_transfer_exit(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                               uds_result_t *out);
+void uds_internal_handle_request_file_transfer(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                               uds_result_t *out);
 
 /* Memory Services (0x23, 0x3D) */
-int uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_read_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                             uds_result_t *out);
+void uds_internal_handle_write_memory_by_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                              uds_result_t *out);
 
-/* New Services (0x2A, 0x2F, 0x35) */
-int uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
-int uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+/* New Services (0x2F, 0x35) */
+void uds_internal_handle_periodic_read(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
+void uds_internal_handle_io_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                    uds_result_t *out);
+void uds_internal_handle_request_upload(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                        uds_result_t *out);
 
 /* Reprogramming-negotiation Services (0x83, 0x87) */
-int uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
 
 /* Secured Data Transmission (0x84) */
-int uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_secured_data(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                      uds_result_t *out);
 
 /* ResponseOnEvent (0x86) */
-int uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_response_on_event(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                           uds_result_t *out);
 void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now);
 
 /* Run an inner request through the dispatcher, capturing its response into
@@ -222,6 +247,7 @@ void uds_internal_roe_service(uds_ctx_t *ctx, uint32_t now);
  * (and the 0x84 secured path uses the same capture machinery). */
 int uds_internal_dispatch_captured(uds_ctx_t *ctx, const uint8_t *inner, uint16_t inner_len,
                                    uint8_t *out, uint16_t out_size);
-int uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len);
+void uds_internal_handle_access_timing(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
+                                       uds_result_t *out);
 
 #endif /* UDS_INTERNAL_H */

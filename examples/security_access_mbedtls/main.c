@@ -148,7 +148,7 @@ static int on_security_seed(uds_ctx_t *ctx, uint8_t level, uint8_t *seed_buf, ui
  * sendKey hook. `seed` is the exact seed the library issued for this level (no
  * caching needed on our side); `key`/`key_len` is what the tester sent. Derive
  * the expected key with AES-128-CMAC over the seed and compare in constant time.
- * Return 0 to unlock (library sets ctx.security_level = level), or a negative
+ * Return 0 to unlock (library sets ctx.security.level = level), or a negative
  * NRC. The library handles the attempt counter and lockout delay on failure.
  */
 static int on_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, const uint8_t *key,
@@ -171,7 +171,7 @@ static int on_security_key(uds_ctx_t *ctx, uint8_t level, const uint8_t *seed, c
 
 /* A vendor service that must only run once security level 1 is unlocked. The
  * library enforces this via the service entry's security_mask (NRC 0x33
- * otherwise); the handler never even runs until ctx.security_level >= 1. */
+ * otherwise); the handler never even runs until ctx.security.level >= 1. */
 static int handle_secure_op(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
 {
     (void) len;
@@ -253,7 +253,7 @@ int main(void)
     req[1] = 0x02;
     memcpy(&req[2], key, KEY_LEN);
     send_request(&ctx, req, sizeof(req)); /* 67 02 */
-    printf("   ctx.security_level = %u\n", ctx.security_level);
+    printf("   ctx.security.level = %u\n", ctx.security.level);
 
     printf("\n=== 4. Gated service 0xBA after unlock -> allowed ===\n");
     send_request(&ctx, gated, sizeof(gated)); /* FA AC */
@@ -277,7 +277,7 @@ int main(void)
     req[1] = 0x04;
     memcpy(&req[2], key, KEY_LEN);
     send_request(&ctx, req, sizeof(req)); /* 67 04 */
-    printf("   ctx.security_level = %u\n", ctx.security_level);
+    printf("   ctx.security.level = %u\n", ctx.security.level);
 
     return 0;
 }

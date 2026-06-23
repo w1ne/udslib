@@ -341,7 +341,7 @@ static void test_control_dtc_setting_suppress(void **state)
     /* No tp_send expected for positive response */
 
     uds_input_sdu(&ctx, req, 2);
-    assert_false(ctx.p2_msg_pending);
+    assert_false(ctx.server.p2_msg_pending);
 }
 
 static void test_read_dtc_info_0x08_by_severity(void **state)

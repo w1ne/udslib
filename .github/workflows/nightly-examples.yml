@@ -1,0 +1,72 @@
+# Nightly: build AND run every host-runnable example.
+#
+# The per-PR CI only builds a subset of examples (client_demo, the two crypto
+# examples, zephyr). The handler-contract is public API, and the examples are
+# its migration guide, so they must not rot unbuilt. This workflow builds and
+# runs all host examples every night (and on demand) as a real gate.
+name: nightly-examples
+
+on:
+  schedule:
+    # 03:17 UTC daily (off the hour to avoid the cron stampede).
+    - cron: '17 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: docker build -t udslib-test-env -f Dockerfile .
+
+      - name: Build & run every host example
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/app" \
+            -u "$(id -u):$(id -g)" \
+            udslib-test-env \
+            bash -c '
+              set -euo pipefail
+
+              # Examples that build into a host binary and run to completion.
+              RUN_EXAMPLES="auth_challenge custom_service dtc_clear dtc_full_coverage dtc_store"
+              for ex in $RUN_EXAMPLES; do
+                echo "=== run: $ex ==="
+                make -C "examples/$ex" clean
+                make -C "examples/$ex" run
+              done
+
+              # Examples that are host build-only (no self-contained run target).
+              BUILD_EXAMPLES="client_demo host_sim"
+              for ex in $BUILD_EXAMPLES; do
+                echo "=== build: $ex ==="
+                make -C "examples/$ex" clean
+                make -C "examples/$ex"
+              done
+
+              # Crypto examples: build and run against BOTH back-ends, asserting a
+              # success marker (mirrors the per-PR crypto gate, kept here so the
+              # nightly sweep is the single complete example gate).
+              for ex in auth_challenge_mbedtls security_access_mbedtls; do
+                for crypto in mbedtls wolfssl; do
+                  echo "=== crypto: $ex ($crypto) ==="
+                  make -C "examples/$ex" clean
+                  make -C "examples/$ex" CRYPTO="$crypto"
+                  out=$("examples/$ex/uds_$ex")
+                  echo "$out"
+                  case $ex in
+                    auth_challenge_mbedtls)
+                      echo "$out" | grep -q "ctx.security.authenticated = true"
+                      echo "$out" | grep -q "69 03 02" ;;
+                    security_access_mbedtls)
+                      echo "$out" | grep -q "ctx.security.level = 2"
+                      echo "$out" | grep -q "7F BA 33" ;;
+                  esac
+                  make -C "examples/$ex" clean
+                done
+              done
+
+              echo "All host examples built and ran."
+            '

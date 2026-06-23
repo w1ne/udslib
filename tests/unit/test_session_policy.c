@@ -42,7 +42,7 @@ static void test_security_access_allowed_in_extended_when_restricted(void **stat
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.restrict_sessions = true;
-    ctx.active_session = 0x03; /* extended */
+    ctx.session.active = 0x03; /* extended */
 
     uint8_t req[] = {0x27, 0x01};
     will_return(mock_get_time, 1000);
@@ -82,7 +82,7 @@ static void test_download_blocked_in_extended_when_restricted(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.restrict_sessions = true;
-    ctx.active_session = 0x03; /* extended -> still not allowed for download */
+    ctx.session.active = 0x03; /* extended -> still not allowed for download */
 
     uint8_t req[] = {0x34, 0x00, 0x11, 0x22};
     will_return(mock_get_time, 1000);

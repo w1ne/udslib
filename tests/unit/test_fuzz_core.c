@@ -86,7 +86,7 @@ static void test_fuzz_sdu_layer(void **state)
         g_fz_time += (uint32_t) (rand() % 100);
         uds_input_sdu(&ctx, buf, len);
         uds_process(&ctx);
-        assert_true(valid_session(ctx.active_session));
+        assert_true(valid_session(ctx.session.active));
     }
 }
 

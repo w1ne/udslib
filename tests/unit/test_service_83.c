@@ -51,8 +51,8 @@ static void test_access_timing_set_given(void **state)
 
     assert_int_equal(g_tx_buf[0], 0xC3);
     assert_int_equal(g_tx_buf[1], 0x04);
-    assert_int_equal(ctx.p2_ms, 100);
-    assert_int_equal(ctx.p2_star_ms, 2000);
+    assert_int_equal(ctx.session.p2_ms, 100);
+    assert_int_equal(ctx.session.p2_star_ms, 2000);
 }
 
 static void test_access_timing_set_default(void **state)
@@ -61,8 +61,8 @@ static void test_access_timing_set_default(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
 
     /* Change the timing, then reset it. */
-    ctx.p2_ms = 100;
-    ctx.p2_star_ms = 2000;
+    ctx.session.p2_ms = 100;
+    ctx.session.p2_star_ms = 2000;
 
     /* setTimingParametersToDefaultValues (0x02) -> back to configured defaults. */
     uint8_t req[] = {0x83, 0x02};
@@ -75,8 +75,8 @@ static void test_access_timing_set_default(void **state)
 
     assert_int_equal(g_tx_buf[0], 0xC3);
     assert_int_equal(g_tx_buf[1], 0x02);
-    assert_int_equal(ctx.p2_ms, 50);
-    assert_int_equal(ctx.p2_star_ms, 5000);
+    assert_int_equal(ctx.session.p2_ms, 50);
+    assert_int_equal(ctx.session.p2_star_ms, 5000);
 }
 
 int main(void)
