@@ -100,13 +100,34 @@ int memcmp(const void *lhs, const void *rhs, size_t n)
     return 0;
 }
 
-void *__aeabi_memcpy(void *dst, const void *src, size_t n)  { return memcpy(dst, src, n); }
-void *__aeabi_memcpy4(void *dst, const void *src, size_t n) { return memcpy(dst, src, n); }
-void *__aeabi_memcpy8(void *dst, const void *src, size_t n) { return memcpy(dst, src, n); }
-void *__aeabi_memset(void *dst, size_t n, int value)        { return memset(dst, value, n); }
-void *__aeabi_memclr(void *dst, size_t n)                   { return memset(dst, 0, n); }
-void *__aeabi_memclr4(void *dst, size_t n)                  { return memset(dst, 0, n); }
-void *__aeabi_memclr8(void *dst, size_t n)                  { return memset(dst, 0, n); }
+void *__aeabi_memcpy(void *dst, const void *src, size_t n)
+{
+    return memcpy(dst, src, n);
+}
+void *__aeabi_memcpy4(void *dst, const void *src, size_t n)
+{
+    return memcpy(dst, src, n);
+}
+void *__aeabi_memcpy8(void *dst, const void *src, size_t n)
+{
+    return memcpy(dst, src, n);
+}
+void *__aeabi_memset(void *dst, size_t n, int value)
+{
+    return memset(dst, value, n);
+}
+void *__aeabi_memclr(void *dst, size_t n)
+{
+    return memset(dst, 0, n);
+}
+void *__aeabi_memclr4(void *dst, size_t n)
+{
+    return memset(dst, 0, n);
+}
+void *__aeabi_memclr8(void *dst, size_t n)
+{
+    return memset(dst, 0, n);
+}
 
 /* ---- result marker at fixed address ---- */
 
@@ -116,36 +137,37 @@ volatile uint32_t g_service_results __attribute__((section(".uds_result"), used)
 
 #define REG32(addr) (*(volatile uint32_t *) (addr))
 
-#define USART3_BASE   0x40004800u
-#define USART3_CR1    REG32(USART3_BASE + 0x00u)
-#define USART3_ISR    REG32(USART3_BASE + 0x1Cu)
-#define USART3_TDR    REG32(USART3_BASE + 0x28u)
+#define USART3_BASE 0x40004800u
+#define USART3_CR1 REG32(USART3_BASE + 0x00u)
+#define USART3_ISR REG32(USART3_BASE + 0x1Cu)
+#define USART3_TDR REG32(USART3_BASE + 0x28u)
 #define USART_ISR_TXE (1u << 7)
-#define USART_CR1_UE  (1u << 0)
-#define USART_CR1_TE  (1u << 3)
+#define USART_CR1_UE (1u << 0)
+#define USART_CR1_TE (1u << 3)
 
-#define FDCAN1_BASE     0x4000A400u
-#define FDCAN_REG_TEST  0x010u
-#define FDCAN_REG_CCCR  0x018u
-#define FDCAN_REG_IR    0x050u
+#define FDCAN1_BASE 0x4000A400u
+#define FDCAN_REG_TEST 0x010u
+#define FDCAN_REG_CCCR 0x018u
+#define FDCAN_REG_IR 0x050u
 #define FDCAN_REG_RXF0S 0x090u
 #define FDCAN_REG_RXF0A 0x094u
 #define FDCAN_REG_TXBAR 0x0CCu
 
-#define FDCAN_RAM_BASE   0x800u
+#define FDCAN_RAM_BASE 0x800u
 #define FDCAN_RXF0_ELEM0 0x0B0u
-#define FDCAN_TXBUF0     0x278u
+#define FDCAN_TXBUF0 0x278u
 
 #define CCCR_INIT (1u << 0)
-#define CCCR_CCE  (1u << 1)
+#define CCCR_CCE (1u << 1)
 #define TX_T1_BRS (1u << 20)
 #define TX_T1_FDF (1u << 21)
 
-typedef struct {
+typedef struct
+{
     uint32_t id;
-    uint8_t  len;
-    uint8_t  data[64];
-    bool     fd;
+    uint8_t len;
+    uint8_t data[64];
+    bool fd;
 } can_frame_t;
 
 /* ---- UART helpers ---- */
@@ -157,8 +179,9 @@ static void uart_init(void)
 
 static void uart_putc(char c)
 {
-    while ((USART3_ISR & USART_ISR_TXE) == 0u) {}
-    USART3_TDR = (uint32_t)(uint8_t) c;
+    while ((USART3_ISR & USART_ISR_TXE) == 0u) {
+    }
+    USART3_TDR = (uint32_t) (uint8_t) c;
 }
 
 static void uart_puts(const char *s)
@@ -169,9 +192,8 @@ static void uart_puts(const char *s)
 }
 
 /* Hex nibble table (.rodata const). */
-static const char g_hex[16] = {
-    '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'
-};
+static const char g_hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                               '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 
 static void uart_puthex8(uint8_t v)
 {
@@ -179,15 +201,20 @@ static void uart_puthex8(uint8_t v)
     uart_putc(g_hex[v & 0x0Fu]);
 }
 
-
 /* ---- FDCAN helpers ---- */
 
-static uint32_t fdcan_reg(uint32_t off) { return FDCAN1_BASE + off; }
-static uint32_t fdcan_ram(uint32_t off) { return FDCAN1_BASE + FDCAN_RAM_BASE + off; }
+static uint32_t fdcan_reg(uint32_t off)
+{
+    return FDCAN1_BASE + off;
+}
+static uint32_t fdcan_ram(uint32_t off)
+{
+    return FDCAN1_BASE + FDCAN_RAM_BASE + off;
+}
 
 static uint8_t len_to_dlc(uint8_t len)
 {
-    if (len <= 8u)  return len;
+    if (len <= 8u) return len;
     if (len <= 12u) return 9u;
     if (len <= 16u) return 10u;
     if (len <= 20u) return 11u;
@@ -199,7 +226,7 @@ static uint8_t len_to_dlc(uint8_t len)
 
 static uint8_t dlc_to_len(uint8_t dlc)
 {
-    static const uint8_t map[16] = {0,1,2,3,4,5,6,7,8,12,16,20,24,32,48,64};
+    static const uint8_t map[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
     return map[dlc & 0x0Fu];
 }
 
@@ -207,17 +234,17 @@ static void write_payload(uint32_t addr, const uint8_t *data, uint8_t len)
 {
     for (uint32_t i = 0; i < 16u; ++i) REG32(addr + i * 4u) = 0u;
     for (uint8_t i = 0; i < len; ++i) {
-        uint32_t wa = addr + ((uint32_t)i / 4u) * 4u;
-        uint32_t sh = ((uint32_t)i % 4u) * 8u;
-        REG32(wa) = REG32(wa) | ((uint32_t)data[i] << sh);
+        uint32_t wa = addr + ((uint32_t) i / 4u) * 4u;
+        uint32_t sh = ((uint32_t) i % 4u) * 8u;
+        REG32(wa) = REG32(wa) | ((uint32_t) data[i] << sh);
     }
 }
 
 static void read_payload(uint32_t addr, uint8_t *data, uint8_t len)
 {
     for (uint8_t i = 0; i < len; ++i) {
-        uint32_t word = REG32(addr + ((uint32_t)i / 4u) * 4u);
-        data[i] = (uint8_t)((word >> (((uint32_t)i % 4u) * 8u)) & 0xFFu);
+        uint32_t word = REG32(addr + ((uint32_t) i / 4u) * 4u);
+        data[i] = (uint8_t) ((word >> (((uint32_t) i % 4u) * 8u)) & 0xFFu);
     }
 }
 
@@ -226,7 +253,8 @@ static void fdcan_start(void)
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE;
     REG32(fdcan_reg(FDCAN_REG_TEST)) = 0u;
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = 0u;
-    while ((REG32(fdcan_reg(FDCAN_REG_CCCR)) & CCCR_INIT) != 0u) {}
+    while ((REG32(fdcan_reg(FDCAN_REG_CCCR)) & CCCR_INIT) != 0u) {
+    }
 }
 
 static int fdcan_send_frame(uint32_t id, const uint8_t *data, uint8_t len, bool fd)
@@ -234,7 +262,7 @@ static int fdcan_send_frame(uint32_t id, const uint8_t *data, uint8_t len, bool 
     if (id > 0x7FFu || len > 64u) return -1;
     uint32_t base = fdcan_ram(FDCAN_TXBUF0);
     REG32(base + 0u) = (id & 0x7FFu) << 18u;
-    REG32(base + 4u) = ((uint32_t)len_to_dlc(len) << 16u) | (fd ? (TX_T1_FDF | TX_T1_BRS) : 0u);
+    REG32(base + 4u) = ((uint32_t) len_to_dlc(len) << 16u) | (fd ? (TX_T1_FDF | TX_T1_BRS) : 0u);
     write_payload(base + 8u, data, len);
     REG32(fdcan_reg(FDCAN_REG_TXBAR)) = 1u;
     return 0;
@@ -244,16 +272,16 @@ static bool fdcan_poll_rx(can_frame_t *frame)
 {
     uint32_t rxf0s = REG32(fdcan_reg(FDCAN_REG_RXF0S));
     if ((rxf0s & 0x7Fu) == 0u) return false;
-    uint32_t gi   = (rxf0s >> 8u) & 0x3Fu;
+    uint32_t gi = (rxf0s >> 8u) & 0x3Fu;
     uint32_t base = fdcan_ram(FDCAN_RXF0_ELEM0 + gi * 72u);
-    uint32_t r0   = REG32(base + 0u);
-    uint32_t r1   = REG32(base + 4u);
-    frame->id  = (r0 >> 18u) & 0x7FFu;
-    frame->len = dlc_to_len((uint8_t)((r1 >> 16u) & 0x0Fu));
-    frame->fd  = (r1 & TX_T1_FDF) != 0u;
+    uint32_t r0 = REG32(base + 0u);
+    uint32_t r1 = REG32(base + 4u);
+    frame->id = (r0 >> 18u) & 0x7FFu;
+    frame->len = dlc_to_len((uint8_t) ((r1 >> 16u) & 0x0Fu));
+    frame->fd = (r1 & TX_T1_FDF) != 0u;
     read_payload(base + 8u, frame->data, frame->len);
     REG32(fdcan_reg(FDCAN_REG_RXF0A)) = gi;
-    REG32(fdcan_reg(FDCAN_REG_IR))    = REG32(fdcan_reg(FDCAN_REG_IR));
+    REG32(fdcan_reg(FDCAN_REG_IR)) = REG32(fdcan_reg(FDCAN_REG_IR));
     return true;
 }
 
@@ -262,11 +290,14 @@ static bool fdcan_poll_rx(can_frame_t *frame)
 static volatile uint32_t g_now_ms;
 
 static uds_isotp_ctx_t g_iso;
-static uint8_t         g_iso_tx_sdu[256];
-static uint8_t         g_rx_buf[256];
-static uint8_t         g_tx_buf[256];
+static uint8_t g_iso_tx_sdu[256];
+static uint8_t g_rx_buf[256];
+static uint8_t g_tx_buf[256];
 
-static uint32_t get_time_ms(void) { return g_now_ms; }
+static uint32_t get_time_ms(void)
+{
+    return g_now_ms;
+}
 
 static int can_send(uint32_t id, const uint8_t *data, uint8_t len)
 {
@@ -275,7 +306,7 @@ static int can_send(uint32_t id, const uint8_t *data, uint8_t len)
 
 static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
+    (void) ctx;
     return uds_isotp_send(&g_iso, data, len);
 }
 
@@ -290,9 +321,9 @@ static int isotp_send_adapter(struct uds_ctx *ctx, const uint8_t *data, uint16_t
  */
 #define RESP_BUF_MAX 64u
 
-static volatile bool   g_resp_done;
+static volatile bool g_resp_done;
 static volatile uint8_t g_resp_sid;
-static uint8_t          g_resp_data[RESP_BUF_MAX];
+static uint8_t g_resp_data[RESP_BUF_MAX];
 static volatile uint16_t g_resp_len;
 
 /*
@@ -306,20 +337,24 @@ static volatile uint16_t g_resp_len;
  */
 static void on_response(uds_ctx_t *ctx, uint8_t sid, const uint8_t *data, uint16_t len)
 {
-    (void)ctx;
-    uart_putc('{'); uart_puthex8(sid); /* DIAG: on_response entered */
+    (void) ctx;
+    uart_putc('{');
+    uart_puthex8(sid); /* DIAG: on_response entered */
     if (data == NULL) {
         uart_putc('N'); /* DIAG: response carried no payload */
-    } else {
+    }
+    else {
         uart_puthex8(data[0]); /* DIAG: data[0] */
     }
     uart_putc('}');
     g_resp_sid = sid;
-    uint16_t n = (data != NULL) ? ((len < (uint16_t)RESP_BUF_MAX) ? len : (uint16_t)(RESP_BUF_MAX - 1u)) : 0u;
+    uint16_t n = (data != NULL)
+                     ? ((len < (uint16_t) RESP_BUF_MAX) ? len : (uint16_t) (RESP_BUF_MAX - 1u))
+                     : 0u;
     for (uint16_t i = 0u; i < n; ++i) {
         g_resp_data[i] = data[i];
     }
-    g_resp_len  = n;
+    g_resp_len = n;
     g_resp_done = true;
 }
 
@@ -366,7 +401,8 @@ static void pump_until_done(uint32_t max_ticks)
         ++g_now_ms;
     }
     if (g_diag_pump != 0u) {
-        uart_putc('R'); uart_puthex8((uint8_t)rx_count); /* DIAG: total RX count */
+        uart_putc('R');
+        uart_puthex8((uint8_t) rx_count); /* DIAG: total RX count */
         g_diag_pump = 0u;
     }
 }
@@ -387,8 +423,8 @@ static bool do_request(uint8_t sid, const uint8_t *payload, uint16_t payload_len
                        uint32_t max_ticks)
 {
     g_resp_done = false;
-    g_resp_sid  = 0u;
-    g_resp_len  = 0u;
+    g_resp_sid = 0u;
+    g_resp_len = 0u;
 
     int rc = uds_client_request(&g_ctx, sid, payload, payload_len, on_response);
     if (rc != 0) {
@@ -416,18 +452,19 @@ int main(void)
 
     uds_config_t cfg;
     memset(&cfg, 0, sizeof(cfg));
-    cfg.get_time_ms    = get_time_ms;
-    cfg.fn_tp_send     = isotp_send_adapter;
-    cfg.p2_ms          = 50u;
-    cfg.p2_star_ms     = 2000u;
-    cfg.rx_buffer      = g_rx_buf;
+    cfg.get_time_ms = get_time_ms;
+    cfg.fn_tp_send = isotp_send_adapter;
+    cfg.p2_ms = 50u;
+    cfg.p2_star_ms = 2000u;
+    cfg.rx_buffer = g_rx_buf;
     cfg.rx_buffer_size = sizeof(g_rx_buf);
-    cfg.tx_buffer      = g_tx_buf;
+    cfg.tx_buffer = g_tx_buf;
     cfg.tx_buffer_size = sizeof(g_tx_buf);
 
     if (uds_init(&g_ctx, &cfg) != UDS_OK) {
         uart_puts("UDS_INIT_FAIL\n");
-        for (;;) {}
+        for (;;) {
+        }
     }
 
     /* Give ECU time to start up: run pump for 20 virtual ms before first request */
@@ -446,19 +483,17 @@ int main(void)
         uint8_t payload[] = {0x03u};
         if (do_request(0x10u, payload, 1u, 500u)) {
             /* Positive response SID = 0x50; payload[0]=sub, [1..4]=timings */
-            if (g_resp_sid == 0x50u &&
-                g_resp_len >= 5u &&
-                g_resp_data[0] == 0x03u &&
-                g_resp_data[1] == 0x00u &&
-                g_resp_data[2] == 0x32u &&
-                g_resp_data[3] == 0x01u &&
+            if (g_resp_sid == 0x50u && g_resp_len >= 5u && g_resp_data[0] == 0x03u &&
+                g_resp_data[1] == 0x00u && g_resp_data[2] == 0x32u && g_resp_data[3] == 0x01u &&
                 g_resp_data[4] == 0xF4u) {
                 uart_puts("TESTER_RESP_50_OK\n");
                 g_service_results |= BIT_10;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_50_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_10\n");
         }
     }
@@ -472,16 +507,16 @@ int main(void)
         uint8_t payload[] = {0x02u, 0xDEu, 0xADu};
         if (do_request(0x29u, payload, 3u, 500u)) {
             /* Positive response SID = 0x69; payload[0]=sub, [1]=status */
-            if (g_resp_sid == 0x69u &&
-                g_resp_len >= 2u &&
-                g_resp_data[0] == 0x02u &&
+            if (g_resp_sid == 0x69u && g_resp_len >= 2u && g_resp_data[0] == 0x02u &&
                 g_resp_data[1] == 0x01u) {
                 uart_puts("TESTER_RESP_69_OK\n");
                 g_service_results |= BIT_29;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_69_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_29\n");
         }
     }
@@ -496,12 +531,8 @@ int main(void)
     {
         uint8_t payload_seed[] = {0x01u};
         if (do_request(0x27u, payload_seed, 1u, 500u)) {
-            if (g_resp_sid == 0x67u &&
-                g_resp_len >= 5u &&
-                g_resp_data[0] == 0x01u &&
-                g_resp_data[1] == 0xDEu &&
-                g_resp_data[2] == 0xADu &&
-                g_resp_data[3] == 0xBEu &&
+            if (g_resp_sid == 0x67u && g_resp_len >= 5u && g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0xDEu && g_resp_data[2] == 0xADu && g_resp_data[3] == 0xBEu &&
                 g_resp_data[4] == 0xEFu) {
                 uart_puts("TESTER_RESP_67_SEED_OK\n");
 
@@ -509,21 +540,23 @@ int main(void)
                 uart_puts("TESTER_REQ_27_KEY\n");
                 uint8_t payload_key[] = {0x02u, 0xDFu, 0xAEu, 0xBFu, 0xF0u};
                 if (do_request(0x27u, payload_key, 5u, 500u)) {
-                    if (g_resp_sid == 0x67u &&
-                        g_resp_len >= 1u &&
-                        g_resp_data[0] == 0x02u) {
+                    if (g_resp_sid == 0x67u && g_resp_len >= 1u && g_resp_data[0] == 0x02u) {
                         uart_puts("TESTER_RESP_67_KEY_OK\n");
                         g_service_results |= BIT_27;
-                    } else {
+                    }
+                    else {
                         uart_puts("TESTER_RESP_67_KEY_BAD\n");
                     }
-                } else {
+                }
+                else {
                     uart_puts("TESTER_TIMEOUT_27_KEY\n");
                 }
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_67_SEED_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_27_SEED\n");
         }
     }
@@ -537,15 +570,15 @@ int main(void)
         uint8_t payload[] = {0x00u};
         if (do_request(0x3Eu, payload, 1u, 500u)) {
             /* Positive response SID = 0x7E; payload[0]=sub */
-            if (g_resp_sid == 0x7Eu &&
-                g_resp_len >= 1u &&
-                g_resp_data[0] == 0x00u) {
+            if (g_resp_sid == 0x7Eu && g_resp_len >= 1u && g_resp_data[0] == 0x00u) {
                 uart_puts("TESTER_RESP_7E_OK\n");
                 g_service_results |= BIT_3E;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_7E_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_3E\n");
         }
     }
@@ -555,7 +588,8 @@ int main(void)
      * ================================================================== */
     if (g_service_results == (BIT_10 | BIT_27 | BIT_29 | BIT_3E)) {
         uart_puts("PHASE1 4/4 PASS\n");
-    } else {
+    }
+    else {
         uart_puts("PHASE1 PARTIAL\n");
     }
 
@@ -576,16 +610,16 @@ int main(void)
         uint8_t payload[] = {0xF1u, 0x90u};
         if (do_request(0x22u, payload, 2u, 500u)) {
             /* Positive response SID = 0x62; data[0..1] = DID echo, data[2..15] = VIN */
-            if (g_resp_sid == 0x62u &&
-                g_resp_len >= 3u &&
-                g_resp_data[0] == 0xF1u &&
+            if (g_resp_sid == 0x62u && g_resp_len >= 3u && g_resp_data[0] == 0xF1u &&
                 g_resp_data[1] == 0x90u) {
                 uart_puts("TESTER_RESP_62_OK\n");
                 g_service_results |= BIT_22;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_62_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_22\n");
         }
     }
@@ -600,19 +634,30 @@ int main(void)
         payload[0] = 0x01u;
         payload[1] = 0x23u;
         /* 16 bytes of write data: "TEST_CLIENT_001" + NUL padded */
-        payload[2]  = 'T'; payload[3]  = 'E'; payload[4]  = 'S'; payload[5]  = 'T';
-        payload[6]  = '_'; payload[7]  = 'C'; payload[8]  = 'L'; payload[9]  = 'I';
-        payload[10] = 'E'; payload[11] = 'N'; payload[12] = 'T'; payload[13] = '_';
-        payload[14] = '0'; payload[15] = '0'; payload[16] = '1'; payload[17] = '\0';
+        payload[2] = 'T';
+        payload[3] = 'E';
+        payload[4] = 'S';
+        payload[5] = 'T';
+        payload[6] = '_';
+        payload[7] = 'C';
+        payload[8] = 'L';
+        payload[9] = 'I';
+        payload[10] = 'E';
+        payload[11] = 'N';
+        payload[12] = 'T';
+        payload[13] = '_';
+        payload[14] = '0';
+        payload[15] = '0';
+        payload[16] = '1';
+        payload[17] = '\0';
         if (do_request(0x2Eu, payload, 18u, 500u)) {
             /* Positive response SID = 0x6E; data[0..1] = DID echo */
-            if (g_resp_sid == 0x6Eu &&
-                g_resp_len >= 2u &&
-                g_resp_data[0] == 0x01u &&
+            if (g_resp_sid == 0x6Eu && g_resp_len >= 2u && g_resp_data[0] == 0x01u &&
                 g_resp_data[1] == 0x23u) {
                 uart_puts("TESTER_RESP_6E_OK\n");
                 g_service_results |= BIT_2E;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_6E_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
@@ -621,7 +666,8 @@ int main(void)
                 uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_2E\n");
         }
     }
@@ -636,15 +682,12 @@ int main(void)
         uint8_t payload[] = {0x12u, 0x00u, 0x10u, 0x01u, 0xABu};
         if (do_request(0x3Du, payload, 5u, 500u)) {
             /* Positive response SID = 0x7D; data = [format, addr_bytes..., size_bytes...] */
-            if (g_resp_sid == 0x7Du &&
-                g_resp_len >= 4u &&
-                g_resp_data[0] == 0x12u &&
-                g_resp_data[1] == 0x00u &&
-                g_resp_data[2] == 0x10u &&
-                g_resp_data[3] == 0x01u) {
+            if (g_resp_sid == 0x7Du && g_resp_len >= 4u && g_resp_data[0] == 0x12u &&
+                g_resp_data[1] == 0x00u && g_resp_data[2] == 0x10u && g_resp_data[3] == 0x01u) {
                 uart_puts("TESTER_RESP_7D_OK\n");
                 g_service_results |= BIT_3D;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_7D_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
@@ -653,7 +696,8 @@ int main(void)
                 uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_3D\n");
         }
     }
@@ -667,12 +711,11 @@ int main(void)
         uint8_t payload[] = {0x12u, 0x00u, 0x10u, 0x01u};
         if (do_request(0x23u, payload, 4u, 500u)) {
             /* Positive response SID = 0x63; data[0] = byte read */
-            if (g_resp_sid == 0x63u &&
-                g_resp_len >= 1u &&
-                g_resp_data[0] == 0xABu) {
+            if (g_resp_sid == 0x63u && g_resp_len >= 1u && g_resp_data[0] == 0xABu) {
                 uart_puts("TESTER_RESP_63_OK\n");
                 g_service_results |= BIT_23;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_63_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
@@ -681,7 +724,8 @@ int main(void)
                 uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_23\n");
         }
     }
@@ -694,16 +738,16 @@ int main(void)
         uint8_t payload[] = {0xF1u, 0x90u};
         if (do_request(0x24u, payload, 2u, 500u)) {
             /* Positive response SID = 0x64; data[0..1] = DID echo */
-            if (g_resp_sid == 0x64u &&
-                g_resp_len >= 2u &&
-                g_resp_data[0] == 0xF1u &&
+            if (g_resp_sid == 0x64u && g_resp_len >= 2u && g_resp_data[0] == 0xF1u &&
                 g_resp_data[1] == 0x90u) {
                 uart_puts("TESTER_RESP_64_OK\n");
                 g_service_results |= BIT_24;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_64_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_24\n");
         }
     }
@@ -719,17 +763,16 @@ int main(void)
         uint8_t payload[] = {0x01u, 0xF2u, 0x34u, 0xF1u, 0x90u, 0x01u, 0x01u};
         if (do_request(0x2Cu, payload, 7u, 500u)) {
             /* Positive response SID = 0x6C; data[0]=sub, data[1..2]=defined DID */
-            if (g_resp_sid == 0x6Cu &&
-                g_resp_len >= 3u &&
-                g_resp_data[0] == 0x01u &&
-                g_resp_data[1] == 0xF2u &&
-                g_resp_data[2] == 0x34u) {
+            if (g_resp_sid == 0x6Cu && g_resp_len >= 3u && g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0xF2u && g_resp_data[2] == 0x34u) {
                 uart_puts("TESTER_RESP_6C_OK\n");
                 g_service_results |= BIT_2C;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_6C_BAD\n");
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_2C\n");
         }
     }
@@ -746,7 +789,8 @@ int main(void)
             if (g_resp_sid == 0x6Au) {
                 uart_puts("TESTER_RESP_6A_OK\n");
                 g_service_results |= BIT_2A;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_6A_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
@@ -755,7 +799,8 @@ int main(void)
                 uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_2A\n");
         }
     }
@@ -769,14 +814,12 @@ int main(void)
         uint8_t payload[] = {0x01u, 0x23u, 0x03u};
         if (do_request(0x2Fu, payload, 3u, 500u)) {
             /* Positive response SID = 0x6F; data[0..1]=DID echo, data[2]=output */
-            if (g_resp_sid == 0x6Fu &&
-                g_resp_len >= 3u &&
-                g_resp_data[0] == 0x01u &&
-                g_resp_data[1] == 0x23u &&
-                g_resp_data[2] == 0x55u) {
+            if (g_resp_sid == 0x6Fu && g_resp_len >= 3u && g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0x23u && g_resp_data[2] == 0x55u) {
                 uart_puts("TESTER_RESP_6F_OK\n");
                 g_service_results |= BIT_2F;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_6F_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
@@ -785,7 +828,8 @@ int main(void)
                 uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_2F\n");
         }
     }
@@ -794,12 +838,13 @@ int main(void)
      * Phase 2 result
      * ================================================================== */
     {
-        uint32_t phase2_bits = BIT_22 | BIT_23 | BIT_24 | BIT_2A |
-                               BIT_2C | BIT_2E | BIT_2F | BIT_3D;
-        uint32_t phase2_got  = g_service_results & phase2_bits;
+        uint32_t phase2_bits =
+            BIT_22 | BIT_23 | BIT_24 | BIT_2A | BIT_2C | BIT_2E | BIT_2F | BIT_3D;
+        uint32_t phase2_got = g_service_results & phase2_bits;
         if (phase2_got == phase2_bits) {
             uart_puts("PHASE2 8/8 PASS\n");
-        } else {
+        }
+        else {
             uart_puts("PHASE2 FAIL\n");
         }
     }
@@ -820,16 +865,13 @@ int main(void)
         uint8_t payload[] = {0x01u, 0xFFu};
         if (do_request(0x19u, payload, 2u, 500u)) {
             /* Positive response SID = 0x59; data[0]=subfn, [1..4]=DTC info */
-            if (g_resp_sid == 0x59u &&
-                g_resp_len >= 5u &&
-                g_resp_data[0] == 0x01u &&
-                g_resp_data[1] == 0x01u &&
-                g_resp_data[2] == 0x01u &&
-                g_resp_data[3] == 0x00u &&
+            if (g_resp_sid == 0x59u && g_resp_len >= 5u && g_resp_data[0] == 0x01u &&
+                g_resp_data[1] == 0x01u && g_resp_data[2] == 0x01u && g_resp_data[3] == 0x00u &&
                 g_resp_data[4] == 0x02u) {
                 uart_puts("TESTER_RESP_59_OK\n");
                 g_service_results |= BIT_19;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_59_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
@@ -839,10 +881,11 @@ int main(void)
                 uart_puts(" d2=");
                 uart_puthex8((g_resp_len > 2u) ? g_resp_data[2] : 0u);
                 uart_puts(" len=");
-                uart_puthex8((uint8_t)g_resp_len);
+                uart_puthex8((uint8_t) g_resp_len);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_19\n");
         }
     }
@@ -857,12 +900,14 @@ int main(void)
             if (g_resp_sid == 0xC5u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_C5_OK\n");
                 g_service_results |= BIT_85;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_C5_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_85\n");
         }
     }
@@ -880,14 +925,16 @@ int main(void)
             if (g_resp_sid == 0x54u) {
                 uart_puts("TESTER_RESP_54_OK\n");
                 g_service_results |= BIT_14;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_54_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d0=");
                 uart_puthex8((g_resp_len > 0u) ? g_resp_data[0] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_14\n");
         }
     }
@@ -901,12 +948,14 @@ int main(void)
             if (g_resp_sid == 0xC6u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_C6_OK\n");
                 g_service_results |= BIT_86;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_C6_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_86\n");
         }
     }
@@ -917,10 +966,11 @@ int main(void)
     {
         /* All four DTC services now pass after the F-9 fix. */
         uint32_t phase3_bits = BIT_19 | BIT_85 | BIT_14 | BIT_86;
-        uint32_t phase3_got  = g_service_results & phase3_bits;
+        uint32_t phase3_got = g_service_results & phase3_bits;
         if (phase3_got == phase3_bits) {
             uart_puts("PHASE3 4/4 PASS\n");
-        } else {
+        }
+        else {
             uart_puts("PHASE3 FAIL\n");
         }
     }
@@ -945,12 +995,14 @@ int main(void)
             if (g_resp_sid == 0x71u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_71_OK\n");
                 g_service_results |= BIT_31;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_71_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_31\n");
         }
     }
@@ -958,18 +1010,19 @@ int main(void)
     /* 0x34 RequestDownload: 34 00 44 <addr32> <size32> -> 74 20 00 00 04 00 */
     uart_puts("TESTER_REQ_34\n");
     {
-        uint8_t payload[] = {0x00u, 0x44u, 0x11u, 0x22u, 0x33u, 0x44u,
-                             0x00u, 0x00u, 0x10u, 0x00u};
+        uint8_t payload[] = {0x00u, 0x44u, 0x11u, 0x22u, 0x33u, 0x44u, 0x00u, 0x00u, 0x10u, 0x00u};
         if (do_request(0x34u, payload, 10u, 1000u)) {
             if (g_resp_sid == 0x74u) {
                 uart_puts("TESTER_RESP_74_OK\n");
                 g_service_results |= BIT_34;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_74_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_34\n");
         }
     }
@@ -982,12 +1035,14 @@ int main(void)
             if (g_resp_sid == 0x76u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_76_OK\n");
                 g_service_results |= BIT_36;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_76_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_36\n");
         }
     }
@@ -1000,12 +1055,14 @@ int main(void)
             if (g_resp_sid == 0x77u) {
                 uart_puts("TESTER_RESP_77_OK\n");
                 g_service_results |= BIT_37;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_77_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_37\n");
         }
     }
@@ -1013,18 +1070,19 @@ int main(void)
     /* 0x35 RequestUpload: 35 00 44 <addr32> <size32> -> 75 20 00 00 04 00 */
     uart_puts("TESTER_REQ_35\n");
     {
-        uint8_t payload[] = {0x00u, 0x44u, 0x11u, 0x22u, 0x33u, 0x44u,
-                             0x00u, 0x00u, 0x10u, 0x00u};
+        uint8_t payload[] = {0x00u, 0x44u, 0x11u, 0x22u, 0x33u, 0x44u, 0x00u, 0x00u, 0x10u, 0x00u};
         if (do_request(0x35u, payload, 10u, 1000u)) {
             if (g_resp_sid == 0x75u) {
                 uart_puts("TESTER_RESP_75_OK\n");
                 g_service_results |= BIT_35;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_75_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_35\n");
         }
     }
@@ -1040,14 +1098,16 @@ int main(void)
             if (g_resp_sid == 0x78u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_78_OK\n");
                 g_service_results |= BIT_38;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_78_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" nrc=");
                 uart_puthex8((g_resp_len > 1u) ? g_resp_data[1] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_38\n");
         }
     }
@@ -1057,10 +1117,11 @@ int main(void)
      * ================================================================== */
     {
         uint32_t phase4_bits = BIT_31 | BIT_34 | BIT_36 | BIT_37 | BIT_35 | BIT_38;
-        uint32_t phase4_got  = g_service_results & phase4_bits;
+        uint32_t phase4_got = g_service_results & phase4_bits;
         if (phase4_got == phase4_bits) {
             uart_puts("PHASE4 6/6 PASS\n");
-        } else {
+        }
+        else {
             uart_puts("PHASE4 FAIL\n");
         }
     }
@@ -1077,11 +1138,14 @@ int main(void)
             if (g_resp_sid == 0x68u) {
                 uart_puts("TESTER_RESP_68_OK\n");
                 g_service_results |= BIT_28;
-            } else {
-                uart_puts("TESTER_RESP_68_BAD sid=");
-                uart_puthex8(g_resp_sid); uart_putc('\n');
             }
-        } else {
+            else {
+                uart_puts("TESTER_RESP_68_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_28\n");
         }
     }
@@ -1094,11 +1158,14 @@ int main(void)
             if (g_resp_sid == 0xC3u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_C3_OK\n");
                 g_service_results |= BIT_83;
-            } else {
-                uart_puts("TESTER_RESP_C3_BAD sid=");
-                uart_puthex8(g_resp_sid); uart_putc('\n');
             }
-        } else {
+            else {
+                uart_puts("TESTER_RESP_C3_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_83\n");
         }
     }
@@ -1111,11 +1178,14 @@ int main(void)
             if (g_resp_sid == 0xC7u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_C7_OK\n");
                 g_service_results |= BIT_87;
-            } else {
-                uart_puts("TESTER_RESP_C7_BAD sid=");
-                uart_puthex8(g_resp_sid); uart_putc('\n');
             }
-        } else {
+            else {
+                uart_puts("TESTER_RESP_C7_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_87\n");
         }
     }
@@ -1131,14 +1201,16 @@ int main(void)
             if (g_resp_sid == 0xC4u && g_resp_len >= 3u && g_resp_data[2] == 0x7Eu) {
                 uart_puts("TESTER_RESP_C4_OK\n");
                 g_service_results |= BIT_84;
-            } else {
+            }
+            else {
                 uart_puts("TESTER_RESP_C4_BAD sid=");
                 uart_puthex8(g_resp_sid);
                 uart_puts(" d2=");
                 uart_puthex8((g_resp_len > 2u) ? g_resp_data[2] : 0u);
                 uart_putc('\n');
             }
-        } else {
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_84\n");
         }
     }
@@ -1152,11 +1224,14 @@ int main(void)
             if (g_resp_sid == 0x51u && g_resp_len >= 1u && g_resp_data[0] == 0x01u) {
                 uart_puts("TESTER_RESP_51_OK\n");
                 g_service_results |= BIT_11;
-            } else {
-                uart_puts("TESTER_RESP_51_BAD sid=");
-                uart_puthex8(g_resp_sid); uart_putc('\n');
             }
-        } else {
+            else {
+                uart_puts("TESTER_RESP_51_BAD sid=");
+                uart_puthex8(g_resp_sid);
+                uart_putc('\n');
+            }
+        }
+        else {
             uart_puts("TESTER_TIMEOUT_11\n");
         }
     }
@@ -1166,18 +1241,21 @@ int main(void)
      * ================================================================== */
     {
         uint32_t phase5_bits = BIT_28 | BIT_83 | BIT_87 | BIT_84 | BIT_11;
-        uint32_t phase5_got  = g_service_results & phase5_bits;
+        uint32_t phase5_got = g_service_results & phase5_bits;
         if (phase5_got == phase5_bits) {
             uart_puts("PHASE5 5/5 PASS\n");
-        } else {
+        }
+        else {
             uart_puts("PHASE5 FAIL\n");
         }
         if (g_service_results == ALL_SERVICES_MASK) {
             uart_puts("SERVICES 27/27 PASS\n");
-        } else {
+        }
+        else {
             uart_puts("SERVICES INCOMPLETE\n");
         }
     }
 
-    for (;;) {}
+    for (;;) {
+    }
 }

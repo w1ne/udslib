@@ -7,8 +7,11 @@
 #   make APP=A          → app_a.elf, app_a.bin, app_a_image.bin
 #   make APP=B          → app_b.elf, app_b.bin, app_b_image.bin
 #   make APP=Bbad       → app_bbad.elf, app_bbad.bin, app_bbad_image.bin
+#   make APP=Bsigbad    → app_bsigbad_image.bin (App B payload, CRC-good but
+#                         signature TAMPERED → must FAIL authenticity verify)
 #   make both           → builds A and B variants
 #   make all-three      → builds A, B, and Bbad variants
+#   make all-four       → builds A, B, Bbad, and Bsigbad variants
 #   make image-verify   → host cross-check: validates app_b_image.bin via
 #                         the bootloader's ota_crc.c + ota_image.h logic
 #   make clean
@@ -23,10 +26,23 @@ BUILD_DIR := build
 
 CPUFLAGS := -mcpu=cortex-m33 -mthumb
 
+# STM32H5 vendor sources (CMSIS device header). boot_confirm.c reaches the
+# FLASH registers through the ST CMSIS FLASH_TypeDef instead of hand-typed
+# addresses. Located the same way the bootloader build locates them: under the
+# udslib zephyr workspace, three levels up from this app dir.
+UDSLIB_DIR ?= $(abspath $(CURDIR)/../../..)
+ZEPHYR_WS  ?= $(UDSLIB_DIR)/zephyr-workspace
+CUBE_DIR   ?= $(ZEPHYR_WS)/modules/hal/stm32/stm32cube/stm32h5xx
+CMSIS_DIR  ?= $(ZEPHYR_WS)/modules/hal/cmsis_6/CMSIS/Core/Include
+STM32_CFLAGS := -I$(CMSIS_DIR) -I$(CUBE_DIR)/soc -DSTM32H563xx
+
 # APP_VARIANT mapping:
 #   A    → 1 (App A, confirms)
 #   B    → 2 (App B-good, confirms)
 #   Bbad → 3 (App B-bad, does NOT confirm → triggers rollback demo)
+# Bsigbad reuses App B's payload (APP_VARIANT=2) but mkimage tampers the
+# signature so the image is CRC-good yet authenticity-bad.
+MKIMAGE_FLAGS :=
 ifeq ($(APP),A)
   APP_VARIANT_NUM := 1
   VERSION         := 0x00010000
@@ -36,14 +52,19 @@ else ifeq ($(APP),B)
 else ifeq ($(APP),Bbad)
   APP_VARIANT_NUM := 3
   VERSION         := 0x00020000
+else ifeq ($(APP),Bsigbad)
+  APP_VARIANT_NUM := 2
+  VERSION         := 0x00020000
+  MKIMAGE_FLAGS   := --tamper-signature
 else
-  $(error APP must be A, B, or Bbad)
+  $(error APP must be A, B, Bbad, or Bsigbad)
 endif
 
 CFLAGS := $(CPUFLAGS) \
           -Os -g \
           -ffreestanding \
           -ffunction-sections -fdata-sections \
+          $(STM32_CFLAGS) \
           -Wall -Wextra -Werror \
           -DAPP_VARIANT=$(APP_VARIANT_NUM)
 
@@ -68,7 +89,7 @@ ELF_LINK   := app_$(APP_LOWER).elf
 BIN_LINK   := app_$(APP_LOWER).bin
 IMAGE_LINK := app_$(APP_LOWER)_image.bin
 
-.PHONY: all both all-three image-verify clean
+.PHONY: all both all-three all-four image-verify clean
 
 all: $(IMAGE_LINK)
 
@@ -81,8 +102,14 @@ all-three:
 	$(MAKE) APP=B
 	$(MAKE) APP=Bbad
 
+all-four:
+	$(MAKE) APP=A
+	$(MAKE) APP=B
+	$(MAKE) APP=Bbad
+	$(MAKE) APP=Bsigbad
+
 $(IMAGE_LINK): $(BIN_LINK)
-	$(PYTHON) mkimage.py $< $@ --version $(VERSION)
+	$(PYTHON) mkimage.py $< $@ --version $(VERSION) $(MKIMAGE_FLAGS)
 
 $(BIN_LINK): $(ELF_LINK)
 	$(OBJCOPY) -O binary $< $@
@@ -161,4 +188,5 @@ clean:
 	rm -rf $(BUILD_DIR) image_verify.c \
 	       app_a.elf app_a.bin app_a_image.bin \
 	       app_b.elf app_b.bin app_b_image.bin \
-	       app_bbad.elf app_bbad.bin app_bbad_image.bin
+	       app_bbad.elf app_bbad.bin app_bbad_image.bin \
+	       app_bsigbad.elf app_bsigbad.bin app_bsigbad_image.bin

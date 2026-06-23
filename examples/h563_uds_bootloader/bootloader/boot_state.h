@@ -86,13 +86,13 @@
  * ------------------------------------------------------------------------- */
 
 /** Magic value that marks a valid boot-state header slot. */
-#define BOOT_STATE_MAGIC  0xB007A5A5u
+#define BOOT_STATE_MAGIC 0xB007A5A5u
 
 /**
  * Bank-relative byte offset of the boot-state sector (sector 11 × 8 KB).
  * The sector covers [bank_base + 0x16000 .. bank_base + 0x18000).
  */
-#define BOOT_STATE_OFFSET  0x16000UL
+#define BOOT_STATE_OFFSET 0x16000UL
 
 /**
  * Canonical flash address of the active-bank boot-state sector when no
@@ -100,17 +100,17 @@
  * so the active bank always appears at 0x08000000; the offset is the same
  * either way.
  */
-#define BOOT_STATE_BANK1_ADDR  0x08016000UL
+#define BOOT_STATE_BANK1_ADDR 0x08016000UL
 
 /** Sector index of the boot-state sector within its bank (0-based). */
-#define BOOT_STATE_SECTOR  11u
+#define BOOT_STATE_SECTOR 11u
 
 /**
  * Maximum boot attempts before an unconfirmed app triggers a rollback.
  * The rolled-back-to bank must NOT be pending, so the next boot after
  * a rollback lands on the known-good bank and proceeds straight to BL-JUMP.
  */
-#define MAX_BOOT_ATTEMPTS  3u
+#define MAX_BOOT_ATTEMPTS 3u
 
 /**
  * Number of pre-erased attempt slots reserved after the header slot.
@@ -118,17 +118,17 @@
  * MAX-th counted attempt yields ROLLBACK).  The sector is 8 KB = 512 slots,
  * so this is comfortably within bounds.
  */
-#define BOOT_STATE_ATTEMPT_SLOTS  MAX_BOOT_ATTEMPTS
+#define BOOT_STATE_ATTEMPT_SLOTS MAX_BOOT_ATTEMPTS
 
 /**
  * Marker programmed into an attempt slot's first word to count one attempt.
  * Any value other than the erased pattern (0xFFFFFFFF) marks the slot as
  * "used"; this fixed marker is used so the intent is explicit on a hex dump.
  */
-#define ATTEMPT_SLOT_MARK  0xA77E3917u
+#define ATTEMPT_SLOT_MARK 0xA77E3917u
 
 /** Size of one slot (one H5 quad-word). */
-#define BOOT_STATE_SLOT_SIZE  16u
+#define BOOT_STATE_SLOT_SIZE 16u
 
 /* ---------------------------------------------------------------------------
  * Data structure
@@ -145,7 +145,8 @@
  *
  * Size: 16 bytes (one quad-word, matching H5 flash program granularity).
  */
-typedef struct {
+typedef struct
+{
     uint32_t magic;    /**< BOOT_STATE_MAGIC when the header slot is valid.  */
     uint32_t pending;  /**< 1 = unconfirmed (on-trial); 0 = good.            */
     uint32_t attempts; /**< Counted attempts (filled from slots by reader).  */
@@ -222,10 +223,11 @@ RAMFUNC void boot_state_bump_attempts(uint32_t bank_base);
  * ------------------------------------------------------------------------- */
 
 /** Return values for boot_state_decide(). */
-typedef enum {
-    BOOT_DECISION_JUMP         = 0, /**< Bank confirmed; jump to app.        */
+typedef enum
+{
+    BOOT_DECISION_JUMP = 0,          /**< Bank confirmed; jump to app.        */
     BOOT_DECISION_BUMP_AND_JUMP = 1, /**< Bump attempts counter, then jump.  */
-    BOOT_DECISION_ROLLBACK     = 2  /**< Too many attempts; rollback.         */
+    BOOT_DECISION_ROLLBACK = 2       /**< Too many attempts; rollback.         */
 } boot_decision_t;
 
 /**
