@@ -44,6 +44,15 @@ void uds_internal_handle_session_control(uds_ctx_t *ctx, const uint8_t *data, ui
         ctx->security.seed_len = 0u;
     }
 
+    /* ISO 14229-1: entering the default session restores communication and DTC
+     * setting to their defaults (normal Rx/Tx enabled, DTC setting on). A tester
+     * that disabled either via 0x28 / 0x85 for a reprogramming sequence need not
+     * explicitly re-enable them — returning to the default session does. */
+    if (sub == UDS_SESSION_ID_DEFAULT) {
+        ctx->session.comm_state = 0x00u;        /* enable Rx/Tx */
+        ctx->session.dtc_setting_disabled = 0u; /* DTC setting on */
+    }
+
     /* Update Active Session */
     ctx->session.active = sub;
 

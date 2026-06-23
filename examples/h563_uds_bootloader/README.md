@@ -135,30 +135,36 @@ make -C bootloader rsa-test   # verifies signed image; proves tamper is rejected
 
 ## OTA Sequence
 
-The host flash tool (`host/flash_tool`) drives these nine UDS steps:
+The host flash tool (`host/flash_tool`) drives these UDS steps:
 
 1. **0x10 02** — DiagnosticSessionControl(programming): switches to the
    programming session, which gates all reprogramming services.
-2. **0x22 F1A0** — ReadDataByIdentifier(active-bank DID): reads a 1-byte
+2. **0x85 02** — ControlDTCSetting(off): freezes DTC storage so the faults
+   that erasing/flashing naturally provokes are not logged.  Returning to the
+   default session (`0x10 01`) re-enables it automatically.
+3. **0x28 03 01** — CommunicationControl(disableRxAndTx, application): quiets
+   normal application messaging on the bus for the duration of the flash.
+   Also restored on return to the default session.
+4. **0x22 F1A0** — ReadDataByIdentifier(active-bank DID): reads a 1-byte
    indicator (`0` or `1`) so the host can compute the inactive-bank base
    address for the download.
-3. **0x27 01** — SecurityAccess(requestSeed): bootloader sends a 16-byte
+5. **0x27 01** — SecurityAccess(requestSeed): bootloader sends a 16-byte
    nonce (fixed demo seed; see Limitations).
-4. **0x27 02** — SecurityAccess(sendKey): host replies with
+6. **0x27 02** — SecurityAccess(sendKey): host replies with
    AES-128-CMAC(DEMO\_SECRET, seed); bootloader verifies constant-time.
-5. **0x34** — RequestDownload: specifies the inactive-bank app base address
+7. **0x34** — RequestDownload: specifies the inactive-bank app base address
    and the image size (OTA header + payload).  Bootloader erases the
    inactive app sectors and arms the transfer state.
-6. **0x36 × N** — TransferData: image bytes in chunks.  The bootloader
+8. **0x36 × N** — TransferData: image bytes in chunks.  The bootloader
    accumulates them in a 16-byte staging buffer (H5 requires quad-word
    aligned program operations) and flushes full blocks to flash.
-7. **0x37** — RequestTransferExit: flushes the final staging buffer (padded
+9. **0x37** — RequestTransferExit: flushes the final staging buffer (padded
    with `0xFF`).
-8. **0x31 01 FF01** — RoutineControl(CheckProgrammingDependencies): runs the
+10. **0x31 01 FF01** — RoutineControl(CheckProgrammingDependencies): runs the
    same `app_is_valid()` check the bootloader uses at boot (magic,
    `image_size`, CRC-32/ISO-HDLC over payload, initial SP in RAM).  Returns
    `0x01` on pass.
-9. **0x31 01 FF02** — RoutineControl(ActivateSoftware): calls
+11. **0x31 01 FF02** — RoutineControl(ActivateSoftware): calls
    `flash_set_swap_and_reset()`, which sets `SWAP_BANK` in the H5 option
    bytes and issues a system reset.  The bootloader in the new active bank
    validates the image and jumps to it.

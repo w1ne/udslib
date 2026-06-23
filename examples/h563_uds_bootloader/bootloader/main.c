@@ -747,6 +747,49 @@ static int bl_routine_control(uds_ctx_t *ctx, uint8_t type, uint16_t id, const u
 }
 
 /* ---------------------------------------------------------------------------
+ * Communication Control (0x28) and DTC Setting (0x85)
+ *
+ * A robust reprogramming sequence quiets the bus before it erases and flashes:
+ *   - 0x28 CommunicationControl disables normal application messaging so the
+ *     ECU stops emitting periodic app traffic while it is being flashed.
+ *   - 0x85 ControlDTCSetting freezes DTC storage so the faults that flashing
+ *     naturally provokes (missing app, bus-off peers) are not logged.
+ * The host flash tool issues both right after entering the programming session
+ * and the matching re-enable is implicit: returning to the default session
+ * (10 01) restores communication and DTC setting in the server core, so a
+ * tester that resets the link recovers the defaults automatically.
+ *
+ * These booleans mirror the state for the UART trace; the authoritative state
+ * lives in the UDS session (ctx->session.comm_state / dtc_setting_disabled).
+ * ------------------------------------------------------------------------- */
+static bool g_app_msgs_enabled = true;
+static bool g_dtc_enabled = true;
+
+/* fn_comm_control — SID 0x28. Disable normal application messages for the
+ * control types that silence transmission; re-enable for the normal/Tx-enabling
+ * types. The core has already validated the sub-function and communicationType. */
+static int bl_comm_control(uds_ctx_t *ctx, uint8_t ctrl_type, uint8_t comm_type, uint16_t node_id)
+{
+    (void) ctx;
+    (void) comm_type;
+    (void) node_id;
+    g_app_msgs_enabled = (ctrl_type == UDS_COMM_ENABLE_RX_TX) ||
+                         (ctrl_type == UDS_COMM_DISABLE_RX_ENABLE_TX) ||
+                         (ctrl_type == UDS_COMM_ENABLE_RX_TX_ENH);
+    uart_puts(g_app_msgs_enabled ? "BL: app messages enabled\n" : "BL: app messages disabled\n");
+    return UDS_OK;
+}
+
+/* fn_control_dtc_setting — SID 0x85. sub 0x01 = DTC setting on, 0x02 = off. */
+static int bl_control_dtc_setting(uds_ctx_t *ctx, uint8_t sub_function)
+{
+    (void) ctx;
+    g_dtc_enabled = (sub_function == 0x01u);
+    uart_puts(g_dtc_enabled ? "BL: DTC setting on\n" : "BL: DTC setting off\n");
+    return UDS_OK;
+}
+
+/* ---------------------------------------------------------------------------
  * DID table — 0xF1A0: active bank indicator (1 byte, read-only, all sessions)
  *
  * Deliberately readable in any session with no security access. The value is a
@@ -885,6 +928,13 @@ int main(void)
     cfg.fn_transfer_data = bl_transfer_data;
     cfg.fn_transfer_exit = bl_transfer_exit;
     cfg.fn_routine_control = bl_routine_control;
+
+    /* 0x28 CommunicationControl + 0x85 ControlDTCSetting: quiet the bus and
+     * freeze DTC storage during reprogramming. Gated to the extended/programming
+     * session by restrict_sessions; returning to the default session restores
+     * both. */
+    cfg.fn_comm_control = bl_comm_control;
+    cfg.fn_control_dtc_setting = bl_control_dtc_setting;
 
     if (uds_init(&g_uds, &cfg) != UDS_OK) {
         uart_puts("BL: uds_init FAIL\n");
