@@ -4,6 +4,7 @@
  */
 
 #include "test_helpers.h"
+#include "uds_internal.h" /* UDS_NRC_INVALID_KEY, UDS_NRC_EXCEEDED_ATTEMPTS */
 
 static int mock_security_seed(struct uds_ctx *ctx, uint8_t level, uint8_t *seed_buf,
                               uint16_t max_len)
@@ -211,6 +212,68 @@ static void test_security_access_key_without_seed_rejected(void **state)
     assert_int_equal(ctx.security.level, 0);
 }
 
+/* §5d regression: when security_max_attempts and security_delay_ms are both
+ * zero (unconfigured), the implementation must fall back to the named defaults
+ * UDS_DEFAULT_SECURITY_MAX_ATTEMPTS (3) and UDS_DEFAULT_SECURITY_DELAY_MS
+ * (10000).  Exercise the full 3-strike path and verify NRC 0x36 is issued and
+ * the lockout delay is armed on the third failure. */
+static void test_security_access_default_lockout(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_security_seed = mock_security_seed;
+    cfg.fn_security_key = mock_security_key;
+    /* Intentionally leave security_max_attempts and security_delay_ms at zero
+     * so the defaults (3 / 10000 ms) are exercised. */
+
+    uint8_t seed_req[] = {0x27, 0x01};
+    uint8_t bad_key[] = {0x27, 0x02, 0x00, 0x00, 0x00, 0x00};
+
+#define SEND_SEED()                                      \
+    do {                                                 \
+        will_return(mock_get_time, 1000);                \
+        will_return(mock_get_time, 1000);                \
+        will_return(mock_get_time, 1000);                \
+        expect_any(mock_tp_send, data);                  \
+        expect_value(mock_tp_send, len, 6);              \
+        will_return(mock_tp_send, 0);                    \
+        uds_input_sdu(&ctx, seed_req, sizeof(seed_req)); \
+    } while (0)
+
+#define SEND_BAD_KEY(expect_len)                       \
+    do {                                               \
+        will_return(mock_get_time, 1000);              \
+        will_return(mock_get_time, 1000);              \
+        will_return(mock_get_time, 1000);              \
+        expect_any(mock_tp_send, data);                \
+        expect_value(mock_tp_send, len, (expect_len)); \
+        will_return(mock_tp_send, 0);                  \
+        uds_input_sdu(&ctx, bad_key, sizeof(bad_key)); \
+    } while (0)
+
+    /* Attempt 1: NRC 0x35 (InvalidKey), no lockout yet */
+    SEND_SEED();
+    SEND_BAD_KEY(3); /* 7F 27 35 */
+    assert_int_equal(g_tx_buf[2], UDS_NRC_INVALID_KEY);
+    assert_int_equal(ctx.security.delay_end, 0u);
+
+    /* Attempt 2: NRC 0x35 again */
+    SEND_SEED();
+    SEND_BAD_KEY(3);
+    assert_int_equal(g_tx_buf[2], UDS_NRC_INVALID_KEY);
+    assert_int_equal(ctx.security.delay_end, 0u);
+
+    /* Attempt 3: hits the default max (3) -> NRC 0x36, delay armed */
+    SEND_SEED();
+    SEND_BAD_KEY(3); /* 7F 27 36 */
+    assert_int_equal(g_tx_buf[2], UDS_NRC_EXCEEDED_ATTEMPTS);
+    /* delay_end = now(1000) + UDS_DEFAULT_SECURITY_DELAY_MS(10000) = 11000 */
+    assert_int_equal(ctx.security.delay_end, 11000u);
+
+#undef SEND_SEED
+#undef SEND_BAD_KEY
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -219,6 +282,7 @@ int main(void)
         cmocka_unit_test(test_security_key_receives_issued_seed),
         cmocka_unit_test(test_security_access_delay_timer),
         cmocka_unit_test(test_security_access_key_without_seed_rejected),
+        cmocka_unit_test(test_security_access_default_lockout),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

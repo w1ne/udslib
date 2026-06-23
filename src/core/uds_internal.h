@@ -68,6 +68,10 @@
 #define UDS_MIN_TX_BUFFER_SIZE 8u
 #define UDS_MIN_RX_BUFFER_SIZE 8u
 
+/* §5d: Security-access fallback limits when cfg fields are zero (unconfigured). */
+#define UDS_DEFAULT_SECURITY_MAX_ATTEMPTS 3u
+#define UDS_DEFAULT_SECURITY_DELAY_MS 10000u
+
 #define UDS_RESPONSE_OFFSET 0x40u
 #define UDS_MAX_PERIODIC_MSG_LEN 8u
 
