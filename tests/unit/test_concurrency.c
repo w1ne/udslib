@@ -206,8 +206,9 @@ static void test_responsepending_not_clobbered_by_periodic(void **state)
 
 static int g_i2_lock_depth;
 static int g_i2_reset_called;
-static int g_i2_reset_under_lock; /* -1 = not observed */
-static int g_i2_txcomplete_under_lock;
+static int g_i2_reset_under_lock;      /* -1 = not observed */
+static int g_i2_txcomplete_under_lock; /* -1 = not observed */
+static int g_i2_kind_cleared_at_reset; /* -1 = not observed */
 
 static void i2_lock(void *h)
 {
@@ -227,19 +228,34 @@ static bool i2_tx_complete(struct uds_ctx *ctx)
 }
 static void i2_reset(struct uds_ctx *ctx, uint8_t type)
 {
-    (void) ctx;
     (void) type;
     g_i2_reset_under_lock = (g_i2_lock_depth > 0) ? 1 : 0;
+    /* The flag must already be cleared before the (possibly rebooting) action
+     * runs, so a returning action cannot fire twice. */
+    g_i2_kind_cleared_at_reset = (ctx->server.posttx_kind == 0u) ? 1 : 0;
     g_i2_reset_called++;
 }
 
-/* The posttx flag test-and-clear must happen UNDER the lock, while the action
- * callback (fn_reset) and the transport-complete poll (fn_tx_complete) run with
- * the lock RELEASED. We observe lock depth at the moment each callback fires:
- * the flags are cleared inside the locked region the test can never directly see,
- * but we assert the callbacks themselves are NOT under the lock and the lock is
- * balanced to zero after the action runs. */
-static void test_posttx_action_bookkeeping_lock_scope(void **state)
+/* What this single-threaded test CAN and CANNOT guard (read before trusting it):
+ *
+ * It is NOT a guard for the I2 lock-scoping itself. The I2 fix is that the posttx
+ * flag test-and-clear in uds_internal_run_posttx_action() happens UNDER the lock so
+ * a concurrent uds_internal_reconcile_posttx() (dispatch/flush context) cannot tear
+ * it. With only one thread there is no concurrent observer, so whether the clear
+ * sits inside or outside the locked region is indistinguishable here — this test
+ * PASSES with the clear moved back outside the lock. The genuine I2 guard is
+ * test_concurrency_stress (tests/unit/test_concurrency_stress.c), which arms a
+ * post-TX action (ECUReset 0x11 / LinkControl 0x87) and runs the two contexts
+ * concurrently under ThreadSanitizer: reverting the lock scoping makes TSan report
+ * a data race on posttx_kind at the test-and-clear (verified).
+ *
+ * What this test DOES guard, and what would regress without it, is the callback
+ * lock discipline that pairs with the I2 fix: the action callback (fn_reset) and
+ * the transport-complete poll (fn_tx_complete) must run with the lock RELEASED — a
+ * rebooting fn_reset must never hold the lock — and the lock must be balanced to
+ * zero after the action runs (single-unlock-per-path discipline). It observes the
+ * lock depth at the moment each callback fires. */
+static void test_posttx_action_callbacks_run_lock_released(void **state)
 {
     (void) state;
     uint8_t rx_buf[64], tx_buf[64];
@@ -264,6 +280,7 @@ static void test_posttx_action_bookkeeping_lock_scope(void **state)
     g_i2_reset_called = 0;
     g_i2_reset_under_lock = -1;
     g_i2_txcomplete_under_lock = -1;
+    g_i2_kind_cleared_at_reset = -1;
     g_rec_count = 0;
 
     /* ECUReset hard (0x11 0x01): response transmits and arms the deferred reset. */
@@ -282,6 +299,9 @@ static void test_posttx_action_bookkeeping_lock_scope(void **state)
      * RELEASED (a rebooting fn_reset must never hold the lock). */
     assert_int_equal(g_i2_reset_under_lock, 0);
     assert_int_equal(g_i2_txcomplete_under_lock, 0);
+    /* posttx_kind was cleared before the action callback ran (clear-before-invoke:
+     * a returning action must not fire twice). */
+    assert_int_equal(g_i2_kind_cleared_at_reset, 1);
     /* Lock balanced to zero: every lock taken for the flag bookkeeping was
      * released (single-unlock-per-path discipline preserved). */
     assert_int_equal(g_i2_lock_depth, 0);
@@ -292,7 +312,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_concurrent_request_rejection),
         cmocka_unit_test(test_responsepending_not_clobbered_by_periodic),
-        cmocka_unit_test(test_posttx_action_bookkeeping_lock_scope),
+        cmocka_unit_test(test_posttx_action_callbacks_run_lock_released),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

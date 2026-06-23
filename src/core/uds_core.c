@@ -862,25 +862,19 @@ void uds_input_sdu_addr(uds_ctx_t *ctx, const uint8_t *data, uint16_t len, uds_a
  * thread is never starved. */
 void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now)
 {
-    /* Cheap unlocked guard: the overwhelmingly common tick has no action armed, so
-     * bail without touching the lock (keeps uds_process() at one lock/unlock per
-     * idle tick). A stale read here is benign — if an action was armed
-     * concurrently, the next uds_process() tick catches it (the response it is
-     * gated on has only just been queued anyway). */
-    if (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE) {
-        return;
-    }
-
     /* Serialize the posttx FLAG bookkeeping (posttx_kind/posttx_deadline_set/
      * posttx_wait_start) under the lock: this function runs in the uds_process()
-     * context with the lock released, while uds_internal_reconcile_posttx() may
-     * concurrently test-and-clear the same flags from a flush path. volatile gives
-     * no atomicity, so the read-latch-clear is wrapped in the lock; only the
-     * potentially slow/rebooting fn_reset/fn_link_control callbacks run OUTSIDE it.
-     * fn_tx_complete (a transport poll) is also kept outside the lock. */
+     * context with the lock released, while uds_internal_reconcile_posttx() and
+     * execute_handler() may concurrently write the same flags from the dispatch/
+     * flush context. volatile gives no atomicity, so even the guard READ is wrapped
+     * in the lock — an unsynchronised fast-path read here is a genuine data race on
+     * posttx_kind (TSan flags it), and the saving (one lock/unlock on an idle tick)
+     * is not worth a documented race in the concurrency-critical path. Only the
+     * potentially slow/rebooting fn_reset/fn_link_control callbacks run OUTSIDE the
+     * lock; fn_tx_complete (a transport poll) is also kept outside it. */
     uds_internal_lock(ctx);
     if (ctx->server.posttx_kind == (uint8_t) UDS_POSTTX_NONE) {
-        /* Cleared by a concurrent reconcile between the guard above and this lock. */
+        /* No action armed, or cleared by a concurrent reconcile. */
         uds_internal_unlock(ctx);
         return;
     }

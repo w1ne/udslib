@@ -206,8 +206,12 @@ static void test_process_takes_mutex(void **state)
     g_lock_calls = g_unlock_calls = 0;
     g_time = 0;
     uds_process(&ctx);
-    assert_int_equal(g_lock_calls, 1);
-    assert_int_equal(g_unlock_calls, 1);
+    /* Two balanced lock/unlock pairs per tick: one for the dispatch/flush, one in
+     * uds_internal_run_posttx_action() to read posttx_kind under the lock. That
+     * guard read used to be unlocked (a data race against execute_handler's locked
+     * write); the §1 concurrency hardening serialises it, adding the second pair. */
+    assert_int_equal(g_lock_calls, 2);
+    assert_int_equal(g_unlock_calls, 2);
 }
 
 /* S3 timer reverts to default session after inactivity (:562-570). */

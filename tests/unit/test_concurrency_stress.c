@@ -13,6 +13,16 @@
  * never crashes or trips an internal assertion and that its shared state ends in
  * a consistent, in-range configuration over many iterations.
  *
+ * The request mix deliberately includes ECUReset (0x11) and a LinkControl (0x87)
+ * verify+transition pair so a post-TX action is ARMED. That is what exercises the
+ * I2 race: the test-and-clear of posttx_kind in uds_internal_run_posttx_action()
+ * (uds_process context, lock released around the callbacks) against the
+ * test-and-clear in uds_internal_reconcile_posttx() (input/flush context). Both
+ * touch posttx_kind/posttx_deadline_set, so without the lock-scoped bookkeeping
+ * TSan reports a race (and the action can torn-fire or leak). The final-state
+ * checks assert no posttx action is left dangling and that the reset action
+ * actually fired (so the race was genuinely reached, not skipped).
+ *
  * This is NOT part of the core ctest gate (it is registered only when a POSIX
  * threads implementation is detected, and the value of the test is its dynamic
  * analysis). Build the tree with -DCMAKE_C_FLAGS=-fsanitize=thread (or run
@@ -39,6 +49,40 @@
  * driver has its own internal synchronization. */
 static pthread_mutex_t g_tx_lock = PTHREAD_MUTEX_INITIALIZER;
 static volatile unsigned long g_tx_count = 0u;
+
+/* Post-TX action callbacks. ECUReset (0x11) and a LinkControl (0x87) transition
+ * both ARM ctx->server.posttx_kind in the input_thread, so run_posttx_action()
+ * (uds_process context) races uds_internal_reconcile_posttx() (input context)
+ * for the test-and-clear of posttx_kind/posttx_deadline_set. These no-op hooks
+ * just count their invocations; the count is the torn/double-fire detector. The
+ * stress harness only ARMS them — it never reboots — so they must return cleanly.
+ *
+ * The counters are mutex-guarded rather than left bare so the count itself is not
+ * a data race the sanitizer would (correctly) flag — the race under test is the
+ * stack's posttx bookkeeping, not the test's own accounting. */
+static pthread_mutex_t g_action_lock = PTHREAD_MUTEX_INITIALIZER;
+static unsigned long g_reset_count = 0u;
+static unsigned long g_link_count = 0u;
+
+static void stress_fn_reset(struct uds_ctx *ctx, uint8_t type)
+{
+    (void) ctx;
+    (void) type;
+    pthread_mutex_lock(&g_action_lock);
+    g_reset_count++;
+    pthread_mutex_unlock(&g_action_lock);
+}
+
+static int stress_fn_link_control(struct uds_ctx *ctx, uint8_t subfunction, uint32_t link_param)
+{
+    (void) ctx;
+    (void) subfunction;
+    (void) link_param;
+    pthread_mutex_lock(&g_action_lock);
+    g_link_count++;
+    pthread_mutex_unlock(&g_action_lock);
+    return 0;
+}
 
 static int stress_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
 {
@@ -131,13 +175,21 @@ static void *input_thread(void *arg)
 {
     (void) arg;
     /* A mix of requests: TesterPresent (0x3E), a session change (0x10), a
-     * periodic-read setup (0x2A), and a malformed frame. */
+     * periodic-read setup (0x2A), an oversize RDBI (0x22), a malformed frame,
+     * and — critically for the I2 race — requests that ARM a post-TX action:
+     * ECUReset (0x11) and a LinkControl (0x87) verify+transition pair. Once a
+     * post-TX action is armed, uds_internal_reconcile_posttx() (this thread, on
+     * the next flush) races uds_internal_run_posttx_action() (the uds_process
+     * thread) for the test-and-clear of posttx_kind. */
     static const uint8_t tp[] = {0x3E, 0x00};
     static const uint8_t session_ext[] = {0x10, 0x03};
     static const uint8_t session_def[] = {0x10, 0x01};
-    static const uint8_t periodic[] = {0x2A, 0x01, 0xE3}; /* fast rate, pid 0xE3 */
-    static const uint8_t big_rdbi[] = {0x22, 0x90, 0x00}; /* oversize 0x62 response */
-    static const uint8_t bad[] = {0x10};                  /* too short -> NRC 0x13 */
+    static const uint8_t periodic[] = {0x2A, 0x01, 0xE3};    /* fast rate, pid 0xE3 */
+    static const uint8_t big_rdbi[] = {0x22, 0x90, 0x00};    /* oversize 0x62 response */
+    static const uint8_t reset[] = {0x11, 0x01};             /* ECUReset hard: arms posttx */
+    static const uint8_t link_verify[] = {0x87, 0x01, 0x02}; /* verifyModeTransition */
+    static const uint8_t link_transition[] = {0x87, 0x03};   /* transitionMode: arms posttx */
+    static const uint8_t bad[] = {0x10};                     /* too short -> NRC 0x13 */
 
     for (long i = 0; i < STRESS_ITERATIONS && !g_stop; i++) {
         switch (i & 0x7) {
@@ -150,10 +202,24 @@ static void *input_thread(void *arg)
             case 2:
                 uds_input_sdu(&g_ctx, periodic, sizeof(periodic));
                 break;
+            case 3:
+                /* ECUReset: arms posttx_kind = RESET this dispatch. */
+                uds_input_sdu(&g_ctx, reset, sizeof(reset));
+                break;
             case 4:
                 /* Oversize RDBI: its 603-byte response is sent under the lock,
                  * concurrently with the periodic out-of-lock flush in uds_process. */
                 uds_input_sdu(&g_ctx, big_rdbi, sizeof(big_rdbi));
+                break;
+            case 5:
+                /* LinkControl verify: latches link_ctrl_verified so the next
+                 * transition request can arm posttx_kind = LINK_CONTROL. */
+                uds_input_sdu(&g_ctx, link_verify, sizeof(link_verify));
+                break;
+            case 6:
+                /* LinkControl transition: arms posttx_kind = LINK_CONTROL when a
+                 * verify preceded it (request sequence error otherwise — harmless). */
+                uds_input_sdu(&g_ctx, link_transition, sizeof(link_transition));
                 break;
             default:
                 uds_input_sdu(&g_ctx, bad, sizeof(bad));
@@ -183,6 +249,8 @@ int main(void)
     g_cfg.get_time_ms = stress_get_time;
     g_cfg.fn_tp_send = stress_tp_send;
     g_cfg.fn_periodic_read = stress_periodic_read;
+    g_cfg.fn_reset = stress_fn_reset;
+    g_cfg.fn_link_control = stress_fn_link_control;
     g_cfg.rx_buffer = g_rx;
     g_cfg.rx_buffer_size = sizeof(g_rx);
     g_cfg.tx_buffer = g_tx;
@@ -228,9 +296,32 @@ int main(void)
         fprintf(stderr, "tx_pending set with zero length\n");
         return 1;
     }
+    /* Post-TX bookkeeping (I2): no action may be left dangling once both threads
+     * have stopped. If posttx_kind is still armed here, the test-and-clear in
+     * run_posttx_action()/reconcile_posttx() lost an arming — exactly the torn
+     * state the lock scoping prevents. */
+    if (g_ctx.server.posttx_kind != 0u) {
+        fprintf(stderr, "posttx_kind left dangling = %u\n", g_ctx.server.posttx_kind);
+        return 1;
+    }
+    if (g_ctx.server.posttx_deadline_set) {
+        fprintf(stderr, "posttx_deadline_set left armed with no action\n");
+        return 1;
+    }
+    /* The race must actually have been exercised: at least one ECUReset post-TX
+     * action must have fired (the reset case arms on every 8th iteration). If this
+     * is zero the test is hollow — posttx_kind was never armed, so the
+     * reconcile-vs-run race was never reached. fn_link_control may legitimately be
+     * zero if no verify ever immediately preceded a transition, so it is not
+     * required, but the reset path guarantees coverage. */
+    if (g_reset_count == 0u) {
+        fprintf(stderr, "post-TX reset action never fired: I2 race not exercised\n");
+        return 1;
+    }
 
     printf("OK: %ld iterations/thread, %lu frames transmitted, final session=0x%02X\n",
            (long) STRESS_ITERATIONS, g_tx_count, s);
+    printf("    post-TX actions fired: reset=%lu link_control=%lu\n", g_reset_count, g_link_count);
     pthread_mutex_destroy(&g_uds_lock);
     return 0;
 }
