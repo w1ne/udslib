@@ -34,6 +34,11 @@ ELF      := $(BUILD_DIR)/$(TARGET).elf
 
 all: check-udslib $(ELF)
 
+# Compile-only: build every object but skip the link, so the udslib API is
+# checked against this firmware without needing the cross linker (rust-lld).
+# The per-PR CI gate uses this; `all` still produces the full ELF.
+objs: check-udslib $(APP_OBJS) $(UDS_OBJS)
+
 check-udslib:
 	@test -f "$(UDSLIB_DIR)/include/uds/uds_core.h" || \
 	  (echo "UDSLIB_DIR must point at a UDSLib checkout" >&2; exit 1)
@@ -54,4 +59,4 @@ $(BUILD_DIR):
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all check-udslib clean
+.PHONY: all objs check-udslib clean
