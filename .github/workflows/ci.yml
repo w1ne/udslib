@@ -21,13 +21,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential libcmocka-dev
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential libcmocka-dev clang
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build -- -j$(nproc)
       - name: Run core unit tests
         run: ctest --test-dir build --output-on-failure -E '^test_integration$'
+      # Compile-check the STM32H5 firmware examples against the udslib headers.
+      # These are cross-compiled (clang --target=arm-none-eabi) and not covered
+      # by the host build, so a public-API change can silently break them — that
+      # is exactly how the v2.0.0 client split broke h5_uds_tester. `objs` builds
+      # every translation unit but skips the link, so no cross linker (rust-lld)
+      # is needed; the full ELF build + sim run live in nightly-h5-gate.
+      - name: Compile-check firmware examples (udslib API gate)
+        run: |
+          make -C examples/h5_uds_ecu_full/firmware objs UDSLIB_DIR="$PWD"
+          make -C examples/h5_uds_tester/firmware  objs UDSLIB_DIR="$PWD"
 
   static-analysis:
     if: github.event_name != 'pull_request'

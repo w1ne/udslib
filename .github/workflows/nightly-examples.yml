@@ -70,3 +70,46 @@ jobs:
 
               echo "All host examples built and ran."
             '
+
+  # The STM32H563 secure-boot bootloader is the one firmware example built by no
+  # other gate. It cross-compiles with arm-none-eabi-gcc and needs the STM32
+  # CMSIS + mbedTLS-3.6 source trees, which a Zephyr west workspace provides at
+  # the paths the bootloader Makefile defaults to. (The h5 firmwares are
+  # compile-checked per-PR in ci.yml core-gate and fully built + sim-run in
+  # nightly-h5-gate.)
+  firmware-bootloader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM GCC toolchain + west
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi python3-pip
+          pip3 install --no-cache-dir --break-system-packages west
+
+      - name: Initialise Zephyr workspace (STM32 CMSIS + mbedTLS-3.6 modules)
+        run: |
+          # Same manifest/pin as ci.yml build-zephyr; brings modules/hal/stm32,
+          # modules/hal/cmsis_6, and modules/crypto/mbedtls-3.6 — the bootloader
+          # Makefile's default CUBE_DIR / CMSIS_DIR / MBEDTLS_DIR.
+          west init -m https://github.com/zephyrproject-rtos/zephyr --mr v4.4.1 zephyr-workspace
+          cd zephyr-workspace
+          west update --narrow -o=--depth=1
+          cd ..
+
+      - name: Build bootloader ELF + signed app images, run host crypto tests
+        run: |
+          export UDSLIB_DIR="$PWD"
+          BL=examples/h563_uds_bootloader
+          # Generate the A / B / tampered / bad-signature signed images that the
+          # rsa/image tests verify against.
+          make -C "$BL/app" all-four
+          # Cross-compile the bootloader firmware ELF (real STM32H563 target).
+          make -C "$BL/bootloader"
+          # Host-runnable crypto + state unit tests bundled with the bootloader.
+          for t in cmac-test rsa-test image-test bootstate-test otaversion-test; do
+            echo "=== bootloader test: $t ==="
+            make -C "$BL/bootloader" "$t"
+          done
+          echo "Bootloader firmware + host tests OK."
