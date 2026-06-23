@@ -588,9 +588,24 @@ int uds_init(uds_ctx_t *ctx, const uds_config_t *config)
 
     ctx->server.rcrrp_count = 0u;
 
-    /* Enforce Timing Safety (ISO 14229-1 requires reasonable timeouts) */
-    ctx->session.p2_ms = (config->p2_ms > 0u) ? config->p2_ms : 50u;
-    ctx->session.p2_star_ms = (config->p2_star_ms > 0u) ? config->p2_star_ms : 5000u;
+    /* Resolve P2/P2* once (single source of truth for all DiagnosticSessionControl responses).
+     * Precedence: p2_ms/p2_star_ms (authoritative) > p2_server_max/
+     * p2_star_server_max (legacy aliases) > built-in defaults.
+     * The DiagnosticSessionControl handler reads ctx->session.p2_ms/p2_star_ms exclusively. */
+    if (config->p2_ms > 0u) {
+        ctx->session.p2_ms = config->p2_ms;
+    } else if (config->p2_server_max > 0u) {
+        ctx->session.p2_ms = config->p2_server_max;
+    } else {
+        ctx->session.p2_ms = 50u;
+    }
+    if (config->p2_star_ms > 0u) {
+        ctx->session.p2_star_ms = config->p2_star_ms;
+    } else if (config->p2_star_server_max > 0u) {
+        ctx->session.p2_star_ms = (uint32_t) config->p2_star_server_max;
+    } else {
+        ctx->session.p2_star_ms = 5000u;
+    }
 
     if (config->strict_compliance) {
         if (ctx->session.p2_ms < UDS_P2_MIN_SAFE_MS) ctx->session.p2_ms = UDS_P2_MIN_SAFE_MS;

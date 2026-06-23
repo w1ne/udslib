@@ -105,3 +105,6 @@ add_uds_test(test_issue42_functional unit/test_issue42_functional.c)
 
 # §2b hardening: enforce minimum buffer sizes at uds_init().
 add_uds_test(test_init_validation unit/test_init_validation.c)
+
+# §5a hardening: P2/P2* single source of truth regression.
+add_uds_test(test_p2_single_source unit/test_p2_single_source.c)

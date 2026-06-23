@@ -297,9 +297,25 @@ typedef struct
     uds_tp_send_fn fn_tp_send;
 
     /* --- Timing Configuration (ISO 14229-1) --- */
-    /** Default P2 server timeout (usually 50ms) */
+    /**
+     * Default P2 server timeout in ms (usually 50 ms).
+     *
+     * Precedence (resolved once in uds_init into ctx->session.p2_ms):
+     *   1. p2_ms > 0           — authoritative; used directly.
+     *   2. p2_ms == 0 and p2_server_max > 0 — legacy alias; p2_server_max
+     *      is folded in so existing configurations are unaffected.
+     *   3. Both zero           — stack default of 50 ms is applied.
+     *
+     * The 0x10 DiagnosticSessionControl handler derives the advertised P2
+     * from ctx->session.p2_ms; it does NOT re-read these config fields.
+     */
     uint16_t p2_ms;
-    /** P2* server timeout after NRC 0x78 (usually 5000ms) */
+    /**
+     * P2* server timeout in ms after NRC 0x78 (usually 5000 ms).
+     *
+     * Same precedence as p2_ms (see above), with p2_star_server_max as the
+     * legacy alias.  The wire encoding divides by 10 (ISO 14229-1 units).
+     */
     uint32_t p2_star_ms;
 
     /* --- Service Callbacks --- */
@@ -742,9 +758,17 @@ typedef struct
      */
     void (*fn_mutex_unlock)(void *mutex_handle);
     /* --- Timing Parameters (C-19) --- */
-    /** Default P2 Server Max (ms). Recommended: 50ms */
+    /**
+     * Legacy P2 alias (ms).  Kept for source compatibility.
+     * When p2_ms is zero and this field is non-zero, uds_init folds it into
+     * the resolved ctx->session.p2_ms.  Prefer p2_ms for new configurations.
+     */
     uint16_t p2_server_max;
-    /** Default P2* Server Max (ms). Recommended: 5000ms */
+    /**
+     * Legacy P2* alias (ms).  Kept for source compatibility.
+     * Folded in by uds_init when p2_star_ms is zero and this field is
+     * non-zero.  Prefer p2_star_ms for new configurations.
+     */
     uint16_t p2_star_server_max;
 
 } uds_config_t;
