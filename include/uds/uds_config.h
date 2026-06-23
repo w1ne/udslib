@@ -798,12 +798,11 @@ typedef struct uds_server_state
 /** Per-dispatch scratch: scoped to a single request, not persistent state. */
 typedef struct uds_dispatch_scratch
 {
-    bool suppress_pos_resp;       /**< Centralized suppressPosRsp (bit 7 of sub-function) */
-    uint8_t req_addr_mode;        /**< Addressing mode of the request in flight (UDS_ADDR_*) */
-    bool reset_pending;           /**< 0x11: framework defers fn_reset until AFTER emitting */
-    uint8_t reset_pending_type;   /**< resetType for the deferred reset */
-    bool link_transition_pending; /**< 0x87: framework defers fn_link_control(0x03) until emit */
-    uint8_t posttx_arg;           /**< sub-function replayed by the deferred post-TX action */
+    bool suppress_pos_resp; /**< Centralized suppressPosRsp (bit 7 of sub-function) */
+    uint8_t req_addr_mode;  /**< Addressing mode of the request in flight (UDS_ADDR_*) */
+    uint8_t posttx_kind; /**< uds_posttx_kind_t: post-TX action decided this dispatch (0 = none) */
+    uint8_t
+        posttx_arg; /**< sub-function the deferred action replays (resetType / LinkControl sub) */
     bool in_secured_session;      /**< Dispatching a request unwrapped from 0x84 */
     bool secure_capturing;        /**< Capturing the inner response instead of sending */
     uint8_t *secure_capture_buf;  /**< Capture target (points to caller stack) */

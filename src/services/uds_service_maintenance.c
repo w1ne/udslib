@@ -32,14 +32,14 @@ void uds_internal_handle_ecu_reset(uds_ctx_t *ctx, const uint8_t *data, uint16_t
 
     /* ISO 14229-1 (§ ECUReset): "The ECUReset positive response message (if
      * required) shall be sent before the reset is executed in the server(s)."
-     * Build the positive response payload now; set reset_pending so the
-     * framework calls fn_reset AFTER the response has been emitted (or
-     * suppressed). On suppress path the framework skips the emit but still
-     * runs the deferred reset — exactly the ordering the canary tests verify. */
+     * Build the positive response payload now and queue the reset as a deferred
+     * post-TX action; the framework promotes it once the response has been
+     * emitted (or suppressed) and uds_process() runs it — never via a busy-wait,
+     * so it is safe on any substrate (issue #88/#98). */
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_ECU_RESET + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;
-    ctx->scratch.reset_pending = true;
-    ctx->scratch.reset_pending_type = sub;
+    ctx->scratch.posttx_kind = (uint8_t) UDS_POSTTX_RESET;
+    ctx->scratch.posttx_arg = sub;
 
     /* ISO 14229-1: the enableRapidPowerShutDown (0x04) positive response
      * carries an additional powerDownTime byte; all other reset types
