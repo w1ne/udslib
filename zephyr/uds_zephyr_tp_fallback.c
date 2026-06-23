@@ -7,6 +7,7 @@
 
 #include <zephyr/drivers/can.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/atomic.h>
 
 #include "uds/uds_core.h"
 #include "uds/uds_isotp.h"
@@ -15,6 +16,11 @@
 
 /** Static reference to the CAN controller device */
 static const struct device *g_can_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canbus));
+
+/** CAN frames handed to the controller but not yet confirmed on the wire.
+ *  Lets uds_zephyr_tp_fallback_tx_idle() back a deterministic fn_tx_complete so
+ *  a deferred ECUReset/LinkControl fires only once the response has drained. */
+static atomic_t g_tx_inflight = ATOMIC_INIT(0);
 
 /** Pointer to the current UDS context (for RX callback matching) */
 static struct uds_ctx *g_current_uds_ctx = NULL;
@@ -31,6 +37,15 @@ static uint8_t g_isotp_tx_sdu[CONFIG_UDSLIB_TX_BUFFER_SIZE];
  * @param len  Length of the data (DLC).
  * @return     0 on success, negative error code on failure.
  */
+/* TX-done callback: the frame has physically left the controller. */
+static void uds_internal_zephyr_tx_done(const struct device *dev, int error, void *user_data)
+{
+    (void) dev;
+    (void) error;
+    (void) user_data;
+    atomic_dec(&g_tx_inflight);
+}
+
 static int uds_internal_zephyr_can_send(uint32_t id, const uint8_t *data, uint8_t len)
 {
     if (!device_is_ready(g_can_dev)) {
@@ -40,7 +55,23 @@ static int uds_internal_zephyr_can_send(uint32_t id, const uint8_t *data, uint8_
     struct can_frame frame = {.id = id, .dlc = len, .flags = 0};
     memcpy(frame.data, data, len);
 
-    return can_send(g_can_dev, &frame, K_MSEC(10), NULL, NULL);
+    /* Async send: completion is reported via uds_internal_zephyr_tx_done so the
+     * UDS thread never blocks on transmission (the timeout only bounds the wait
+     * for a free TX mailbox). */
+    atomic_inc(&g_tx_inflight);
+    int ret = can_send(g_can_dev, &frame, K_MSEC(10), uds_internal_zephyr_tx_done, NULL);
+    if (ret != 0) {
+        atomic_dec(&g_tx_inflight); /* the callback will not run */
+    }
+    return ret;
+}
+
+/* True once every queued CAN frame has been confirmed on the wire. Wire this as
+ * config.fn_tx_complete so a deferred post-TX action (ECUReset, LinkControl)
+ * fires deterministically rather than after a fixed delay. */
+bool uds_zephyr_tp_fallback_tx_idle(void)
+{
+    return atomic_get(&g_tx_inflight) == 0;
 }
 
 /**

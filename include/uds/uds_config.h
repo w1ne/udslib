@@ -93,13 +93,14 @@ typedef int (*uds_tp_send_fn)(struct uds_ctx *ctx, const uint8_t *data, uint16_t
  * response is sent, not the captured inner one. It is also skipped entirely if
  * the response could not be handed to the transport.
  *
- * The library guarantees this ordering relative to uds_tp_send_fn, but cannot
- * guarantee the frame has physically drained from the bus — fn_tp_send returning
- * means "queued", not "transmitted", on most drivers. An implementation that
- * tears down the MCU (e.g. NVIC_SystemReset) should therefore still defer the
- * actual reset until the transport reports transmit-complete: return promptly,
- * then reset from the main loop once TX is done. A synchronous reset here is
- * safe only if fn_tp_send blocks until the frame has fully left the bus.
+ * The call is made from uds_process() — the periodic tick — never from the
+ * receive path and never via a busy-wait, so it composes with any substrate
+ * (bare-metal super-loop, FreeRTOS, Zephyr). fn_tp_send returning means
+ * "queued", not "transmitted", on most drivers; supply fn_tx_complete so the
+ * library can hold the reset until the frame has physically drained. Without
+ * fn_tx_complete the reset fires from uds_process once reset_tx_wait_ms has
+ * elapsed (a non-blocking, configurable post-response delay). A reset that
+ * reboots and never returns (e.g. NVIC_SystemReset) is therefore safe.
  *
  * @param ctx   Pointer to the UDS context.
  * @param type  The type of reset requested (uds_reset_type_t).
@@ -108,10 +109,11 @@ typedef void (*uds_reset_fn)(struct uds_ctx *ctx, uint8_t type);
 
 /* Optional. Returns true once the most recently transmitted response is
  * physically on the wire (transport TX buffer/mailbox drained). When set,
- * uds_internal_run_pending_reset waits for it (bounded by reset_tx_wait_ms)
- * before invoking fn_reset, so a rebooting fn_reset cannot drop the just-sent
- * ECUReset positive response. NULL keeps the legacy immediate-reset behaviour.
- * get_time_ms must advance while this returns false. */
+ * uds_process() polls it once per tick — never spins — and releases a deferred
+ * post-TX action (ECUReset 0x11, LinkControl 0x87 transition) only after it
+ * returns true, bounded by reset_tx_wait_ms. NULL falls back to a pure
+ * reset_tx_wait_ms time delay. get_time_ms must advance while this returns
+ * false. */
 typedef bool (*uds_tx_complete_fn)(struct uds_ctx *ctx);
 
 /**
@@ -783,15 +785,22 @@ typedef struct uds_security_state
 /** Server-role persistent state: async response engine + per-service state. */
 typedef struct uds_server_state
 {
-    uint32_t p2_timer_start;     /**< Start time for P2 performance tracking */
-    bool p2_msg_pending;         /**< True if a service returned UDS_PENDING */
-    bool p2_star_active;         /**< True once the first 0x78 NRC has been sent */
-    uint8_t pending_sid;         /**< SID awaiting an async (0x78) response */
-    uint16_t rcrrp_count;        /**< Counter for NRC 0x78 repetitions (C-07) */
-    uint8_t flash_sequence;      /**< Block Sequence Counter for SID 0x36 */
-    bool transfer_active;        /**< True between RequestDownload/Upload and TransferExit */
-    bool link_ctrl_verified;     /**< 0x87: a verify sub-function has been accepted */
-    uint32_t link_ctrl_param;    /**< 0x87: link parameter latched at verify */
+    uint32_t p2_timer_start;  /**< Start time for P2 performance tracking */
+    bool p2_msg_pending;      /**< True if a service returned UDS_PENDING */
+    bool p2_star_active;      /**< True once the first 0x78 NRC has been sent */
+    uint8_t pending_sid;      /**< SID awaiting an async (0x78) response */
+    uint16_t rcrrp_count;     /**< Counter for NRC 0x78 repetitions (C-07) */
+    uint8_t flash_sequence;   /**< Block Sequence Counter for SID 0x36 */
+    bool transfer_active;     /**< True between RequestDownload/Upload and TransferExit */
+    bool link_ctrl_verified;  /**< 0x87: a verify sub-function has been accepted */
+    uint32_t link_ctrl_param; /**< 0x87: link parameter latched at verify */
+    /* Deferred post-transmit action (ECUReset 0x11, LinkControl 0x87 transition):
+     * a disruptive operation held until its positive response is on the wire,
+     * then drained by uds_process() — never via a busy-wait. See #88/#98. */
+    uint8_t posttx_kind;         /**< uds_posttx_kind_t (0 = none) */
+    uint8_t posttx_arg;          /**< resetType, or LinkControl sub-function to replay */
+    uint32_t posttx_wait_start;  /**< get_time_ms() when the transmit-wait began */
+    bool posttx_deadline_set;    /**< posttx_wait_start has been latched */
     uint8_t periodic_ids[8];     /**< Active periodic IDs (SID 0x2A) */
     uint8_t periodic_rates[8];   /**< Periodic sub-function rates (1-3) */
     uint32_t periodic_timers[8]; /**< Next periodic transmission deadline */
@@ -804,10 +813,11 @@ typedef struct uds_server_state
 /** Per-dispatch scratch: scoped to a single request, not persistent state. */
 typedef struct uds_dispatch_scratch
 {
-    bool suppress_pos_resp;       /**< Centralized suppressPosRsp (bit 7 of sub-function) */
-    uint8_t req_addr_mode;        /**< Addressing mode of the request in flight (UDS_ADDR_*) */
-    bool reset_pending;           /**< 0x11: framework calls fn_reset AFTER emitting */
-    uint8_t reset_pending_type;   /**< resetType for the deferred reset */
+    bool suppress_pos_resp; /**< Centralized suppressPosRsp (bit 7 of sub-function) */
+    uint8_t req_addr_mode;  /**< Addressing mode of the request in flight (UDS_ADDR_*) */
+    uint8_t posttx_kind; /**< uds_posttx_kind_t: post-TX action decided this dispatch (0 = none) */
+    uint8_t
+        posttx_arg; /**< sub-function the deferred action replays (resetType / LinkControl sub) */
     bool in_secured_session;      /**< Dispatching a request unwrapped from 0x84 */
     bool secure_capturing;        /**< Capturing the inner response instead of sending */
     uint8_t *secure_capture_buf;  /**< Capture target (points to caller stack) */

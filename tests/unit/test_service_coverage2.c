@@ -211,32 +211,26 @@ static void test_link_verify_specific_short(void **state)
     expect_nrc(&ctx, req, sizeof(req), 0x87, UDS_NRC_INCORRECT_LENGTH, 0);
 }
 
-/* verify then transition where the transition callback fails (link.c:69-72). */
-static int link_verify_then_fail(struct uds_ctx *ctx, uint8_t sub, uint32_t param)
+/* #98: feasibility rejection for LinkControl happens at the verify step, which
+ * still calls fn_link_control synchronously and can return an NRC. The
+ * transition (0x03) is committed once verified and deferred until its response
+ * is on the wire, so the transition callback no longer produces an NRC. */
+static int link_verify_fails(struct uds_ctx *ctx, uint8_t sub, uint32_t param)
 {
     (void) ctx;
     (void) param;
-    return (sub == 0x03u) ? -(int) UDS_NRC_CONDITIONS_NOT_CORRECT : 0;
+    return (sub == 0x03u) ? 0 : -(int) UDS_NRC_CONDITIONS_NOT_CORRECT;
 }
-static void test_link_transition_callback_error(void **state)
+static void test_link_verify_callback_error(void **state)
 {
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
-    cfg.fn_link_control = link_verify_then_fail;
+    cfg.fn_link_control = link_verify_fails;
 
-    /* verify (0x01) succeeds and latches. */
+    /* verify (0x01) is rejected by the callback -> NRC, nothing latched. */
     uint8_t verify[] = {0x87, 0x01, 0x03};
-    will_return(mock_get_time, 1000);
-    will_return(mock_get_time, 1000);
-    expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 2);
-    will_return(mock_tp_send, 0);
-    uds_input_sdu(&ctx, verify, sizeof(verify));
-    assert_true(ctx.server.link_ctrl_verified);
-
-    /* transition (0x03) now fails in the callback. */
-    uint8_t trans[] = {0x87, 0x03};
-    expect_nrc(&ctx, trans, sizeof(trans), 0x87, UDS_NRC_CONDITIONS_NOT_CORRECT, 0);
+    expect_nrc(&ctx, verify, sizeof(verify), 0x87, UDS_NRC_CONDITIONS_NOT_CORRECT, 0);
+    assert_false(ctx.server.link_ctrl_verified);
 }
 
 /* ---- 0x83 Access Timing readback ---- */
@@ -581,6 +575,8 @@ static void test_ecu_reset_suppressed(void **state)
     (void) state;
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_reset = reset_cb;
+    cfg.fn_tx_complete = NULL; /* no hook: drained by uds_process after the budget */
+    cfg.reset_tx_wait_ms = 10u;
     g_reset_calls = 0;
 
     uint8_t req[] = {0x11, 0x81}; /* sub 0x01 + suppress bit */
@@ -588,7 +584,14 @@ static void test_ecu_reset_suppressed(void **state)
     will_return(mock_get_time, 1000);
     /* No tp_send expected: positive response is suppressed. */
     uds_input_sdu(&ctx, req, sizeof(req));
-    assert_int_equal(g_reset_calls, 1); /* deferred reset still runs */
+    assert_int_equal(g_reset_calls, 0); /* deferred, not run in the RX path */
+
+    /* uds_process drains the deferred reset (budget elapses; time advances). */
+    will_return(mock_get_time, 1000);
+    uds_process(&ctx);
+    will_return(mock_get_time, 2000);
+    uds_process(&ctx);
+    assert_int_equal(g_reset_calls, 1);
 }
 
 int main(void)
@@ -602,7 +605,7 @@ int main(void)
         cmocka_unit_test(test_periodic_table_full),
         cmocka_unit_test(test_link_verify_fixed_short),
         cmocka_unit_test(test_link_verify_specific_short),
-        cmocka_unit_test(test_link_transition_callback_error),
+        cmocka_unit_test(test_link_verify_callback_error),
         cmocka_unit_test(test_access_timing_readback),
         cmocka_unit_test(test_security_key_handler_nrc),
         cmocka_unit_test(test_download_bad_alfid),

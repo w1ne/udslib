@@ -164,8 +164,22 @@ bool uds_internal_parse_addr_len(const uint8_t *data, uint16_t len, uint8_t form
                                  uint32_t *size);
 void uds_internal_log(uds_ctx_t *ctx, uint8_t level, const char *msg);
 int uds_emit_response(uds_ctx_t *ctx, uint16_t len);
-/* Fire the deferred ECU reset (issue #88): TX-complete wait, then fn_reset. */
-void uds_internal_run_pending_reset(uds_ctx_t *ctx);
+
+/* Kind of disruptive action a service has deferred until its positive response
+ * is on the wire (see uds_server_state_t::posttx_kind). */
+typedef enum
+{
+    UDS_POSTTX_NONE = 0,        /* nothing pending */
+    UDS_POSTTX_RESET = 1,       /* ECUReset (0x11): fn_reset(ctx, posttx_arg) */
+    UDS_POSTTX_LINK_CONTROL = 2 /* LinkControl (0x87) transition: fn_link_control */
+} uds_posttx_kind_t;
+
+/* Non-blocking drain of a deferred post-TX action (issue #88/#98). Called once
+ * per uds_process() tick with the current time: if an action is queued it runs
+ * as soon as fn_tx_complete reports the response is on the wire, or once
+ * reset_tx_wait_ms elapses — never via a busy-wait, so it is safe on any
+ * substrate (bare-metal, FreeRTOS, Zephyr). */
+void uds_internal_run_posttx_action(uds_ctx_t *ctx, uint32_t now);
 
 /* --- Core Service Handlers --- */
 

@@ -66,13 +66,15 @@ void uds_internal_handle_link_control(uds_ctx_t *ctx, const uint8_t *data, uint1
         return;
     }
 
-    int res = ctx->config->fn_link_control(ctx, sub, ctx->server.link_ctrl_param);
-    if (res != 0) {
-        uds_nrc(out, (uint8_t) - (int32_t) res);
-        return;
-    }
-
+    /* The transition reconfigures the diagnostic link itself (e.g. baud rate), so
+     * the positive response must leave the bus at the OLD setting BEFORE the
+     * switch is applied. Feasibility was already checked at the verify step, so
+     * emit the response now and defer fn_link_control(0x03): execute_handler
+     * promotes this to a post-TX action that uds_process runs once the response
+     * is on the wire (issue #98). The latched parameter stays in link_ctrl_param. */
     ctx->server.link_ctrl_verified = false;
+    ctx->scratch.posttx_kind = (uint8_t) UDS_POSTTX_LINK_CONTROL;
+    ctx->scratch.posttx_arg = sub; /* replayed to fn_link_control after TX */
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_LINK_CONTROL + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;

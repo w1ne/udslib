@@ -23,6 +23,7 @@
  */
 
 #include "test_helpers.h"
+#include "uds_internal.h" /* uds_posttx_kind_t for the scratch-leak check */
 
 /* ------------------------------------------------------------------ */
 /* Shared helpers                                                       */
@@ -129,11 +130,11 @@ static void test_scratch_does_not_leak_into_next_request(void **state)
 
     /* Simulate stale per-dispatch scratch left over from a prior request. */
     ctx.scratch.suppress_pos_resp = true;
-    ctx.scratch.reset_pending = true;
-    ctx.scratch.reset_pending_type = 0x01u;
+    ctx.scratch.posttx_kind = (uint8_t) UDS_POSTTX_RESET;
+    ctx.scratch.posttx_arg = 0x01u;
 
     /* A fresh top-level 0x3E (TesterPresent, sub=0x00) must respond normally:
-     * the stale suppress must NOT silence it, and the stale reset_pending must
+     * the stale suppress must NOT silence it, and the stale post-TX action must
      * NOT survive to trigger the post-emit reset path. */
     uint8_t req[] = {0x3Eu, 0x00u};
     will_return(mock_get_time, 1000u);
@@ -145,7 +146,8 @@ static void test_scratch_does_not_leak_into_next_request(void **state)
 
     assert_int_equal(g_tx_buf[0], 0x7Eu); /* responded, not suppressed */
     assert_int_equal(g_tx_buf[1], 0x00u);
-    assert_false(ctx.scratch.reset_pending); /* stale flag was cleared */
+    /* stale post-TX action was cleared by the scratch reset */
+    assert_int_equal(ctx.scratch.posttx_kind, (uint8_t) UDS_POSTTX_NONE);
     assert_false(ctx.scratch.suppress_pos_resp);
 }
 
