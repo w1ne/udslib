@@ -104,11 +104,15 @@ static void roe_setup(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data, uint16_t
     memcpy(slot->str, &data[str_off], str_len);
 
     /* Positive response: C6 <sub> <count> <echo of request body>. */
+    uint16_t body = (uint16_t) (len - 2u);
+    if ((3u + body) > ctx->config->tx_buffer_size) {
+        uds_nrc(out, UDS_NRC_RESPONSE_TOO_LONG);
+        return;
+    }
     uint8_t *tx = ctx->config->tx_buffer;
     tx[0] = (uint8_t) ROE_RESP_SID;
     tx[1] = sub;
     tx[2] = roe_count(ctx);
-    uint16_t body = (uint16_t) (len - 2u);
     memcpy(&tx[3], &data[2], body);
     uds_ok(out, (uint16_t) (3u + body));
 }

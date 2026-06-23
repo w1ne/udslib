@@ -676,10 +676,14 @@ void uds_process(uds_ctx_t *ctx)
                                                                 out_buf, UDS_MAX_PERIODIC_MSG_LEN);
                     if (written > 0) {
                         /* Send periodic message as a raw CAN/ISO-TP response if needed,
-                           or via a specialized periodic tx hook. For now, use fn_tp_send. */
-                        ctx->config->tx_buffer[0] = ctx->server.periodic_ids[i];
-                        memcpy(&ctx->config->tx_buffer[1], out_buf, written);
-                        ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, written + 1);
+                           or via a specialized periodic tx hook. For now, use fn_tp_send.
+                           Guard: skip if the encoded frame (id + payload) exceeds the
+                           tx_buffer; transmitting a truncated frame is not permitted. */
+                        if ((uint16_t) (written + 1) <= ctx->config->tx_buffer_size) {
+                            ctx->config->tx_buffer[0] = ctx->server.periodic_ids[i];
+                            memcpy(&ctx->config->tx_buffer[1], out_buf, written);
+                            ctx->config->fn_tp_send(ctx, ctx->config->tx_buffer, written + 1);
+                        }
                     }
 
                     /* Reset timer based on rate: Fast (100ms), Medium (500ms), Slow (2000ms) */

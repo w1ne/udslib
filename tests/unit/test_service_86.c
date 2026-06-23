@@ -275,6 +275,55 @@ static void test_roe_serialize_roundtrip(void **state)
     assert_int_equal(g_tx_buf[3], 0x62);
 }
 
+/* §2c: ROE setup echo body that would overflow a deliberately small tx_buffer
+ * must yield NRC 0x14 (responseTooLong) and must not write past the buffer. */
+static void test_roe_setup_echo_overflow_nrc(void **state)
+{
+    (void) state;
+
+    /* tx_buffer is 8 bytes.  The positive response needs 3 + 6 = 9 bytes.
+     * Place a canary byte immediately after the 8-byte region: if a pre-guard
+     * memcpy fires before the post-hoc check, the canary will be overwritten. */
+    static struct {
+        uint8_t buf[8];
+        uint8_t canary;
+    } region;
+    static uint8_t rx_buf[64];
+
+    memset(&region, 0xBB, sizeof(region)); /* initialise including canary */
+
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.get_time_ms = mock_get_time;
+    cfg.fn_tp_send = mock_tp_send;
+    cfg.rx_buffer = rx_buf;
+    cfg.rx_buffer_size = sizeof(rx_buf);
+    cfg.tx_buffer = region.buf;
+    cfg.tx_buffer_size = sizeof(region.buf); /* 8 bytes — too small for 9-byte response */
+    cfg.p2_ms = 50;
+    cfg.p2_star_ms = 5000;
+    cfg.did_table = k_did_table;
+    uds_init(&ctx, &cfg);
+
+    /* 86 03 <window=0x02> <DID=F1 90> <22 F1 90> — echo body = data[2..7] = 6 bytes.
+     * Positive response = 3 + 6 = 9 bytes which exceeds the 8-byte buffer. */
+    uint8_t setup[] = {0x86, 0x03, 0x02, 0xF1, 0x90, 0x22, 0xF1, 0x90};
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    /* Expect NRC: 7F 86 14 (3 bytes) */
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, setup, sizeof(setup));
+
+    assert_int_equal(g_tx_buf[0], 0x7F);
+    assert_int_equal(g_tx_buf[1], 0x86);
+    assert_int_equal(g_tx_buf[2], 0x14); /* NRC_RESPONSE_TOO_LONG */
+    /* Canary must be intact: no byte was written past tx_buffer[7]. */
+    assert_int_equal(region.canary, 0xBB);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -285,6 +334,7 @@ int main(void)
         cmocka_unit_test(test_roe_timer_fires),
         cmocka_unit_test(test_roe_serialize_roundtrip),
         cmocka_unit_test(test_roe_compare_fires),
+        cmocka_unit_test(test_roe_setup_echo_overflow_nrc),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
