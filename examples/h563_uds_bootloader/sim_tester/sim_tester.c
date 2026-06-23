@@ -76,6 +76,10 @@ typedef enum
     ST_COPY_BL = 0, /* copy bootloader sectors 0-11 to Bank2 */
     ST_SESSION,     /* send 10 02 */
     ST_SESSION_WAIT,
+    ST_DTC_OFF, /* send 85 02 — disable DTC setting before flashing */
+    ST_DTC_OFF_WAIT,
+    ST_COMM_OFF, /* send 28 03 01 — disable normal application messages */
+    ST_COMM_OFF_WAIT,
     ST_SEED_REQ, /* send 27 01 */
     ST_SEED_WAIT,
     ST_KEY_SEND, /* compute CMAC and send 27 02 <key> */
@@ -219,12 +223,65 @@ void sim_tester_poll(void)
             if (g_t.rx_ready) {
                 if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x50u && g_t.rx_sdu[1] == 0x02u) {
                     g_t.rx_ready = false;
-                    g_t.state = ST_SEED_REQ;
+                    g_t.state = ST_DTC_OFF;
                 }
                 else {
                     /* NRC or unexpected — retry */
                     g_t.rx_ready = false;
                     g_t.state = ST_SESSION;
+                }
+            }
+            break;
+
+        case ST_DTC_OFF: {
+            /* ControlDTCSetting OFF (0x85 0x02): freeze DTC storage before the
+             * erase/flash provokes faults. Allowed in the programming session. */
+            uart_puts("SIM: disable DTC\n");
+            buf[0] = 0x85u;
+            buf[1] = 0x02u;
+            tester_send_sf(buf, 2u);
+            g_t.rx_ready = false;
+            g_t.state = ST_DTC_OFF_WAIT;
+            break;
+        }
+
+        case ST_DTC_OFF_WAIT:
+            if (g_t.rx_ready) {
+                /* Positive response: C5 02 */
+                if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0xC5u && g_t.rx_sdu[1] == 0x02u) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_COMM_OFF;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_DTC_OFF;
+                }
+            }
+            break;
+
+        case ST_COMM_OFF: {
+            /* CommunicationControl (0x28 0x03 0x01): disable Rx and Tx of normal
+             * application messages so the ECU is quiet while it is flashed. */
+            uart_puts("SIM: disable app comms\n");
+            buf[0] = 0x28u;
+            buf[1] = 0x03u; /* disableRxAndTx */
+            buf[2] = 0x01u; /* normalCommunicationMessages (application) */
+            tester_send_sf(buf, 3u);
+            g_t.rx_ready = false;
+            g_t.state = ST_COMM_OFF_WAIT;
+            break;
+        }
+
+        case ST_COMM_OFF_WAIT:
+            if (g_t.rx_ready) {
+                /* Positive response: 68 03 */
+                if (g_t.rx_len >= 2u && g_t.rx_sdu[0] == 0x68u && g_t.rx_sdu[1] == 0x03u) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_SEED_REQ;
+                }
+                else if (g_t.rx_len >= 1u && g_t.rx_sdu[0] == 0x7Fu) {
+                    g_t.rx_ready = false;
+                    g_t.state = ST_COMM_OFF;
                 }
             }
             break;

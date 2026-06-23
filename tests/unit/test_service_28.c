@@ -176,6 +176,29 @@ static void test_comm_control_enhanced_missing_node_id_nrc(void **state)
     uds_input_sdu(&ctx, req, sizeof(req));
 }
 
+static void test_comm_control_restored_on_default_session(void **state)
+{
+    setup_test(state);
+
+    /* Disable normal Rx/Tx (28 03 01)... */
+    uint8_t req[] = {0x28, 0x03, 0x01};
+    expect_value(mock_comm_control, ctrl_type, 0x03);
+    expect_value(mock_comm_control, comm_type, 0x01);
+    expect_value(mock_comm_control, node_id, 0x0000);
+    will_return(mock_comm_control, UDS_OK);
+    uint8_t resp[] = {0x68, 0x03};
+    expect_memory(mock_tp_send, data, resp, 2);
+    expect_value(mock_tp_send, len, 2);
+    uds_input_sdu(&ctx, req, sizeof(req));
+    assert_int_equal(ctx.session.comm_state, 0x03);
+
+    /* ...then return to the default session (10 81, suppressed). The server
+     * restores communication to normal without an explicit 28 00 01. */
+    uint8_t to_default[] = {0x10, 0x81};
+    uds_input_sdu(&ctx, to_default, sizeof(to_default));
+    assert_int_equal(ctx.session.comm_state, 0x00);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -185,6 +208,7 @@ int main(void)
         cmocka_unit_test(test_comm_control_suppress_pos_resp),
         cmocka_unit_test(test_comm_control_enhanced_passes_node_id),
         cmocka_unit_test(test_comm_control_enhanced_missing_node_id_nrc),
+        cmocka_unit_test(test_comm_control_restored_on_default_session),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

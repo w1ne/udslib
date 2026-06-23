@@ -741,7 +741,21 @@ void uds_internal_handle_control_dtc_setting(uds_ctx_t *ctx, const uint8_t *data
         return;
     }
 
-    /* Process DTC Setting Control (usually global flag in ctx or config) */
+    /* Optional application hook: take a real side effect (e.g. freeze DTC
+     * storage for the duration of a reprogramming sequence). A negative return
+     * is surfaced as the corresponding NRC and the setting is left unchanged. */
+    if (ctx->config->fn_control_dtc_setting != NULL) {
+        int ret = ctx->config->fn_control_dtc_setting(ctx, sub);
+        if (ret != UDS_OK) {
+            uds_nrc(out, (uint8_t) - (int32_t) ret);
+            return;
+        }
+    }
+
+    /* Track the setting so a return to the default session can restore it
+     * (ISO 14229-1: DTC setting reverts to "on" on default-session entry).
+     * sub 0x02 = off, 0x01 = on. */
+    ctx->session.dtc_setting_disabled = (sub == 0x02u) ? 0x01u : 0x00u;
 
     ctx->config->tx_buffer[0] = (uint8_t) (UDS_SID_CONTROL_DTC_SETTING + UDS_RESPONSE_OFFSET);
     ctx->config->tx_buffer[1] = sub;

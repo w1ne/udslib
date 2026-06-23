@@ -328,6 +328,20 @@ typedef struct
     int (*fn_comm_control)(struct uds_ctx *ctx, uint8_t ctrl_type, uint8_t comm_type,
                            uint16_t node_id);
 
+    /**
+     * @brief Optional: Control DTC Setting callback (SID 0x85)
+     * @param ctx UDS Context
+     * @param sub_function 0x01 (DTCSettingType on) or 0x02 (off); the
+     *                     suppressPositiveResponse bit is already stripped.
+     * @return UDS_OK to accept, or negative NRC to reject (e.g. 0x22).
+     *
+     * Lets the application actually start/stop recording DTCs — e.g. freeze
+     * DTC storage for the duration of a reprogramming sequence. When NULL the
+     * server still tracks the setting and answers positively; the callback is
+     * only needed to take a real side effect.
+     */
+    int (*fn_control_dtc_setting)(struct uds_ctx *ctx, uint8_t sub_function);
+
     /** Optional: Security Access Seed Provider (SID 0x27) */
     uds_security_seed_fn fn_security_seed;
     /** Optional: Security Access Key Verifier (SID 0x27) */
@@ -751,6 +765,7 @@ typedef struct uds_session_state
     uint16_t p2_ms;         /**< Current P2 server timeout */
     uint32_t p2_star_ms;    /**< Current P2* server timeout */
     uint8_t comm_state;     /**< CommunicationControl (0x28) state (uds_comm_control_type_t) */
+    uint8_t dtc_setting_disabled; /**< ControlDTCSetting (0x85): 1 = DTC setting off, 0 = on */
 } uds_session_state_t;
 
 /** SecurityAccess (0x27) / Authentication (0x29) state. */

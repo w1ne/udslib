@@ -12,15 +12,19 @@
  *   flash_tool <can-iface> --rollback    — tester-commanded rollback (0xFF03)
  *
  * Flash sequence (normal):
- *   1. 0x10 02  DiagnosticSessionControl(programming)
- *   2. 0x22 F1A0 ReadDataByIdentifier(active-bank DID)
- *   3. 0x27 01  SecurityAccess(requestSeed)
- *   4. 0x27 02  SecurityAccess(sendKey) — AES-128-CMAC of seed
- *   5. 0x34     RequestDownload to inactive bank app region
- *   6. 0x36 x N TransferData (chunked)
- *   7. 0x37     RequestTransferExit
- *   8. 0x31 01 FF01 CheckProgrammingDependencies
- *   9. 0x31 01 FF02 ActivateSoftware (bank swap + reset)
+ *   1.  0x10 02  DiagnosticSessionControl(programming)
+ *   2.  0x85 02  ControlDTCSetting(off) — freeze DTC storage during flash
+ *   3.  0x28 03 01 CommunicationControl(disable app messages)
+ *   4.  0x22 F1A0 ReadDataByIdentifier(active-bank DID)
+ *   5.  0x27 01  SecurityAccess(requestSeed)
+ *   6.  0x27 02  SecurityAccess(sendKey) — AES-128-CMAC of seed
+ *   7.  0x34     RequestDownload to inactive bank app region
+ *   8.  0x36 x N TransferData (chunked)
+ *   9.  0x37     RequestTransferExit
+ *   10. 0x31 01 FF01 CheckProgrammingDependencies
+ *   11. 0x31 01 FF02 ActivateSoftware (bank swap + reset)
+ *   DTC setting and communication are restored by returning to the default
+ *   session (0x10 01), which the server core resets automatically.
  *
  * Rollback sequence (--rollback):
  *   1. 0x10 02  DiagnosticSessionControl(programming)
@@ -730,9 +734,49 @@ int main(int argc, char **argv)
     }
 
     /* ------------------------------------------------------------------
-     * Step 2: ReadDataByIdentifier(0xF1A0) — active bank
+     * Step 2: ControlDTCSetting(off) — 0x85 02
+     * Freeze DTC storage so the faults flashing provokes are not logged.
+     * Restored automatically on return to the default session.
      * ------------------------------------------------------------------ */
-    printf("\n[2/9] ReadDataByIdentifier(0xF1A0) — active bank...\n");
+    printf("\n[2/11] ControlDTCSetting(off)...\n");
+    {
+        uint8_t req[] = {0x85u, 0x02u};
+        if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
+            fprintf(stderr, "FAIL: no response to 0x85 02\n");
+            goto err;
+        }
+        print_hex("   resp", resp, resp_len);
+        if (resp_len < 2u || resp[0] != 0xC5u || resp[1] != 0x02u) {
+            fprintf(stderr, "FAIL: expected 0xC5 0x02\n");
+            goto err;
+        }
+        printf("   OK\n");
+    }
+
+    /* ------------------------------------------------------------------
+     * Step 3: CommunicationControl(disableRxAndTx, application) — 0x28 03 01
+     * Quiet normal application messaging for the duration of the flash.
+     * Restored automatically on return to the default session.
+     * ------------------------------------------------------------------ */
+    printf("\n[3/11] CommunicationControl(disable app messages)...\n");
+    {
+        uint8_t req[] = {0x28u, 0x03u, 0x01u};
+        if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
+            fprintf(stderr, "FAIL: no response to 0x28 03 01\n");
+            goto err;
+        }
+        print_hex("   resp", resp, resp_len);
+        if (resp_len < 2u || resp[0] != 0x68u || resp[1] != 0x03u) {
+            fprintf(stderr, "FAIL: expected 0x68 0x03\n");
+            goto err;
+        }
+        printf("   OK\n");
+    }
+
+    /* ------------------------------------------------------------------
+     * Step 4: ReadDataByIdentifier(0xF1A0) — active bank
+     * ------------------------------------------------------------------ */
+    printf("\n[4/11] ReadDataByIdentifier(0xF1A0) — active bank...\n");
     uint8_t active_bank;
     uint32_t inactive_app_base;
     {
@@ -759,7 +803,7 @@ int main(int argc, char **argv)
     /* ------------------------------------------------------------------
      * Step 3: SecurityAccess(requestSeed) — 0x27 01
      * ------------------------------------------------------------------ */
-    printf("\n[3/9] SecurityAccess(requestSeed)...\n");
+    printf("\n[5/11] SecurityAccess(requestSeed)...\n");
     uint8_t seed[16];
     {
         uint8_t req[] = {0x27u, 0x01u};
@@ -781,7 +825,7 @@ int main(int argc, char **argv)
     /* ------------------------------------------------------------------
      * Step 4: SecurityAccess(sendKey) — 0x27 02 + AES-128-CMAC
      * ------------------------------------------------------------------ */
-    printf("\n[4/9] SecurityAccess(sendKey)...\n");
+    printf("\n[6/11] SecurityAccess(sendKey)...\n");
     {
         uint8_t key[16];
         if (compute_key(seed, 16u, key) != 0) {
@@ -812,7 +856,7 @@ int main(int argc, char **argv)
      * Step 5: RequestDownload — 0x34
      * ALFID=0x44: 4-byte addr, 4-byte size
      * ------------------------------------------------------------------ */
-    printf("\n[5/9] RequestDownload (addr=0x%08X size=%u)...\n", inactive_app_base, img_size);
+    printf("\n[7/11] RequestDownload (addr=0x%08X size=%u)...\n", inactive_app_base, img_size);
     uint32_t max_block_len = 4095u; /* default if parse fails */
     {
         /* ALFID=0x44: 4-byte address + 4-byte memory size (ISO 14229-1 §14.4.2) */
@@ -870,7 +914,7 @@ int main(int argc, char **argv)
      * Step 6: TransferData — 0x36 × N
      * chunk size = max_block_len - 2 (SID + seq)
      * ------------------------------------------------------------------ */
-    printf("\n[6/9] TransferData (%u bytes in chunks of %u)...\n", img_size, max_block_len - 2u);
+    printf("\n[8/11] TransferData (%u bytes in chunks of %u)...\n", img_size, max_block_len - 2u);
     {
         /* max_block_len is guaranteed > 1 (default 4095 or validated from response) */
         uint32_t chunk_data_size = max_block_len - 2u; /* subtract SID + blockSequenceCounter */
@@ -919,7 +963,7 @@ int main(int argc, char **argv)
     /* ------------------------------------------------------------------
      * Step 7: RequestTransferExit — 0x37
      * ------------------------------------------------------------------ */
-    printf("\n[7/9] RequestTransferExit...\n");
+    printf("\n[9/11] RequestTransferExit...\n");
     {
         uint8_t req[] = {0x37u};
         if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
@@ -937,7 +981,7 @@ int main(int argc, char **argv)
     /* ------------------------------------------------------------------
      * Step 8: CheckProgrammingDependencies — 0x31 01 FF01
      * ------------------------------------------------------------------ */
-    printf("\n[8/9] CheckProgrammingDependencies (0x31 01 FF01)...\n");
+    printf("\n[10/11] CheckProgrammingDependencies (0x31 01 FF01)...\n");
     {
         uint8_t req[] = {0x31u, 0x01u, 0xFFu, 0x01u};
         if (do_request(sock, req, sizeof(req), resp, &resp_len) != 0) {
@@ -961,7 +1005,7 @@ int main(int argc, char **argv)
     /* ------------------------------------------------------------------
      * Step 9: ActivateSoftware — 0x31 01 FF02 (triggers reset, no response)
      * ------------------------------------------------------------------ */
-    printf("\n[9/9] ActivateSoftware (0x31 01 FF02) — ECU will reset...\n");
+    printf("\n[11/11] ActivateSoftware (0x31 01 FF02) — ECU will reset...\n");
     {
         uint8_t req[] = {0x31u, 0x01u, 0xFFu, 0x02u};
         /* Best-effort send; ECU resets and may not respond */
