@@ -9,6 +9,12 @@ into the dispatch framework, and the runtime context is regrouped. All ISO
 14229 conformance from 1.20.0 is preserved; this release changes the **handler
 API**, not the wire behaviour.
 
+It also lands an architecture-hardening pass: a real two-context concurrency
+model (an RX/input context running concurrently with `uds_process`), buffer-bound
+hardening on every response path, configuration single-source-of-truth, and new
+configurability. The wire behaviour is unchanged and no public function signature
+changed; two integrator-visible behaviours are refined (see Changed).
+
 ### Breaking
 - **Service handlers use a result-descriptor contract.** A handler registered
   via `config.user_services` is now
@@ -41,6 +47,21 @@ API**, not the wire behaviour.
   `uds_input_sdu`, so one ISO-TP channel can feed a UDS server or a UDS client.
   Default (no handler) preserves server delivery.
 - **ECUReset (0x11) — wait for the response to be on the wire before resetting**: a new optional `fn_tx_complete(ctx)` config hook lets the library hold the reset until the positive `0x51` response has physically left the transport (TX mailbox drained), not merely been queued. It is bounded by the new `reset_tx_wait_ms` budget (`0` = `UDS_DEFAULT_RESET_TX_WAIT_MS`, 50 ms) so a stuck transport can never hang the ECU; when the hook is unset, behaviour is unchanged (immediate reset). This closes a real-hardware race: a `fn_reset` that calls `NVIC_SystemReset()` could reboot before the FDCAN frame was arbitrated onto the bus, so a tester saw silence after `11 01` and only `11 81` (suppressPosRsp) appeared to work. The H5 example now polls FDCAN `TXBRP` in `fn_tx_complete` and performs a real `NVIC_SystemReset`. (#88)
+- **Configurable S3 session timeout** via `uds_config_t.s3_ms` (`0` =
+  `UDS_S3_TIMEOUT_MS`, 5000 ms). Previously the S3 revert was a fixed
+  compile-time constant.
+- **ISO-TP receiver Block Size / STmin setters** `uds_tp_isotp_set_block_size()`
+  and `uds_tp_isotp_set_st_min()` let the receiver advertise its own BS/STmin in
+  the Flow Control frame (defaults unchanged: BS 8, STmin 0).
+- **`uds_init` validates buffer sizes**: a `tx_buffer_size` or `rx_buffer_size`
+  below `UDS_MIN_TX_BUFFER_SIZE` / `UDS_MIN_RX_BUFFER_SIZE` (8) is rejected with
+  `UDS_ERR_INVALID_ARG` instead of risking an overflow later.
+- **Two-context concurrency (OSAL)**: with the mutex hooks supplied, an RX/input
+  context (`uds_input_sdu` / ISO-TP RX) may run concurrently with the
+  `uds_process` context. Cross-context state is `volatile`-qualified and
+  `fn_tp_send` runs outside the critical section. The mutex must be an ISR-safe
+  critical section if RX runs in an interrupt (see OSAL.md); the `freertos_demo`
+  example is the canonical two-context reference.
 
 ### Changed
 - A handler that returns without describing a result now fails closed
@@ -50,10 +71,34 @@ API**, not the wire behaviour.
   cancelled if the response fails to encode or send (the tester gets an NRC /
   nothing, so the ECU does not reboot), and never fires from a captured
   ResponseOnEvent dispatch.
+- **P2/P2\* resolved once at `uds_init`** (single source of truth) from
+  `p2_ms`/`p2_star_ms`, with the legacy `p2_server_max`/`p2_star_server_max`
+  pair folded in. The 0x10 response derives its advertised timing from the
+  resolved values; mutating the P2 config fields *after* `uds_init` no longer
+  changes the advertised timing.
+- **`fn_tp_send`'s `data` may be a private snapshot**, not a pointer into
+  `config->tx_buffer`, for responses ≤ `UDS_TX_FLUSH_SNAPSHOT_MAX` (512 bytes);
+  larger frames are sent from `tx_buffer` under the lock. Applications must use
+  the `data`/`len` given and must not assume `data == tx_buffer`.
+
+### Fixed
+- **Bounded every response-buffer copy**: ResponseOnEvent setup echo, the async
+  ResponseOnEvent (0xC6) emit, and the periodic (0x2A) scheduler now check
+  `tx_buffer_size` before writing — an oversized one is rejected (responseTooLong)
+  or skipped instead of overflowing `tx_buffer`.
+- **Concurrency correctness** (found and fixed under ThreadSanitizer): a staged
+  responsePending (0x78) is no longer clobbered by a periodic/ROE frame on the
+  same `uds_process` tick; the post-TX action (ECUReset/LinkControl) flag
+  bookkeeping is serialized under the lock so a deferred reset can no longer race
+  its own cancellation; and the client request path snapshots its frame like the
+  server path. The transport call and the reset/link callbacks remain outside the
+  lock.
 
 ### Known limitations
-- SecuredDataTransmission (0x84) still shares `config->tx_buffer` with its
-  copied-out inner dispatch under the single-threaded, non-reentrant contract.
+- SecuredDataTransmission (0x84) shares `config->tx_buffer` with its copied-out
+  inner dispatch; this is safe because a dispatch is serialized under the OSAL
+  lock (the two-context model protects whole-request dispatch, not arbitrary
+  reentrancy).
 - The handler-result contract is the stable surface; the `uds_ctx_t` field
   layout is not part of the API contract and may evolve.
 - The test suite is host-simulation based (mocked transport + virtual clock).
