@@ -49,4 +49,7 @@ option(BUILD_TESTING "Build unit tests" ON)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+    # Host regression test for the F103 CubeMX example (compiles its firmware
+    # source against a HAL shim; no ARM toolchain required).
+    add_subdirectory(examples/f103_cubemx_uds_ecu/test)
 endif()

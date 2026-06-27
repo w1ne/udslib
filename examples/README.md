@@ -33,7 +33,8 @@ smoke test.
 | [`bare_metal`](bare_metal/) | Bare-metal super-loop integration skeleton. |
 | [`freertos_demo`](freertos_demo/) | Task-based FreeRTOS integration skeleton. |
 | [`zephyr_uds_server`](zephyr_uds_server/) | Zephyr application (build with `west`); see [`../docs/QUICKSTART_ZEPHYR.md`](../docs/QUICKSTART_ZEPHYR.md). |
-| [`pro_flash_tool`](pro_flash_tool/) | End-to-end ECU reprogramming client (built via the top-level CMake). |
+| [`pro_flash_tool`](pro_flash_tool/) | End-to-end ECU reprogramming client walking the canonical **17-step** UDS flash sequence (session → DTC off → comm off → unlock → fingerprint → erase → download → checkMemory → reset → restore); see its [README](pro_flash_tool/README.md) for the STM32F103 + bxCAN mapping. |
+| [`f103_cubemx_uds_ecu`](f103_cubemx_uds_ecu/) | STM32F103C8 (Blue Pill) **CubeMX / HAL** UDS ECU — ISO-TP over **bxCAN**, real `HAL_FLASH` erase/program + hardware CRC; the on-target counterpart to `pro_flash_tool`. Re-openable `.ioc`; HAL not vendored (generate from CubeMX or clone ST repos). |
 
 ## Generated artifacts
 
