@@ -58,7 +58,6 @@ static uint32_t g_prog_addr;     /* next flash write address */
 static uint32_t g_prog_len;      /* bytes written so far */
 static uint8_t g_fingerprint[4]; /* programming date (BCD) + tester id */
 static bool g_fingerprint_set;
-static volatile bool g_reset_pending; /* set by 0x11, executed once TX drains */
 
 /* ---- transport ---------------------------------------------------------- */
 
@@ -237,14 +236,22 @@ static int ecu_routine(uds_ctx_t *ctx, uint8_t type, uint16_t id, const uint8_t 
     return -0x31; /* requestOutOfRange */
 }
 
-/* 0x11: defer the actual reset until the positive response has left the bus.
- * fn_reset must not reboot while the 0x51 frame is still queued in a mailbox -
- * uds_app_poll() fires NVIC_SystemReset once the TX mailboxes drain. */
+/* Reports whether the last response has physically left the bus (all three TX
+ * mailboxes empty). The library gates the deferred ECUReset on this hook. */
+static bool ecu_tx_complete(uds_ctx_t *ctx)
+{
+    (void) ctx;
+    return HAL_CAN_GetTxMailboxesFreeLevel(g_hcan) == 3u;
+}
+
+/* 0x11: the library calls this only once ecu_tx_complete() confirms the 0x51
+ * response is on the wire (or reset_tx_wait_ms elapses), so it is safe to reboot
+ * here - on real silicon NVIC_SystemReset never returns. */
 static void ecu_reset(uds_ctx_t *ctx, uint8_t type)
 {
     (void) ctx;
     (void) type;
-    g_reset_pending = true;
+    HAL_NVIC_SystemReset();
 }
 
 /* ---- public API --------------------------------------------------------- */
@@ -273,7 +280,9 @@ void uds_app_init(CAN_HandleTypeDef *hcan, CRC_HandleTypeDef *hcrc)
     HAL_CAN_ConfigFilter(g_hcan, &filter);
     HAL_CAN_Start(g_hcan);
 
-    uds_config_t cfg;
+    /* uds_init() keeps a pointer to this config (it does not copy it), so the
+     * struct must outlive uds_app_init() - hence static, not a stack local. */
+    static uds_config_t cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.get_time_ms = app_time_ms;
     cfg.fn_tp_send = isotp_send_adapter;
@@ -294,6 +303,7 @@ void uds_app_init(CAN_HandleTypeDef *hcan, CRC_HandleTypeDef *hcrc)
     cfg.fn_transfer_exit = ecu_transfer_exit;
     cfg.fn_routine_control = ecu_routine;
     cfg.fn_reset = ecu_reset;
+    cfg.fn_tx_complete = ecu_tx_complete; /* hold the reset until 0x51 is on the wire */
     uds_init(&g_uds, &cfg);
 
     uds_tp_isotp_init(&g_iso, can_send, UDS_TX_ID, UDS_RX_ID, g_iso_tx_sdu, sizeof(g_iso_tx_sdu));
@@ -310,11 +320,8 @@ void uds_app_poll(void)
         }
     }
 
+    /* uds_process() drives time-based server work: P2-star / RCRRP pending
+     * responses and the deferred post-TX ECUReset (fired via ecu_tx_complete). */
+    uds_process(&g_uds);
     uds_tp_isotp_process(&g_iso, HAL_GetTick());
-
-    /* Execute a pending ECUReset only once every TX mailbox is empty, i.e. the
-     * 0x51 response has physically left the bus. */
-    if (g_reset_pending && HAL_CAN_GetTxMailboxesFreeLevel(g_hcan) == 3u) {
-        HAL_NVIC_SystemReset();
-    }
 }
