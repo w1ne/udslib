@@ -67,6 +67,23 @@ Flash the `.bin` to a Blue Pill with an ST-Link (`st-flash write build/*.bin
 0x08000000`) and drive it with [`../pro_flash_tool`](../pro_flash_tool)'s
 sequence from any CAN tester (SocketCAN, a PCAN tool, etc.).
 
+## Test
+
+`test/` holds a host regression test that compiles the **real firmware source**
+(`Core/Src/uds_ecu_app.c`, unchanged) against a small HAL shim — CAN becomes
+in-memory frame FIFOs, flash a RAM array, the CRC unit the STM32 CRC-32 — and
+drives all 17 reprogramming steps through a real ISO-TP tester. It needs no ARM
+toolchain or ST HAL, so it runs with the rest of the unit tests:
+
+```bash
+cmake -S . -B build && cmake --build build --target f103_cubemx_uds_host_test
+ctest --test-dir build -R f103_cubemx_uds_host
+```
+
+It checks every step returns a positive response and that the side effects
+actually happen: the erase wipes the window, the transferred bytes land in
+flash, checkMemory returns a CRC, and ECUReset fires `NVIC_SystemReset`.
+
 ## Scope
 
 This shows the **diagnostic sequence** on real hardware — not a production
