@@ -33,7 +33,7 @@ smoke test.
 | [`bare_metal`](bare_metal/) | Bare-metal super-loop integration skeleton. |
 | [`freertos_demo`](freertos_demo/) | Task-based FreeRTOS integration skeleton. |
 | [`zephyr_uds_server`](zephyr_uds_server/) | Zephyr application (build with `west`); see [`../docs/QUICKSTART_ZEPHYR.md`](../docs/QUICKSTART_ZEPHYR.md). |
-| [`pro_flash_tool`](pro_flash_tool/) | End-to-end ECU reprogramming client (built via the top-level CMake). |
+| [`pro_flash_tool`](pro_flash_tool/) | End-to-end ECU reprogramming client walking the canonical **17-step** UDS flash sequence (session → DTC off → comm off → unlock → fingerprint → erase → download → checkMemory → reset → restore); see its [README](pro_flash_tool/README.md) for the STM32F103 + bxCAN mapping. |
 
 ## Generated artifacts
 
