@@ -79,6 +79,34 @@ class H5LabWiredCiContractTest(unittest.TestCase):
         )
         self.assertNotIn("50 03 00 32 01 F4", tester)
 
+    def test_h5_firmware_enables_fdcan1_clock_before_fdcan_access(self) -> None:
+        for firmware_path in (TESTER_FIRMWARE, ECU_FIRMWARE):
+            with self.subTest(firmware=firmware_path):
+                firmware = firmware_path.read_text(encoding="utf-8")
+
+                self.assertIn("#define RCC_BASE 0x44020C00u", firmware)
+                self.assertIn(
+                    "#define RCC_APB1HENR REG32(RCC_BASE + 0x0A0u)", firmware
+                )
+                self.assertIn("#define RCC_APB1HENR_FDCAN1EN (1u << 9)", firmware)
+
+                start = re.search(
+                    r"static void fdcan_start\(void\)\n\{(?P<body>.*?)\n\}",
+                    firmware,
+                    re.DOTALL,
+                )
+                self.assertIsNotNone(start)
+                assert start is not None
+                body = start.group("body")
+
+                clock_enable = body.index(
+                    "RCC_APB1HENR |= RCC_APB1HENR_FDCAN1EN;"
+                )
+                clock_readback = body.index("(void) RCC_APB1HENR;")
+                first_fdcan_access = body.index("REG32(fdcan_reg(")
+                self.assertLess(clock_enable, clock_readback)
+                self.assertLess(clock_readback, first_fdcan_access)
+
     def test_h5_descriptors_are_release_exact_tracked_files(self) -> None:
         for descriptor in DESCRIPTORS:
             with self.subTest(descriptor=descriptor):
