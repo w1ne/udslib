@@ -16,10 +16,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/nightly-h5-gate.yml"
 CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
+GATE_SCRIPT = ROOT / "examples/h5_uds_tester/allservices-gate.yaml"
+WORLD_MANIFEST = ROOT / "examples/h5_uds_tester/twonode-env.yaml"
+GATE_README = ROOT / "examples/h5_uds_tester/README.md"
 TESTER_FIRMWARE = ROOT / "examples/h5_uds_tester/firmware/main.c"
 ECU_FIRMWARE = ROOT / "examples/h5_uds_ecu_full/firmware/main.c"
 
-ACTION_SHA = "82c6c78983669f8688f3823db9a81d1c2bdef202"
+ACTION_SHA = "fda6a7bfb0328d9909ee07ba53ed05c84901f627"
+RELEASE_VERSION = "v0.19.1"
 DESCRIPTOR_SHA256 = "3e8f021058bcf58a93a1f3c8bfdd785802f9633d4ba52f869c2309874db64124"
 DESCRIPTORS = (
     Path("examples/h5_uds_tester/stm32h563.yaml"),
@@ -42,7 +46,7 @@ class H5LabWiredCiContractTest(unittest.TestCase):
 
         expected_action = f"""uses: w1ne/labwired-core/.github/actions/labwired-test@{ACTION_SHA}
         with:
-          version: v0.19.0
+          version: {RELEASE_VERSION}
           script: examples/h5_uds_tester/allservices-gate.yaml
           output-dir: labwired-uds-report
           args: --no-uart-stdout"""
@@ -57,11 +61,81 @@ class H5LabWiredCiContractTest(unittest.TestCase):
             "/tmp/labwired-core",
             "cargo build --release -p labwired-cli",
             "Swatinem/rust-cache@v2",
+            "secrets.",
+            "github-token:",
+            "token:",
+            "LABWIRED_API_KEY",
+            "GH_TOKEN",
+            "GITHUB_TOKEN",
         ):
             self.assertNotIn(forbidden, workflow)
 
         self.assertIn("dtolnay/rust-toolchain@stable", workflow)
         self.assertIn('RUST_LLD="$(find "$(rustc --print sysroot)"', workflow)
+
+    def test_gate_script_preserves_the_env_world_oracle_and_enables_durable_completion(
+        self,
+    ) -> None:
+        gate = GATE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertRegex(
+            gate,
+            re.compile(
+                r'inputs:\s*env:\s*["\']\./twonode-env\.yaml["\']', re.DOTALL
+            ),
+        )
+        self.assertIn("max_steps: 4000000", gate)
+        self.assertIn("stop_when_assertions_pass: true", gate)
+        self.assertIn("stop_when_assertions_pass_settle_steps: 100000", gate)
+        self.assertRegex(
+            gate,
+            re.compile(
+                r"memory_value:\s*\{\s*node:\s*tester,\s*"
+                r"address:\s*0x20010000,\s*"
+                r"expected_value:\s*0x07FFFFFF,\s*size:\s*32\s*\}",
+                re.DOTALL,
+            ),
+        )
+
+    def test_world_manifest_preserves_the_dual_h5_fdcan_wiring(self) -> None:
+        world = WORLD_MANIFEST.read_text(encoding="utf-8")
+
+        self.assertIn('schema_version: "1.0"', world)
+        self.assertRegex(
+            world,
+            re.compile(
+                r'nodes:\s*-\s+id:\s*["\']tester["\']\s+'
+                r'system:\s*["\']system\.yaml["\']\s+'
+                r'firmware:\s*["\']firmware/build/h5_uds_tester\.elf["\']\s+'
+                r'-\s+id:\s*["\']ecu["\']\s+'
+                r'system:\s*["\']\.\./h5_uds_ecu_full/system\.yaml["\']\s+'
+                r'firmware:\s*["\']\.\./h5_uds_ecu_full/firmware/build/'
+                r'h5_uds_ecu_full\.elf["\']',
+                re.DOTALL,
+            ),
+        )
+        self.assertRegex(
+            world,
+            re.compile(
+                r'interconnects:\s*-\s+type:\s*["\']can_bus["\']\s+'
+                r'nodes:\s*\[["\']tester["\'],\s*["\']ecu["\']\]\s+'
+                r'config:\s+peripheral:\s*["\']fdcan1["\']',
+                re.DOTALL,
+            ),
+        )
+
+    def test_gate_readme_describes_the_released_runner_without_a_core_build(self) -> None:
+        readme = GATE_README.read_text(encoding="utf-8")
+
+        self.assertIn(RELEASE_VERSION, readme)
+        self.assertIn("labwired-test", readme)
+        self.assertIn("report.html", readme)
+        for stale_instruction in (
+            "copy it from your labwired-core checkout",
+            "feat/fdcan-multinode-cigate",
+            "it clones labwired-core",
+        ):
+            self.assertNotIn(stale_instruction, readme)
 
     def test_h5_tester_checks_the_configured_p2_star_value(self) -> None:
         tester = TESTER_FIRMWARE.read_text(encoding="utf-8")
