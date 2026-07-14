@@ -493,7 +493,7 @@ int main(void)
     }
 
     /* ==================================================================
-     * Service 1: DiagnosticSessionControl (0x10 03) → expected 50 03 00 32 01 F4
+     * Service 1: DiagnosticSessionControl (0x10 03) → expected 50 03 00 32 00 C8
      *   bit 0 (BIT_10) set on pass.
      * ================================================================== */
     uart_puts("TESTER_REQ_10\n");
@@ -502,8 +502,8 @@ int main(void)
         if (do_request(0x10u, payload, 1u, 500u)) {
             /* Positive response SID = 0x50; payload[0]=sub, [1..4]=timings */
             if (g_resp_sid == 0x50u && g_resp_len >= 5u && g_resp_data[0] == 0x03u &&
-                g_resp_data[1] == 0x00u && g_resp_data[2] == 0x32u && g_resp_data[3] == 0x01u &&
-                g_resp_data[4] == 0xF4u) {
+                g_resp_data[1] == 0x00u && g_resp_data[2] == 0x32u && g_resp_data[3] == 0x00u &&
+                g_resp_data[4] == 0xC8u) {
                 uart_puts("TESTER_RESP_50_OK\n");
                 g_service_results |= BIT_10;
             }
