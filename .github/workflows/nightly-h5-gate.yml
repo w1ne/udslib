@@ -32,9 +32,9 @@ jobs:
 
       - name: Run the all-services gate (headless, asserts 27/27)
         id: labwired
-        uses: w1ne/labwired-core/.github/actions/labwired-test@3a13349ad6c4f65b4fa19276f576bc3086b219e6
+        uses: w1ne/labwired-core/.github/actions/labwired-test@82c6c78983669f8688f3823db9a81d1c2bdef202
         with:
-          version: v0.18.0
+          version: v0.19.0
           script: examples/h5_uds_tester/allservices-gate.yaml
           output-dir: labwired-uds-report
           args: --no-uart-stdout

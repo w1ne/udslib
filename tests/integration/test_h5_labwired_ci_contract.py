@@ -19,7 +19,7 @@ CI_WORKFLOW = ROOT / ".github/workflows/ci.yml"
 TESTER_FIRMWARE = ROOT / "examples/h5_uds_tester/firmware/main.c"
 ECU_FIRMWARE = ROOT / "examples/h5_uds_ecu_full/firmware/main.c"
 
-ACTION_SHA = "3a13349ad6c4f65b4fa19276f576bc3086b219e6"
+ACTION_SHA = "82c6c78983669f8688f3823db9a81d1c2bdef202"
 DESCRIPTOR_SHA256 = "3e8f021058bcf58a93a1f3c8bfdd785802f9633d4ba52f869c2309874db64124"
 DESCRIPTORS = (
     Path("examples/h5_uds_tester/stm32h563.yaml"),
@@ -42,7 +42,7 @@ class H5LabWiredCiContractTest(unittest.TestCase):
 
         expected_action = f"""uses: w1ne/labwired-core/.github/actions/labwired-test@{ACTION_SHA}
         with:
-          version: v0.18.0
+          version: v0.19.0
           script: examples/h5_uds_tester/allservices-gate.yaml
           output-dir: labwired-uds-report
           args: --no-uart-stdout"""
