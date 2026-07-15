@@ -22,8 +22,8 @@ GATE_README = ROOT / "examples/h5_uds_tester/README.md"
 TESTER_FIRMWARE = ROOT / "examples/h5_uds_tester/firmware/main.c"
 ECU_FIRMWARE = ROOT / "examples/h5_uds_ecu_full/firmware/main.c"
 
-ACTION_SHA = "fda6a7bfb0328d9909ee07ba53ed05c84901f627"
-RELEASE_VERSION = "v0.19.1"
+ACTION_SHA = "0cadd18fc9a3c0cbd1ecb0a6ddcd8ce66d56283d"
+RELEASE_VERSION = "v0.19.2"
 DESCRIPTOR_SHA256 = "3e8f021058bcf58a93a1f3c8bfdd785802f9633d4ba52f869c2309874db64124"
 DESCRIPTORS = (
     Path("examples/h5_uds_tester/stm32h563.yaml"),

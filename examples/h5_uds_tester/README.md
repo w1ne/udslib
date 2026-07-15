@@ -25,14 +25,14 @@ request crossed the bus *and* the ECU's real response came back and matched.
 UDSLIB_DIR=$PWD make -C examples/h5_uds_ecu_full/firmware
 UDSLIB_DIR=$PWD make -C examples/h5_uds_tester/firmware
 
-# 2. Run the gate headless with LabWired v0.19.1 or newer
+# 2. Run the gate headless with LabWired v0.19.2 or newer
 #    (exit 0 == all 27 services passed):
 labwired test --script examples/h5_uds_tester/allservices-gate.yaml
 echo "exit=$?"
 ```
 
 The nightly workflow does the firmware build and then invokes the public,
-release-backed `labwired-test` action pinned to LabWired v0.19.1. It supplies
+release-backed `labwired-test` action pinned to LabWired v0.19.2. It supplies
 only this YAML contract to the runner; the action downloads the released CLI,
 writes JUnit plus `summary.md` and `report.html`, and uploads the complete
 evidence bundle automatically.
@@ -68,7 +68,7 @@ in the mbedTLS examples (`auth_challenge_mbedtls`, `security_access_mbedtls`).
 
 ## labwired requirement
 
-The gate requires LabWired **v0.19.1 or newer** for the released multi-node
+The gate requires LabWired **v0.19.2 or newer** for the released multi-node
 `inputs.env` runner, virtual `can_bus` interconnect, and durable
 assertion-completion contract. No LabWired source checkout or local Core build
 is needed for CI.
