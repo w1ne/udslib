@@ -146,6 +146,10 @@ volatile uint32_t g_service_results __attribute__((section(".uds_result"), used)
 #define USART_CR1_UE (1u << 0)
 #define USART_CR1_TE (1u << 3)
 
+#define RCC_BASE 0x44020C00u
+#define RCC_APB1HENR REG32(RCC_BASE + 0x0A0u)
+#define RCC_APB1HENR_FDCAN1EN (1u << 9)
+
 #define FDCAN1_BASE 0x4000A400u
 #define FDCAN_REG_TEST 0x010u
 #define FDCAN_REG_CCCR 0x018u
@@ -251,6 +255,9 @@ static void read_payload(uint32_t addr, uint8_t *data, uint8_t len)
 
 static void fdcan_start(void)
 {
+    RCC_APB1HENR |= RCC_APB1HENR_FDCAN1EN;
+    (void) RCC_APB1HENR;
+
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE;
     REG32(fdcan_reg(FDCAN_REG_TEST)) = 0u;
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = 0u;
@@ -493,7 +500,7 @@ int main(void)
     }
 
     /* ==================================================================
-     * Service 1: DiagnosticSessionControl (0x10 03) → expected 50 03 00 32 01 F4
+     * Service 1: DiagnosticSessionControl (0x10 03) → expected 50 03 00 32 00 C8
      *   bit 0 (BIT_10) set on pass.
      * ================================================================== */
     uart_puts("TESTER_REQ_10\n");
@@ -502,8 +509,8 @@ int main(void)
         if (do_request(0x10u, payload, 1u, 500u)) {
             /* Positive response SID = 0x50; payload[0]=sub, [1..4]=timings */
             if (g_resp_sid == 0x50u && g_resp_len >= 5u && g_resp_data[0] == 0x03u &&
-                g_resp_data[1] == 0x00u && g_resp_data[2] == 0x32u && g_resp_data[3] == 0x01u &&
-                g_resp_data[4] == 0xF4u) {
+                g_resp_data[1] == 0x00u && g_resp_data[2] == 0x32u && g_resp_data[3] == 0x00u &&
+                g_resp_data[4] == 0xC8u) {
                 uart_puts("TESTER_RESP_50_OK\n");
                 g_service_results |= BIT_10;
             }

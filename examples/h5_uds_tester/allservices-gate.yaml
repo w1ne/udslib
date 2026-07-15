@@ -3,6 +3,11 @@ inputs:
   env: "./twonode-env.yaml"
 limits:
   max_steps: 4000000
+  # The gate becomes a passing result only after this node-qualified oracle is
+  # stable through LabWired's durable settling window. This avoids the old
+  # max_steps spin while still catching a post-pass fault.
+  stop_when_assertions_pass: true
+  stop_when_assertions_pass_settle_steps: 100000
 assertions:
   # The deterministic oracle: the TESTER node's 27-bit results bitmap. Each bit
   # is set only when that service's request crossed the virtual CAN bus AND the

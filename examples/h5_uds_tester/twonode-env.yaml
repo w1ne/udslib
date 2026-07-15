@@ -1,3 +1,4 @@
+schema_version: "1.0"
 name: "h5-uds-twonode"
 # Two virtual STM32H5 nodes wired by a virtual FDCAN bus. Paths are relative to
 # this file so the gate is portable (local + CI). The tester runs the udslib

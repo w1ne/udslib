@@ -1,8 +1,9 @@
 name: Nightly dual-H5 all-services gate
 
 # Heavy job — NOT on pull_request/push (keeps the PR gate fast). Runs nightly and
-# on demand. Builds two STM32H5 firmwares + the labwired CLI, then runs all 27
-# UDS services across two emulated Cortex-M33 MCUs over a virtual FDCAN bus.
+# on demand. Builds two STM32H5 firmwares, then runs all 27 UDS services with
+# the pinned released LabWired CLI across two emulated Cortex-M33 MCUs over a
+# virtual FDCAN bus.
 on:
   schedule:
     - cron: '0 4 * * *'
@@ -18,13 +19,8 @@ jobs:
       - name: Install clang (arm-none-eabi cross target)
         run: sudo apt-get update && sudo apt-get install -y clang
 
-      - name: Install Rust (rust-lld linker + labwired CLI build)
+      - name: Install Rust (rust-lld linker)
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo (labwired-core build)
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: /tmp/labwired-core
 
       - name: Build both H5 firmwares
         run: |
@@ -34,29 +30,11 @@ jobs:
           make -C examples/h5_uds_ecu_full/firmware
           make -C examples/h5_uds_tester/firmware
 
-      - name: Build the labwired CLI
-        # Pinned to the labwired-core ref that has BOTH sub-project A's multi-node
-        # can_bus + env-test runner AND the STM32H563 wide-instruction decoder
-        # fixes this gate uncovered (PRs #328/#329/#331). Switch to a released
-        # binary/image once that work lands on main + a tagged release.
-        env:
-          LABWIRED_CORE_REF: f167a250310dd22118e5a93290806f0676eb133d
-        run: |
-          git clone https://github.com/w1ne/labwired-core.git /tmp/labwired-core
-          cd /tmp/labwired-core
-          git checkout "$LABWIRED_CORE_REF"
-          cargo build --release -p labwired-cli
-          echo "LABWIRED=/tmp/labwired-core/target/release/labwired" >> "$GITHUB_ENV"
-
-      - name: Provide the chip descriptor to the example
-        # The H5 chip config ships with labwired; copy it next to each node's
-        # system.yaml (which references it relatively as "stm32h563.yaml").
-        run: |
-          CHIP=/tmp/labwired-core/configs/chips/stm32h563.yaml
-          cp "$CHIP" examples/h5_uds_tester/stm32h563.yaml
-          cp "$CHIP" examples/h5_uds_ecu_full/stm32h563.yaml
-
       - name: Run the all-services gate (headless, asserts 27/27)
-        run: |
-          "$LABWIRED" test --script examples/h5_uds_tester/allservices-gate.yaml
-          echo "gate exit=$?"
+        id: labwired
+        uses: w1ne/labwired-core/.github/actions/labwired-test@0cadd18fc9a3c0cbd1ecb0a6ddcd8ce66d56283d
+        with:
+          version: v0.19.2
+          script: examples/h5_uds_tester/allservices-gate.yaml
+          output-dir: labwired-uds-report
+          args: --no-uart-stdout

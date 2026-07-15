@@ -111,6 +111,10 @@ void *__aeabi_memclr8(void *dst, size_t n)
 #define USART_CR1_UE (1u << 0)
 #define USART_CR1_TE (1u << 3)
 
+#define RCC_BASE 0x44020C00u
+#define RCC_APB1HENR REG32(RCC_BASE + 0x0A0u)
+#define RCC_APB1HENR_FDCAN1EN (1u << 9)
+
 #define FDCAN1_BASE 0x4000A400u
 #define FDCAN_REG_TEST 0x010u
 #define FDCAN_REG_CCCR 0x018u
@@ -207,6 +211,9 @@ static void read_payload(uint32_t addr, uint8_t *data, uint8_t len)
 
 static void fdcan_start(void)
 {
+    RCC_APB1HENR |= RCC_APB1HENR_FDCAN1EN;
+    (void) RCC_APB1HENR;
+
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = CCCR_INIT | CCCR_CCE;
     REG32(fdcan_reg(FDCAN_REG_TEST)) = 0u;
     REG32(fdcan_reg(FDCAN_REG_CCCR)) = 0u;

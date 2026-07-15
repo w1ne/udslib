@@ -25,19 +25,17 @@ request crossed the bus *and* the ECU's real response came back and matched.
 UDSLIB_DIR=$PWD make -C examples/h5_uds_ecu_full/firmware
 UDSLIB_DIR=$PWD make -C examples/h5_uds_tester/firmware
 
-# 2. Provide the chip descriptor. Each system.yaml references "stm32h563.yaml"
-#    relatively; copy it from your labwired-core checkout (it ships there).
-#    (.gitignored — not committed.)
-cp "$LABWIRED_CORE/configs/chips/stm32h563.yaml" examples/h5_uds_tester/
-cp "$LABWIRED_CORE/configs/chips/stm32h563.yaml" examples/h5_uds_ecu_full/
-
-# 3. Run the gate headless (exit 0 == all 27 services passed):
+# 2. Run the gate headless with LabWired v0.19.2 or newer
+#    (exit 0 == all 27 services passed):
 labwired test --script examples/h5_uds_tester/allservices-gate.yaml
 echo "exit=$?"
 ```
 
-The nightly workflow does steps 1–3 automatically (it clones labwired-core and
-copies the chip in).
+The nightly workflow does the firmware build and then invokes the public,
+release-backed `labwired-test` action pinned to LabWired v0.19.2. It supplies
+only this YAML contract to the runner; the action downloads the released CLI,
+writes JUnit plus `summary.md` and `report.html`, and uploads the complete
+evidence bundle automatically.
 
 The tester also prints a UART summary `SERVICES 27/27 PASS`.
 
@@ -70,15 +68,13 @@ in the mbedTLS examples (`auth_challenge_mbedtls`, `security_access_mbedtls`).
 
 ## labwired requirement
 
-The gate needs a `labwired` CLI built with the **multi-node `can_bus` interconnect +
-env-test runner** (sub-project A) *and* the STM32H563 wide-instruction decoder fixes that
-this gate uncovered (`LDRB.W`/`LDRH.W` zero-extension, `UXTH.W`/`UXTAH` decode — labwired-core
-PRs #328/#329/#331). Until that work reaches `main` + a tagged release, build the CLI from
-the labwired-core ref that includes both (the `feat/fdcan-multinode-cigate` branch). The
-nightly workflow (`.github/workflows/nightly-h5-gate.yml`) does exactly this.
+The gate requires LabWired **v0.19.2 or newer** for the released multi-node
+`inputs.env` runner, virtual `can_bus` interconnect, and durable
+assertion-completion contract. No LabWired source checkout or local Core build
+is needed for CI.
 
 ## Why nightly, not on every PR
 
-The gate is heavy — two ARM firmware builds, a labwired CLI build, and two fully emulated
-Cortex-M33 MCUs running all 27 service exchanges. It runs on a **schedule** (and
+The gate is heavy — two ARM firmware builds and two fully emulated Cortex-M33
+MCUs running all 27 service exchanges. It runs on a **schedule** (and
 `workflow_dispatch`), never on `pull_request`, to keep the PR gate fast.
