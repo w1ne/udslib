@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify release-backed H5 LabWired CI contract
         run: python3 tests/integration/test_h5_labwired_ci_contract.py
+      - name: Verify per-service UDS gate reporter
+        run: python3 tests/integration/test_uds_gate_report.py
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake build-essential libcmocka-dev
       - name: Configure

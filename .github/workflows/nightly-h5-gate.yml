@@ -38,3 +38,24 @@ jobs:
           script: examples/h5_uds_tester/allservices-gate.yaml
           output-dir: labwired-uds-report
           args: --no-uart-stdout
+
+      # The gate's own oracle is a single 27-bit word, so a failure reads as
+      # `expected 0x7ffffff, got 0x7fffffe` and names no service. Decode the
+      # tester's UART transcript into one result per service, publish it to the
+      # run summary, and annotate whichever services failed.
+      - name: Decode per-service UDS results
+        if: ${{ always() }}
+        run: |
+          python3 tools/uds_gate_report.py \
+            --uart labwired-uds-report/uart.log \
+            --junit uds-service-report/junit-services.xml \
+            --markdown uds-service-report/services.md
+
+      - name: Upload per-service UDS report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: uds-service-report-${{ github.run_id }}
+          path: uds-service-report
+          retention-days: 90
+          if-no-files-found: error
