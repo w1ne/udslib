@@ -155,37 +155,3 @@ int uds_dtc_store_clear_cb(struct uds_ctx *ctx, uint32_t group)
     uds_dtc_store_clear(s, group);
     return UDS_OK;
 }
-
-int uds_dtc_store_list_mem_cb(struct uds_ctx *ctx, uds_dtc_memory_t memory, uint8_t mem_selection,
-                              uint8_t status_mask, uds_dtc_record_t *out, uint16_t max)
-{
-    (void) mem_selection;
-    uds_dtc_store_t *s = (uds_dtc_store_t *) ctx->config->app_data;
-    uint16_t n = 0u;
-    for (uint16_t i = 0u; i < s->count; i++) {
-        /* The reference store keeps a single set of records: mirror and
-         * user-defined memory report that set, emissions-related OBD reports
-         * the subset in functional group 0x33. */
-        if ((memory == UDS_DTC_MEM_EMISSIONS_OBD) &&
-            (s->entries[i].functional_group != UDS_DTC_FGID_EMISSIONS)) {
-            continue;
-        }
-        bool match = (status_mask == 0u) || ((s->entries[i].status & status_mask) != 0u);
-        if (match) {
-            if ((out != NULL) && (n < max)) {
-                out[n] = s->entries[i];
-            }
-            n++;
-        }
-    }
-    return (int) n;
-}
-
-int uds_dtc_store_extdata_mem_cb(struct uds_ctx *ctx, uds_dtc_memory_t memory,
-                                 uint8_t mem_selection, uint32_t dtc, uint8_t record_num,
-                                 uint8_t *out_buf, uint16_t max_len)
-{
-    (void) memory;
-    (void) mem_selection;
-    return uds_dtc_store_extdata_cb(ctx, dtc, record_num, out_buf, max_len);
-}

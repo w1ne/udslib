@@ -2,37 +2,12 @@
 
 ## [Unreleased]
 
-### Added
-- **ReadDTCInformation (0x19): library-formatted wire layout for the remaining
-  11 standard sub-functions** (issue #113). All 27 sub-functions the service
-  defines are now framed by the library instead of leaving 0x03, 0x05,
-  0x0F–0x13, 0x16 and 0x17–0x19 to the application. New optional
-  `uds_config_t` hooks supply the records; the library owns the ISO 14229-1
-  layout, the length checks and the suppressPosRsp handling:
-  - `fn_dtc_list_mem` — 0x0F/0x11 mirror memory, 0x12/0x13 emissions-related
-    OBD, 0x17 user-defined memory. Receives the region as a `uds_dtc_memory_t`
-    plus the MemorySelection byte, and follows the `fn_dtc_list` contract.
-  - `fn_dtc_snapshot_ids` — 0x03 reportDTCSnapshotIdentification (record
-    numbers per DTC; the DTC set comes from `fn_dtc_list`).
-  - `fn_dtc_stored_data` — 0x05 reportDTCStoredDataByRecordNumber.
-  - `fn_dtc_extdata_by_record` — 0x16 reportDTCExtDataRecordByRecordNumber.
-  - `fn_dtc_snapshot_mem` — 0x18 reportUserDefMemoryDTCSnapshotRecordByDTCNumber.
-  - `fn_dtc_extdata_mem` — 0x10 reportMirrorMemoryDTCExtDataRecordByDTCNumber
-    and 0x19 reportUserDefMemoryDTCExtDataRecordByDTCNumber.
-- **Reference DTC store gains memory-scoped callbacks**:
-  `uds_dtc_store_list_mem_cb` (mirror and user-defined memory report the
-  store's record set; emissions-related OBD reports functional group 0x33) and
-  `uds_dtc_store_extdata_mem_cb`.
-- `uds_dtc_memory_t` (`UDS_DTC_MEM_PRIMARY` / `_MIRROR` / `_EMISSIONS_OBD` /
-  `_USER_DEFINED`) names the memory region passed to the multi-memory hooks.
-
-### Changed
-- 0x19 sub-function 0x17 now joins the sub-functions whose DTCStatusMask
-  presence is length-checked, and its MemorySelection byte is required
-  (NRC 0x13 when absent).
-- Every 0x19 sub-function still falls back to the raw `fn_dtc_read` hook when
-  its structured callback is not configured, so existing integrations are
-  unaffected.
+### Fixed
+- **ReadDTCInformation (0x19): validate the MemorySelection byte** on
+  reportUserDefMemoryDTCByStatusMask (0x17) and the user-defined-memory
+  record sub-functions (0x18/0x19). A request short of its own parameters
+  now returns NRC 0x13 instead of reaching `fn_dtc_read` for the application
+  to re-validate. Raised by issue #113.
 
 ## [2.0.0] - 2026-06-23
 

@@ -610,270 +610,6 @@ static int uds_internal_dtc_permanent(uds_ctx_t *ctx, uint8_t sub, bool suppress
     return uds_send_response(ctx, pos);
 }
 
-/** Max snapshot record numbers gathered per DTC for 0x03 (stack-bounded). */
-#ifndef UDS_DTC_SNAPSHOT_ID_BATCH
-#define UDS_DTC_SNAPSHOT_ID_BATCH 16u
-#endif
-
-/* Map a memory-scoped sub-function to the region fn_dtc_list_mem/fn_dtc_extdata_mem
- * are asked to serve. */
-static uds_dtc_memory_t uds_internal_dtc_memory_of(uint8_t sub)
-{
-    uds_dtc_memory_t memory;
-
-    if ((sub == 0x17u) || (sub == 0x18u) || (sub == 0x19u)) {
-        memory = UDS_DTC_MEM_USER_DEFINED;
-    }
-    else if ((sub == 0x12u) || (sub == 0x13u)) {
-        memory = UDS_DTC_MEM_EMISSIONS_OBD;
-    }
-    else { /* 0x0F, 0x10, 0x11 */
-        memory = UDS_DTC_MEM_MIRROR;
-    }
-    return memory;
-}
-
-/* Format reportDTCSnapshotIdentification (0x03). Request: SID, sub.
- * Response: [DTC(3) | snapshotRecordNumber(1)] per stored snapshot. The DTCs
- * come from fn_dtc_list, their record numbers from fn_dtc_snapshot_ids. */
-static int uds_internal_dtc_snapshot_ids(uds_ctx_t *ctx, uint8_t sub, bool suppress_pos_resp)
-{
-    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
-    int total = ctx->config->fn_dtc_list(ctx, 0u, recs, (uint16_t) UDS_DTC_LIST_BATCH);
-    if (total < 0) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
-    }
-    if ((uint16_t) total > (uint16_t) UDS_DTC_LIST_BATCH) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
-    }
-
-    if (suppress_pos_resp) {
-        ctx->scratch.suppress_pos_resp = true;
-    }
-
-    uint8_t *tx = ctx->config->tx_buffer;
-    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
-    tx[1] = sub;
-
-    uint16_t pos = 2u;
-    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
-        uint8_t nums[UDS_DTC_SNAPSHOT_ID_BATCH];
-        int n = ctx->config->fn_dtc_snapshot_ids(ctx, recs[i].dtc, nums,
-                                                 (uint16_t) UDS_DTC_SNAPSHOT_ID_BATCH);
-        if (n < 0) {
-            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) n);
-        }
-        if ((uint16_t) n > (uint16_t) UDS_DTC_SNAPSHOT_ID_BATCH) {
-            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
-        }
-        for (uint16_t j = 0u; j < (uint16_t) n; j++) {
-            if ((uint16_t) (pos + 4u) > ctx->config->tx_buffer_size) {
-                return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
-            }
-            tx[pos] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
-            tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
-            tx[pos + 2u] = (uint8_t) (recs[i].dtc & 0xFFu);
-            tx[pos + 3u] = nums[j];
-            pos = (uint16_t) (pos + 4u);
-        }
-    }
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-    return uds_send_response(ctx, pos);
-}
-
-/* Format reportDTCStoredDataByRecordNumber (0x05) and
- * reportDTCExtDataRecordByRecordNumber (0x16). Request: SID, sub, recordNumber.
- * The library echoes the record number; the application writes the
- * [DTCAndStatusRecord | data] payload that follows. */
-static int uds_internal_dtc_by_record_num(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
-                                          uint16_t len, bool suppress_pos_resp)
-{
-    if (len < 3u) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
-    }
-    uint8_t record_num = data[2];
-
-    if (suppress_pos_resp) {
-        ctx->scratch.suppress_pos_resp = true;
-    }
-
-    uint8_t *tx = ctx->config->tx_buffer;
-    uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - 3u);
-
-    int written;
-    if (sub == 0x05u) {
-        written = ctx->config->fn_dtc_stored_data(ctx, record_num, &tx[3], max_payload);
-    }
-    else {
-        written = ctx->config->fn_dtc_extdata_by_record(ctx, record_num, &tx[3], max_payload);
-    }
-
-    if (written < 0) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) written);
-    }
-    if (written > (int) max_payload) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
-    }
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-
-    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
-    tx[1] = sub;
-    tx[2] = record_num;
-    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + 3u));
-}
-
-/* Format the memory-scoped status-mask sub-functions:
- * reportMirrorMemoryDTCByStatusMask (0x0F),
- * reportNumberOfMirrorMemoryDTCByStatusMask (0x11),
- * reportNumberOfEmissionsOBDDTCByStatusMask (0x12),
- * reportEmissionsOBDDTCByStatusMask (0x13) and
- * reportUserDefMemoryDTCByStatusMask (0x17). Records come from fn_dtc_list_mem;
- * the library owns the ISO 14229-1 wire layout. */
-static int uds_internal_dtc_mem_by_status(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
-                                          uint16_t len, bool suppress_pos_resp)
-{
-    /* 0x17 carries a MemorySelection byte after the status mask. */
-    bool user_def = (sub == 0x17u);
-    if (len < (user_def ? 4u : 3u)) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
-    }
-
-    uint8_t status_mask = data[2];
-    uint8_t mem_selection = user_def ? data[3] : 0u;
-    uds_dtc_memory_t memory = uds_internal_dtc_memory_of(sub);
-    bool count_only = (sub == 0x11u) || (sub == 0x12u);
-
-    if (suppress_pos_resp) {
-        ctx->scratch.suppress_pos_resp = true;
-    }
-
-    uint8_t *tx = ctx->config->tx_buffer;
-    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
-    tx[1] = sub;
-
-    /* 0x17 echoes MemorySelection ahead of the availability mask. */
-    uint16_t hdr = 3u;
-    if (user_def) {
-        tx[2] = mem_selection;
-        tx[3] = ctx->config->dtc_status_availability_mask;
-        hdr = 4u;
-    }
-    else {
-        tx[2] = ctx->config->dtc_status_availability_mask;
-    }
-
-    if (count_only) {
-        int count = ctx->config->fn_dtc_list_mem(ctx, memory, mem_selection, status_mask, NULL, 0u);
-        if (count < 0) {
-            return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) count);
-        }
-        if (suppress_pos_resp) {
-            return UDS_OK;
-        }
-        tx[hdr] = ctx->config->dtc_format_id;
-        tx[hdr + 1u] = (uint8_t) (((uint32_t) count >> 8) & 0xFFu);
-        tx[hdr + 2u] = (uint8_t) ((uint32_t) count & 0xFFu);
-        return uds_send_response(ctx, (uint16_t) (hdr + 3u));
-    }
-
-    /* 0x0F / 0x13 / 0x17: emit [DTC(3) | status(1)] per matching record. */
-    uds_dtc_record_t recs[UDS_DTC_LIST_BATCH];
-    uint16_t room = (uint16_t) ((ctx->config->tx_buffer_size - hdr) / 4u);
-    uint16_t cap = (room < UDS_DTC_LIST_BATCH) ? room : (uint16_t) UDS_DTC_LIST_BATCH;
-
-    int total = ctx->config->fn_dtc_list_mem(ctx, memory, mem_selection, status_mask, recs, cap);
-    if (total < 0) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) total);
-    }
-    if ((uint16_t) total > cap) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
-    }
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-
-    uint16_t pos = hdr;
-    for (uint16_t i = 0u; i < (uint16_t) total; i++) {
-        tx[pos] = (uint8_t) ((recs[i].dtc >> 16) & 0xFFu);
-        tx[pos + 1u] = (uint8_t) ((recs[i].dtc >> 8) & 0xFFu);
-        tx[pos + 2u] = (uint8_t) (recs[i].dtc & 0xFFu);
-        tx[pos + 3u] = recs[i].status;
-        pos = (uint16_t) (pos + 4u);
-    }
-    return uds_send_response(ctx, pos);
-}
-
-/* Format the memory-scoped record-by-DTC sub-functions:
- * reportMirrorMemoryDTCExtDataRecordByDTCNumber (0x10),
- * reportUserDefMemoryDTCSnapshotRecordByDTCNumber (0x18) and
- * reportUserDefMemoryDTCExtDataRecordByDTCNumber (0x19).
- * Request: SID, sub, DTC(3), recordNumber [, MemorySelection for 0x18/0x19].
- * The library validates and frames; the application writes statusOfDTC plus the
- * record payload. */
-static int uds_internal_dtc_mem_record(uds_ctx_t *ctx, uint8_t sub, const uint8_t *data,
-                                       uint16_t len, bool suppress_pos_resp)
-{
-    /* 0x18/0x19 append a MemorySelection byte after the record number. */
-    bool user_def = (sub == 0x18u) || (sub == 0x19u);
-    if (len < (user_def ? 7u : 6u)) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_INCORRECT_LENGTH);
-    }
-
-    uint32_t dtc = (uint32_t) ((uint32_t) data[2] << 16) | (uint32_t) ((uint32_t) data[3] << 8) |
-                   (uint32_t) data[4];
-    uint8_t record_num = data[5];
-    uint8_t mem_selection = user_def ? data[6] : 0u;
-
-    if (suppress_pos_resp) {
-        ctx->scratch.suppress_pos_resp = true;
-    }
-
-    uint8_t *tx = ctx->config->tx_buffer;
-    /* 0x18/0x19 echo MemorySelection ahead of the DTC. */
-    uint16_t hdr = 5u;
-    if (user_def) {
-        hdr = 6u;
-    }
-    uint16_t max_payload = (uint16_t) (ctx->config->tx_buffer_size - hdr);
-
-    int written;
-    if (sub == 0x18u) {
-        written = ctx->config->fn_dtc_snapshot_mem(ctx, mem_selection, dtc, record_num, &tx[hdr],
-                                                   max_payload);
-    }
-    else {
-        written =
-            ctx->config->fn_dtc_extdata_mem(ctx, uds_internal_dtc_memory_of(sub), mem_selection,
-                                            dtc, record_num, &tx[hdr], max_payload);
-    }
-
-    if (written < 0) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, (uint8_t) - (int32_t) written);
-    }
-    if (written > (int) max_payload) {
-        return uds_send_nrc(ctx, UDS_SID_READ_DTC_INFO, UDS_NRC_RESPONSE_TOO_LONG);
-    }
-    if (suppress_pos_resp) {
-        return UDS_OK;
-    }
-
-    tx[0] = (uint8_t) (UDS_SID_READ_DTC_INFO + UDS_RESPONSE_OFFSET);
-    tx[1] = sub;
-    uint16_t pos = 2u;
-    if (user_def) {
-        tx[pos] = mem_selection;
-        pos++;
-    }
-    tx[pos] = data[2];
-    tx[pos + 1u] = data[3];
-    tx[pos + 2u] = data[4];
-    return uds_send_response(ctx, (uint16_t) ((uint16_t) written + hdr));
-}
-
 void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint16_t len,
                                        uds_result_t *out)
 {
@@ -888,9 +624,22 @@ void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint
 
     /* C-10: DTC Status Mask Requirement */
     bool req_mask = (sub == 0x01u || sub == 0x02u || sub == 0x07u || sub == 0x08u || sub == 0x0Fu ||
-                     sub == 0x11u || sub == 0x12u || sub == 0x13u || sub == 0x17u);
+                     sub == 0x11u || sub == 0x12u || sub == 0x13u);
 
     if (req_mask && len < 3u) {
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
+    }
+
+    /* ISO 14229-1: the user-defined-memory sub-functions carry a MemorySelection
+     * byte — after DTCStatusMask for 0x17, after DTC(3) + recordNumber for
+     * 0x18/0x19. Reject a request that is short of its own parameters here, so
+     * the fn_dtc_read hook is never handed a truncated one to re-validate. */
+    if ((sub == 0x17u) && (len < 4u)) {
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
+    }
+    if (((sub == 0x18u) || (sub == 0x19u)) && (len < 7u)) {
         uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
         return;
     }
@@ -960,44 +709,6 @@ void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint
 
     if ((sub == 0x15u) && (ctx->config->fn_dtc_list != NULL)) {
         (void) uds_internal_dtc_permanent(ctx, sub, suppress_pos_resp);
-        uds_none(out);
-        return;
-    }
-
-    if ((sub == 0x03u) && (ctx->config->fn_dtc_list != NULL) &&
-        (ctx->config->fn_dtc_snapshot_ids != NULL)) {
-        (void) uds_internal_dtc_snapshot_ids(ctx, sub, suppress_pos_resp);
-        uds_none(out);
-        return;
-    }
-
-    if ((sub == 0x05u) && (ctx->config->fn_dtc_stored_data != NULL)) {
-        (void) uds_internal_dtc_by_record_num(ctx, sub, data, len, suppress_pos_resp);
-        uds_none(out);
-        return;
-    }
-
-    if ((sub == 0x16u) && (ctx->config->fn_dtc_extdata_by_record != NULL)) {
-        (void) uds_internal_dtc_by_record_num(ctx, sub, data, len, suppress_pos_resp);
-        uds_none(out);
-        return;
-    }
-
-    if (((sub == 0x0Fu) || (sub == 0x11u) || (sub == 0x12u) || (sub == 0x13u) || (sub == 0x17u)) &&
-        (ctx->config->fn_dtc_list_mem != NULL)) {
-        (void) uds_internal_dtc_mem_by_status(ctx, sub, data, len, suppress_pos_resp);
-        uds_none(out);
-        return;
-    }
-
-    if ((sub == 0x18u) && (ctx->config->fn_dtc_snapshot_mem != NULL)) {
-        (void) uds_internal_dtc_mem_record(ctx, sub, data, len, suppress_pos_resp);
-        uds_none(out);
-        return;
-    }
-
-    if (((sub == 0x10u) || (sub == 0x19u)) && (ctx->config->fn_dtc_extdata_mem != NULL)) {
-        (void) uds_internal_dtc_mem_record(ctx, sub, data, len, suppress_pos_resp);
         uds_none(out);
         return;
     }

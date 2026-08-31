@@ -7,15 +7,13 @@
  * @file main.c
  * @brief Application-served ReadDTCInformation (0x19) sub-functions demo.
  *
- * The library frames every standard 0x19 sub-function itself from the records
- * the application supplies through the structured hooks (fn_dtc_list,
- * fn_dtc_list_mem, fn_dtc_snapshot_ids, fn_dtc_stored_data,
- * fn_dtc_extdata_by_record, fn_dtc_snapshot_mem, fn_dtc_extdata_mem). Each
- * sub-function also keeps a raw fn_dtc_read fallback for an application that
- * would rather own the wire layout end to end -- for a proprietary payload, or
- * to reuse a DTC layer written before the structured hooks existed. This
- * example exercises that fallback for the memory-region, record-number,
- * emissions and user-defined sub-functions:
+ * The library frames the common 0x19 sub-functions itself (0x01/0x02/0x0A,
+ * 0x04/0x06, 0x07/0x08/0x09, 0x0B-0x0E, 0x14, 0x15, 0x42/0x55) from records
+ * the application supplies via fn_dtc_list. The remaining standard
+ * sub-functions need a memory region, a record number, an emissions subset, or
+ * a memory selection that does not generalise into a single hook, so the
+ * library routes them to the raw fn_dtc_read fallback. This example shows an
+ * application implementing those layers itself:
  *
  *   0x03 reportDTCSnapshotIdentification
  *   0x05 reportDTCStoredDataByRecordNumber
