@@ -172,6 +172,21 @@ typedef struct
 } uds_dtc_record_t;
 
 /**
+ * @brief DTC memory region addressed by a ReadDTCInformation (0x19) sub-function.
+ *
+ * ISO 14229-1 splits several 0x19 sub-functions across storage regions that hold
+ * the same record shape. The library passes the region to the multi-memory
+ * callbacks so one application hook can serve all of them.
+ */
+typedef enum
+{
+    UDS_DTC_MEM_PRIMARY = 0,       /**< Primary (default) DTC memory */
+    UDS_DTC_MEM_MIRROR = 1,        /**< Mirror memory (0x0F/0x10/0x11) */
+    UDS_DTC_MEM_EMISSIONS_OBD = 2, /**< Emissions-related OBD DTCs (0x12/0x13) */
+    UDS_DTC_MEM_USER_DEFINED = 3   /**< User-defined memory (0x17/0x18/0x19) */
+} uds_dtc_memory_t;
+
+/**
  * @brief ResponseOnEvent (0x86) stored event definition.
  */
 typedef struct
@@ -527,6 +542,91 @@ typedef struct
      */
     int (*fn_dtc_extdata)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
                           uint16_t max_len);
+
+    /**
+     * @brief Optional: DTC enumeration from a non-primary memory region
+     *        (SID 0x19, sub-functions 0x0F/0x11 mirror memory, 0x12/0x13
+     *        emissions-related OBD, 0x17 user-defined memory).
+     *
+     * Same contract as @ref fn_dtc_list (match when
+     * (record.status & status_mask) is non-zero, a mask of 0x00 matches every
+     * record, @p out may be NULL when only the count is needed), with the
+     * region selected by @p memory. @p mem_selection carries the
+     * MemorySelection byte for @ref UDS_DTC_MEM_USER_DEFINED and is 0 for the
+     * other regions.
+     *
+     * When this hook is NULL those sub-functions fall through to the raw
+     * @ref fn_dtc_read path.
+     *
+     * @return Number of matching DTCs (which may exceed @p max), or a
+     *         negative NRC on failure.
+     */
+    int (*fn_dtc_list_mem)(struct uds_ctx *ctx, uds_dtc_memory_t memory, uint8_t mem_selection,
+                           uint8_t status_mask, uds_dtc_record_t *out, uint16_t max);
+
+    /**
+     * @brief Optional: snapshot record numbers stored for @p dtc (SID 0x19,
+     *        sub-function 0x03 reportDTCSnapshotIdentification).
+     *
+     * Write up to @p max DTCSnapshotRecordNumber values into @p out_records.
+     * Requires @ref fn_dtc_list to enumerate the DTCs to ask about.
+     *
+     * @return Number of stored records (which may exceed @p max), 0 when the
+     *         DTC has no snapshot, or a negative NRC.
+     */
+    int (*fn_dtc_snapshot_ids)(struct uds_ctx *ctx, uint32_t dtc, uint8_t *out_records,
+                               uint16_t max);
+
+    /**
+     * @brief Optional: stored-data record bytes (SID 0x19, sub-function 0x05
+     *        reportDTCStoredDataByRecordNumber).
+     *
+     * The library writes [0x59, 0x05, recordNumber]; write the
+     * DTCAndStatusRecord and the identifier/value pairs that follow.
+     *
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_stored_data)(struct uds_ctx *ctx, uint8_t record_num, uint8_t *out_buf,
+                              uint16_t max_len);
+
+    /**
+     * @brief Optional: extended-data records selected by record number across
+     *        all DTCs (SID 0x19, sub-function 0x16
+     *        reportDTCExtDataRecordByRecordNumber).
+     *
+     * The library writes [0x59, 0x16, recordNumber]; write the
+     * [DTCAndStatusRecord, extendedData] pairs that follow.
+     *
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_extdata_by_record)(struct uds_ctx *ctx, uint8_t record_num, uint8_t *out_buf,
+                                    uint16_t max_len);
+
+    /**
+     * @brief Optional: snapshot record bytes from user-defined memory
+     *        (SID 0x19, sub-function 0x18).
+     *
+     * Same payload contract as @ref fn_dtc_snapshot, with the memory selected
+     * by @p mem_selection.
+     *
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_snapshot_mem)(struct uds_ctx *ctx, uint8_t mem_selection, uint32_t dtc,
+                               uint8_t record_num, uint8_t *out_buf, uint16_t max_len);
+
+    /**
+     * @brief Optional: extended-data record bytes from a non-primary memory
+     *        region (SID 0x19, sub-functions 0x10 mirror memory and 0x19
+     *        user-defined memory).
+     *
+     * Same payload contract as @ref fn_dtc_extdata. @p mem_selection carries
+     * the MemorySelection byte for @ref UDS_DTC_MEM_USER_DEFINED and is 0 for
+     * mirror memory.
+     *
+     * @return Bytes written, 0 if no such record, or a negative NRC.
+     */
+    int (*fn_dtc_extdata_mem)(struct uds_ctx *ctx, uds_dtc_memory_t memory, uint8_t mem_selection,
+                              uint32_t dtc, uint8_t record_num, uint8_t *out_buf, uint16_t max_len);
 
     /** DTCStatusAvailabilityMask reported in 0x01/0x02/0x0A responses. */
     uint8_t dtc_status_availability_mask;

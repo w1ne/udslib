@@ -105,6 +105,10 @@ int main(void)
     cfg.app_data = &store;
     cfg.fn_dtc_list = uds_dtc_store_list_cb;
     cfg.fn_dtc_clear = uds_dtc_store_clear_cb;
+    /* The memory-scoped sub-functions (0x0F/0x11 mirror, 0x12/0x13 emissions,
+     * 0x17 user-defined, and 0x10/0x19 extended data from those regions). */
+    cfg.fn_dtc_list_mem = uds_dtc_store_list_mem_cb;
+    cfg.fn_dtc_extdata_mem = uds_dtc_store_extdata_mem_cb;
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
@@ -139,6 +143,26 @@ int main(void)
         offset += 4u;
         dtc_idx++;
     }
+
+    /* --- Feed ReadDTCInformation 0x13 0xFF (emissions-related OBD DTCs) --- */
+    printf("\n=== ReadDTCInformation (0x19 0x13 0xFF) response ===\n");
+    uint8_t req_obd[] = {0x19, 0x13, 0xFF};
+    g_resp_len = 0u;
+    uds_input_sdu(&ctx, req_obd, sizeof(req_obd));
+
+    if (g_resp_len < 1u || g_resp[0] != 0x59u) {
+        printf("  ERROR: no positive response (got %u bytes)\n", g_resp_len);
+        return 1;
+    }
+
+    printf("  Response (%u bytes):", g_resp_len);
+    for (uint16_t i = 0u; i < g_resp_len; i++) {
+        printf(" %02X", g_resp[i]);
+    }
+    printf("\n");
+    printf("  All three DTCs are registered in functional group 0x%02X, so the\n",
+           UDS_DTC_FGID_EMISSIONS);
+    printf("  emissions-related report carries the same set.\n");
 
     return 0;
 }

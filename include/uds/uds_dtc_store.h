@@ -72,4 +72,23 @@ int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_n
                              uint8_t *out_buf, uint16_t max_len);
 int uds_dtc_store_clear_cb(struct uds_ctx *ctx, uint32_t group);
 
+/**
+ * @brief fn_dtc_list_mem for the memory-scoped 0x19 sub-functions
+ *        (0x0F/0x11 mirror, 0x12/0x13 emissions-related OBD, 0x17 user-defined).
+ *
+ * The reference store keeps a single set of records, so mirror and
+ * user-defined memory report that set and @p mem_selection is ignored;
+ * emissions-related OBD reports the subset registered in functional group
+ * @ref UDS_DTC_FGID_EMISSIONS. An ECU with genuinely separate memories should
+ * supply its own hook instead.
+ */
+int uds_dtc_store_list_mem_cb(struct uds_ctx *ctx, uds_dtc_memory_t memory, uint8_t mem_selection,
+                              uint8_t status_mask, uds_dtc_record_t *out, uint16_t max);
+
+/** fn_dtc_extdata_mem for 0x10/0x19; serves the same payload as
+ *  uds_dtc_store_extdata_cb from the store's single record set. */
+int uds_dtc_store_extdata_mem_cb(struct uds_ctx *ctx, uds_dtc_memory_t memory,
+                                 uint8_t mem_selection, uint32_t dtc, uint8_t record_num,
+                                 uint8_t *out_buf, uint16_t max_len);
+
 #endif /* UDS_DTC_STORE_H */
