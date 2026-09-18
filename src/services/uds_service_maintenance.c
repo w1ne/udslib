@@ -631,6 +631,19 @@ void uds_internal_handle_read_dtc_info(uds_ctx_t *ctx, const uint8_t *data, uint
         return;
     }
 
+    /* ISO 14229-1: the user-defined-memory sub-functions carry a MemorySelection
+     * byte — after DTCStatusMask for 0x17, after DTC(3) + recordNumber for
+     * 0x18/0x19. Reject a request that is short of its own parameters here, so
+     * the fn_dtc_read hook is never handed a truncated one to re-validate. */
+    if ((sub == 0x17u) && (len < 4u)) {
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
+    }
+    if (((sub == 0x18u) || (sub == 0x19u)) && (len < 7u)) {
+        uds_nrc(out, UDS_NRC_INCORRECT_LENGTH);
+        return;
+    }
+
     /* The static helpers below call uds_send_response/uds_send_nrc directly (legacy
      * compat shim path). Signal NONE so execute_handler does not attempt a second
      * emit after control returns here. */

@@ -764,6 +764,69 @@ static void test_store_backed_extdata_and_clear(void **state)
     assert_int_equal(r->status, 0);
 }
 
+static void test_read_dtc_info_0x17_needs_memory_selection(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_read = mock_dtc_read;
+
+    /* ISO 14229-1: 0x17 is SID + sub + DTCStatusMask + MemorySelection = 4
+     * bytes. A 3-byte request is short of its own parameters -> NRC 0x13. */
+    uint8_t req[] = {0x19, 0x17, 0x08};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 7F 19 13 */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 3);
+    assert_int_equal(g_tx_buf[2], 0x13);
+}
+
+static void test_read_dtc_info_0x19_needs_memory_selection(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_read = mock_dtc_read;
+
+    /* 0x18/0x19 are SID + sub + DTC(3) + recordNumber + MemorySelection = 7. */
+    uint8_t req[] = {0x19, 0x19, 0x12, 0x34, 0x56, 0x01};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 6);
+    assert_int_equal(g_tx_buf[2], 0x13);
+}
+
+static void test_read_dtc_info_0x17_full_request_reaches_app(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+    cfg.fn_dtc_read = capture_dtc_read;
+    g_seen_req_len = 0u;
+    g_seen_sub = 0u;
+
+    /* A well-formed 0x17 still routes to the application hook untouched. */
+    uint8_t req[] = {0x19, 0x17, 0x08, 0x42};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 3); /* 59 17 AA */
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 4);
+
+    assert_int_equal(g_seen_sub, 0x17u);
+    assert_int_equal(g_seen_req_len, 4);
+    assert_int_equal(g_seen_req[3], 0x42); /* MemorySelection reached the app */
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -792,6 +855,9 @@ int main(void)
         cmocka_unit_test(test_store_backed_read_dtc_0x02),
         cmocka_unit_test(test_store_backed_extdata_and_clear),
         cmocka_unit_test(test_read_dtc_info_fn_dtc_read_gets_request),
+        cmocka_unit_test(test_read_dtc_info_0x17_needs_memory_selection),
+        cmocka_unit_test(test_read_dtc_info_0x19_needs_memory_selection),
+        cmocka_unit_test(test_read_dtc_info_0x17_full_request_reaches_app),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **ReadDTCInformation (0x19): validate the MemorySelection byte** on
+  reportUserDefMemoryDTCByStatusMask (0x17) and the user-defined-memory
+  record sub-functions (0x18/0x19). A request short of its own parameters
+  now returns NRC 0x13 instead of reaching `fn_dtc_read` for the application
+  to re-validate. Raised by issue #113.
+
 ## [2.0.0] - 2026-06-23
 
 Architecture release: response emission, suppression, and reset ordering move
