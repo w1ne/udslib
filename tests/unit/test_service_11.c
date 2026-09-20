@@ -223,6 +223,59 @@ static void test_ecu_reset_suppress_does_not_leak(void **state)
     assert_int_equal(g_tx_buf[0], 0x54);
 }
 
+/* Preserve the PR #81 follow-up sequence: 10 01 -> 11 01 -> 10 01.
+ * The reset callback deliberately returns, so this checks stack state after a
+ * completed reset callback, not physical ECU reboot availability. Adapted from
+ * hmf1235789/udslib commit 97a4956d348cff7d388ff0654409cac1883e1568. */
+static void test_ecu_reset_non_suppressed_allows_next_service(void **state)
+{
+    (void) state;
+    uds_ctx_t ctx;
+    uds_config_t cfg;
+    setup_ctx(&ctx, &cfg);
+    cfg.fn_reset = mock_reset_cb;
+    cfg.fn_tx_complete = always_tx_complete;
+    g_reset_called = 0;
+
+    /* 1. 10 01 -> 50 01 ... */
+    uint8_t sess_req[] = {0x10, 0x01};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_any(mock_tp_send, len);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, sess_req, sizeof(sess_req));
+    assert_int_equal(g_tx_buf[0], 0x50);
+    assert_int_equal(g_tx_buf[1], 0x01);
+
+    /* 2. 11 01 (NOT suppressed) -> 51 01 emitted; reset waits for the process tick. */
+    uint8_t reset_req[] = {0x11, 0x01};
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 2);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, reset_req, sizeof(reset_req));
+    assert_int_equal(g_tx_buf[0], 0x51);
+    assert_int_equal(g_reset_called, 0);
+    assert_int_equal(g_tx_buf[1], 0x01);
+
+    will_return(mock_get_time, 1000); /* Drain the deferred reset. */
+    uds_process(&ctx);
+    assert_int_equal(g_reset_called, 1);
+    assert_int_equal(g_last_reset_type, 0x01);
+
+    /* 3. 10 01 again MUST still respond (this is the step the reporter saw fail). */
+    will_return(mock_get_time, 1000); /* Input */
+    will_return(mock_get_time, 1000); /* Dispatch */
+    expect_any(mock_tp_send, data);
+    expect_any(mock_tp_send, len);
+    will_return(mock_tp_send, 0);
+    uds_input_sdu(&ctx, sess_req, sizeof(sess_req));
+    assert_int_equal(g_tx_buf[0], 0x50);
+    assert_int_equal(g_tx_buf[1], 0x01);
+}
+
 /* ISO 14229-1: the enableRapidPowerShutDown (0x11 sub 0x04) positive response
  * carries an extra powerDownTime byte -> {0x51, 0x04, powerDownTime} (3 bytes),
  * sourced from cfg.power_down_time. Other reset types stay 2 bytes. */
@@ -627,6 +680,7 @@ int main(void)
         cmocka_unit_test(test_ecu_reset_invalid_subfunction_nrc),
         cmocka_unit_test(test_ecu_reset_suppress_pos_resp),
         cmocka_unit_test(test_ecu_reset_suppress_does_not_leak),
+        cmocka_unit_test(test_ecu_reset_non_suppressed_allows_next_service),
         cmocka_unit_test(test_ecu_reset_rapid_shutdown_power_down_time),
         cmocka_unit_test(test_ecu_reset_no_reset_when_send_fails),
         cmocka_unit_test(test_ecu_reset_secured_defers_until_outer_response),
