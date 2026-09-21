@@ -5,10 +5,10 @@
 
 /**
  * @file main.c
- * @brief DTC status kept across a reset, without the library touching flash.
+ * @brief ECU-side DTC monitor, operation cycle, and NVM, without flash in udslib.
  *
- * The "NVM" is a plain byte array. A real ECU replaces nvm_save() / nvm_load()
- * with its own flash or EEPROM driver. The UDS stack only sees the RAM store.
+ * The "NVM" is a byte array. A real ECU replaces nvm_save() / nvm_load() with
+ * its own flash or EEPROM driver. The UDS stack only reads the RAM store.
  */
 
 #include <stdint.h>
@@ -64,12 +64,35 @@ static void register_catalog(uds_dtc_store_t *store)
                            UDS_DTC_FGID_EMISSIONS);
 }
 
-static int serve_19(uds_ctx_t *ctx)
+static uds_dtc_snapshot_t sample_environment(void)
 {
-    uint8_t req[] = {0x19, 0x02, 0xFF};
+    uds_dtc_snapshot_t env;
+    env.voltage = 0x8Cu; /* application scale, e.g. 14.0 V */
+    env.power_mode = 0x02u;
+    env.time.second = 0x2Au;
+    env.time.minute = 0x05u;
+    env.time.hour = 0x0Du;
+    env.time.day = 0x13u;
+    env.time.month = 0x06u;
+    env.time.year = 0x19u; /* years since 2000 */
+    return env;
+}
+
+/* The ECU monitor. The UDS stack never calls this. */
+static void monitor_until_confirmed(uds_dtc_store_t *store, uint32_t dtc)
+{
+    uds_dtc_snapshot_t env = sample_environment();
+    uds_dtc_store_set_environment(store, &env);
+    for (int i = 0; i < 127; i++) {
+        uds_dtc_store_report_test(store, dtc, true);
+    }
+}
+
+static int serve(uds_ctx_t *ctx, const uint8_t *req, uint16_t len, const char *label)
+{
     g_resp_len = 0u;
-    uds_input_sdu(ctx, req, sizeof(req));
-    printf("  19 02 FF ->");
+    uds_input_sdu(ctx, req, len);
+    printf("  %s ->", label);
     for (uint16_t i = 0u; i < g_resp_len; i++) {
         printf(" %02X", g_resp[i]);
     }
@@ -77,15 +100,11 @@ static int serve_19(uds_ctx_t *ctx)
     return (g_resp_len > 0u && g_resp[0] == 0x59u) ? 0 : -1;
 }
 
-/* Response contains DTC 012345 with status 0x23 (failed this cycle). */
-static int response_has_stored_dtc(void)
+static int expect_bytes(const uint8_t *want, uint16_t want_len)
 {
-    for (uint16_t i = 3u; (i + 4u) <= g_resp_len; i = (uint16_t) (i + 4u)) {
-        uint32_t dtc = ((uint32_t) g_resp[i] << 16) | ((uint32_t) g_resp[i + 1u] << 8) |
-                       (uint32_t) g_resp[i + 2u];
-        if ((dtc == 0x012345u) && (g_resp[i + 3u] == 0x23u)) {
-            return 1;
-        }
+    if ((g_resp_len != want_len) || (memcmp(g_resp, want, want_len) != 0)) {
+        printf("  ERROR: unexpected response\n");
+        return -1;
     }
     return 0;
 }
@@ -97,17 +116,32 @@ int main(void)
     static uint8_t rxb[128];
     static uint8_t txb[128];
 
+    printf("The UDS stack does not detect faults. The ECU monitor calls report_test.\n");
     uds_dtc_store_init(&store, backing, 4u, 40u);
     register_catalog(&store);
-    uds_dtc_store_report_test(&store, 0x012345u, true);
+    monitor_until_confirmed(&store, 0x012345u);
+    printf("127 failing reports confirmed DTC 012345 and stored the freeze frame.\n");
+
+    /* End the failed ignition cycle, then one later cycle with no failure.
+     * The stack does not call this either. Ageing advances only on the clean cycle. */
+    uds_dtc_store_operation_cycle(&store);
+    uds_dtc_store_operation_cycle(&store);
+    uds_dtc_record_t *live = uds_dtc_store_get(&store, 0x012345u);
+    printf("After two operation cycles, the second with no failure:\n");
+    printf("  occurrence=%u  pending=%u  ageing=%u  snapshot voltage=0x%02X\n",
+           live->extended.fault_occur_counter, live->extended.fault_pending_counter,
+           live->extended.ageing_counter, live->snapshot.voltage);
+
+    /* Save from the application task, not from inside the 0x19 handler.
+     * Erasing flash there is slow enough that the tester times out. */
     if (nvm_save(&store) != 0) {
         printf("NVM save failed\n");
         return 1;
     }
-    printf("Saved %u bytes of DTC state into the application NVM buffer.\n", g_nvm_len);
+    printf("Saved %u bytes into the application NVM buffer. The library did not write flash.\n",
+           g_nvm_len);
 
-    /* Power cycle: RAM is gone. The catalog is registered again from the ECU
-     * tables. Runtime status is still zero until the blob is loaded. */
+    /* Power cycle. Register the catalog again. Runtime bytes stay zero until load. */
     memset(backing, 0, sizeof(backing));
     uds_dtc_store_init(&store, backing, 4u, 40u);
     register_catalog(&store);
@@ -124,33 +158,56 @@ int main(void)
     cfg.dtc_format_id = 0x01u;
     cfg.app_data = &store;
     cfg.fn_dtc_list = uds_dtc_store_list_cb;
+    cfg.fn_dtc_snapshot = uds_dtc_store_snapshot_cb;
+    cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
 
-    printf("After reset, before NVM load:\n");
-    if (serve_19(&ctx) != 0) {
+    const uint8_t req_02[] = {0x19, 0x02, 0xFF};
+    const uint8_t req_04[] = {0x19, 0x04, 0x01, 0x23, 0x45, 0x01};
+    const uint8_t req_06[] = {0x19, 0x06, 0x01, 0x23, 0x45, 0x01};
+
+    printf("\nAfter reset, before NVM load:\n");
+    if (serve(&ctx, req_02, sizeof(req_02), "19 02 FF") != 0) {
         return 1;
     }
-    if (response_has_stored_dtc()) {
-        printf("  ERROR: DTC survived in RAM. The demo did not reset the store.\n");
+    if (serve(&ctx, req_04, sizeof(req_04), "19 04 01 23 45 01") != 0) {
         return 1;
     }
-    printf("  DTC is gone. 0x19 reads RAM, and RAM was cleared.\n");
+    if (serve(&ctx, req_06, sizeof(req_06), "19 06 01 23 45 01") != 0) {
+        return 1;
+    }
+    printf("  RAM was cleared. 0x19 reads RAM.\n");
 
     if (nvm_load(&store) < 0) {
         printf("NVM load failed\n");
         return 1;
     }
 
-    printf("After NVM load:\n");
-    if (serve_19(&ctx) != 0) {
+    printf("\nAfter NVM load:\n");
+    if (serve(&ctx, req_02, sizeof(req_02), "19 02 FF") != 0) {
         return 1;
     }
-    if (!response_has_stored_dtc()) {
-        printf("  ERROR: stored DTC status was not restored.\n");
+    const uint8_t want_02[] = {0x59, 0x02, 0x7F, 0x01, 0x23, 0x45, 0x2D};
+    if (expect_bytes(want_02, sizeof(want_02)) != 0) {
         return 1;
     }
-    printf("  DTC 012345 status 0x23 is back. Flash stayed in the application.\n");
+    if (serve(&ctx, req_04, sizeof(req_04), "19 04 01 23 45 01") != 0) {
+        return 1;
+    }
+    const uint8_t want_04[] = {0x59, 0x04, 0x01, 0x23, 0x45, 0x2D, 0x01, 0x02, 0x10, 0x01,
+                               0x19, 0x06, 0x13, 0x0D, 0x05, 0x2A, 0x10, 0x02, 0x8C, 0x02};
+    if (expect_bytes(want_04, sizeof(want_04)) != 0) {
+        return 1;
+    }
+    if (serve(&ctx, req_06, sizeof(req_06), "19 06 01 23 45 01") != 0) {
+        return 1;
+    }
+    const uint8_t want_06[] = {0x59, 0x06, 0x01, 0x23, 0x45, 0x2D, 0x01, 0x01, 0x00, 0x00, 0x01};
+    if (expect_bytes(want_06, sizeof(want_06)) != 0) {
+        return 1;
+    }
+    printf("  Status, freeze frame, and counters are back.\n");
     return 0;
 }
