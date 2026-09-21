@@ -97,30 +97,71 @@
 /* Subfunction Masks (16 bytes) */
 /* Allowed 0x10 subfunctions: 0x1E = 0x01/0x02/0x03/0x04
  * (default/programming/extended/safetySystem). */
-#define UDS_MASK_SUB_10 {0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define UDS_MASK_SUB_10                                    \
+    {                                                      \
+        0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 /* Allowed 0x11 sub-functions: 0x3E = 0x01..0x05 (hardReset/keyOffOnReset/
  * softReset/enableRapidPowerShutDown/disableRapidPowerShutDown). */
-#define UDS_MASK_SUB_11 {0x3Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define UDS_MASK_SUB_11                                    \
+    {                                                      \
+        0x3Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 /* Allowed 0x19 subfunctions: all standard sub-functions 0x00–0x19 plus 0x42 and 0x55.
  * byte0 0xFF = 0x00–0x07; byte1 0xFF = 0x08–0x0F; byte2 0xFF = 0x10–0x17;
  * byte3 0x03 = 0x18/0x19; byte8 0x04 = 0x42; byte10 0x20 = 0x55. */
-#define UDS_MASK_SUB_19 {0xFFu, 0xFFu, 0xFFu, 0x03u, 0, 0, 0, 0, 0x04u, 0, 0x20u, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_27                                      \
-    {0xFEu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, \
-     0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu}
-#define UDS_MASK_SUB_28 {0x3Fu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define UDS_MASK_SUB_19                                                        \
+    {                                                                          \
+        0xFFu, 0xFFu, 0xFFu, 0x03u, 0, 0, 0, 0, 0x04u, 0, 0x20u, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_27                                                                            \
+    {                                                                                              \
+        0xFEu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, 0xFFu, \
+            0xFFu, 0xFFu, 0xFFu                                                                    \
+    }
+#define UDS_MASK_SUB_28                                    \
+    {                                                      \
+        0x3Fu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 /* 0x29 Authentication sub-functions 0x00-0x08: byte0 0xFF + byte1 0x01 (0x08). */
-#define UDS_MASK_SUB_29 {0xFFu, 0x01u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_31 {0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_3E {0x01u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_85 {0x06u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_2A {0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define UDS_MASK_SUB_29                                        \
+    {                                                          \
+        0xFFu, 0x01u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_31                                    \
+    {                                                      \
+        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_3E                                    \
+    {                                                      \
+        0x01u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_85                                    \
+    {                                                      \
+        0x06u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_2A                                    \
+    {                                                      \
+        0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 /* 0x2C subfunctions 0x01/0x02/0x03 -> bits 1,2,3 = 0x0E. */
-#define UDS_MASK_SUB_2C {0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define UDS_MASK_SUB_2C                                    \
+    {                                                      \
+        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 /* 0x86 subfunctions 0x00-0x07 -> 0xFF. */
-#define UDS_MASK_SUB_86 {0xFFu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_87 {0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define UDS_MASK_SUB_83 {0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define UDS_MASK_SUB_86                                    \
+    {                                                      \
+        0xFFu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_87                                    \
+    {                                                      \
+        0x0Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
+#define UDS_MASK_SUB_83                                    \
+    {                                                      \
+        0x1Eu, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 \
+    }
 
 uint8_t uds_internal_session_bit(uint8_t session);
 uint8_t uds_internal_strict_session_mask(uint8_t sid);
