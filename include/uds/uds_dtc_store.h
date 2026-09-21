@@ -28,10 +28,10 @@
  */
 typedef struct
 {
-    uds_dtc_record_t *entries; /**< Application-provided backing array. */
-    uint16_t capacity;         /**< Number of slots in @ref entries. */
-    uint16_t count;            /**< Registered DTCs. */
-    uint8_t aging_threshold;   /**< Operation cycles to self-heal (e.g. 40). */
+    uds_dtc_record_t *entries;      /**< Application-provided backing array. */
+    uint16_t capacity;              /**< Number of slots in @ref entries. */
+    uint16_t count;                 /**< Registered DTCs. */
+    uint8_t aging_threshold;        /**< Operation cycles to self-heal (e.g. 40). */
     uds_dtc_snapshot_t environment; /**< Latest voltage / power mode / time. */
     bool environment_set;           /**< @ref uds_dtc_store_set_environment was called. */
 } uds_dtc_store_t;

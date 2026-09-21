@@ -22,7 +22,7 @@ static void uds_dtc_zero_snapshot(uds_dtc_record_t *r)
 }
 
 /* First confirmation, and each later operation cycle that fails again. */
-static void uds_dtc_note_occurrence(uds_dtc_store_t *s, uds_dtc_record_t *r)
+static void uds_dtc_note_occurrence(const uds_dtc_store_t *s, uds_dtc_record_t *r)
 {
     if (r->extended.fault_occur_counter < 0xFFu) {
         r->extended.fault_occur_counter++;
@@ -262,8 +262,9 @@ int uds_dtc_store_deserialize(uds_dtc_store_t *s, const uint8_t *buf, uint16_t l
         return UDS_ERR_INVALID_ARG;
     }
 
-    uint8_t rec_len = (buf[0] == UDS_DTC_STORE_BLOB_VERSION_V1) ? (uint8_t) UDS_DTC_STORE_BLOB_REC_V1
-                                                               : (uint8_t) UDS_DTC_STORE_BLOB_REC;
+    uint8_t rec_len = (buf[0] == UDS_DTC_STORE_BLOB_VERSION_V1)
+                          ? (uint8_t) UDS_DTC_STORE_BLOB_REC_V1
+                          : (uint8_t) UDS_DTC_STORE_BLOB_REC;
     uint16_t count = (uint16_t) (((uint16_t) buf[1] << 8) | (uint16_t) buf[2]);
     uint32_t need = (uint32_t) UDS_DTC_STORE_BLOB_HDR + ((uint32_t) count * (uint32_t) rec_len);
     /* Reject a short blob before any record is written. Extra trailing bytes

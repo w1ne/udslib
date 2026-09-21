@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-21
+
 ### Added
 - **DTC store persistence helpers** `uds_dtc_store_serialize()` /
   `uds_dtc_store_deserialize()`: copy runtime DTC state to a caller-owned
