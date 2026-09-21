@@ -62,6 +62,18 @@ The response is `59 02 <statusAvailabilityMask>` followed by one
 `testFailed | testFailedThisOperationCycle | testFailedSinceLastClear`, set by
 `uds_dtc_store_report_test(..., true)`.
 
+## Persistence
+
+The store is RAM. It does not write flash. `uds_dtc_store_serialize()` copies
+status, the fault-detection counter, the aging counter, the extended-data
+counters, and the freeze frame into a buffer the application stores in its own
+NVM. `uds_dtc_store_deserialize()` writes those bytes back after the DTC
+numbers are registered again at boot. Wire 0x04 and 0x06 with
+`uds_dtc_store_snapshot_cb` and `uds_dtc_store_extdata_cb` after publishing the
+live environment through `uds_dtc_store_set_environment()`.
+
+`../dtc_persist` is a host demo of that, with a byte array standing in for flash.
+
 ## See also
 
 `../dtc_full_coverage` — every 0x19 sub-function, including the ones the

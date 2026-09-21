@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added
+- **DTC store persistence helpers** `uds_dtc_store_serialize()` /
+  `uds_dtc_store_deserialize()`: copy runtime DTC state to a caller-owned
+  buffer so the application can keep it across a reset in its own NVM. The
+  library stays storage-agnostic. Blob version 0x02 stores the 24-bit DTC,
+  status, fault-detection counter, aging counter, extended-data counters, and
+  the freeze frame. Version 0x01 blobs (status and counters only) still load.
+  Catalog fields are registered again at boot and are not in the blob.
+  See `examples/dtc_persist`.
+- **Reference-store snapshot and extended data** (#120). On confirmation, and on the
+  first failure of each later operation cycle, the store counts an occurrence,
+  stores the environment from `uds_dtc_store_set_environment()`, and serves it
+  from `uds_dtc_store_snapshot_cb` (0x19 0x04, DID 0x1001 time and DID 0x1002
+  voltage/power mode) and `uds_dtc_store_extdata_cb` (0x19 0x06: occurrence,
+  pending, aged, ageing). A clean operation cycle ages the DTC; reaching the
+  aging threshold clears status and the freeze frame and increments the aged
+  counter. The byte layout inside the snapshot is this reference record, not
+  an OEM-specific struct.
+
 ### Fixed
 - **ReadDTCInformation (0x19): validate the MemorySelection byte** on
   reportUserDefMemoryDTCByStatusMask (0x17) and the user-defined-memory
