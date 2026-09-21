@@ -86,5 +86,9 @@ occurrence / pending / aged / ageing counters.
 
 ## See also
 
-`../dtc_store` — the opt-in reference store that implements the library-framed
-sub-functions for you.
+`../dtc_store` — the opt-in reference store. It frames the same `0x04` / `0x06`
+records for you (`uds_dtc_store_snapshot_cb`, `uds_dtc_store_extdata_cb`), so
+the application only publishes the environment and reports test results.
+`../dtc_persist` — that store saved across a reset, in a buffer your own
+flash driver writes. Use this example when the reference snapshot layout is
+not the one your specification requires.
