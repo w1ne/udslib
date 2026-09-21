@@ -180,8 +180,8 @@ int main(void)
     confirm_dtc(&store, 0x012345u);
 
     uint8_t req_snap[] = {0x19, 0x04, 0x01, 0x23, 0x45, 0x01};
-    if (serve(&ctx, req_snap, (uint8_t) sizeof(req_snap),
-              "Snapshot (0x19 0x04) for DTC 012345") != 0) {
+    if (serve(&ctx, req_snap, (uint8_t) sizeof(req_snap), "Snapshot (0x19 0x04) for DTC 012345") !=
+        0) {
         return 1;
     }
     /* 59 04 DTC(3) status rec n DID 1001 time(6) DID 1002 voltage power */

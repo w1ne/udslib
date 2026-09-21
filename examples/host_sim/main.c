@@ -192,14 +192,8 @@ static int did_read_active_session(uds_ctx_t *ctx, uint16_t did, uint8_t *buf, u
 
 /* size = sizeof(arr) - 1 drops the string NUL so the 0x22 response carries
  * exactly the printable bytes; binary DIDs use plain sizeof. */
-#define STR_DID(id, arr)                                             \
-    {                                                                \
-        (id), (uint16_t) (sizeof(arr) - 1u), 0, 0, NULL, NULL, (arr) \
-    }
-#define BIN_DID(id, arr)                                      \
-    {                                                         \
-        (id), (uint16_t) sizeof(arr), 0, 0, NULL, NULL, (arr) \
-    }
+#define STR_DID(id, arr) {(id), (uint16_t) (sizeof(arr) - 1u), 0, 0, NULL, NULL, (arr)}
+#define BIN_DID(id, arr) {(id), (uint16_t) sizeof(arr), 0, 0, NULL, NULL, (arr)}
 
 /**
  * @brief Example DID table setup (Service 0x22 ReadDataByIdentifier).

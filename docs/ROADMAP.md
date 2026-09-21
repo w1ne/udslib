@@ -206,6 +206,7 @@ For current implemented service coverage, see `SERVICE_COMPLIANCE.md`.
 - [x] **Service 0x2F (InputOutputControlByIdentifier)**: Actuator control.
 - [x] **Service 0x35 (RequestUpload)**: Symmetrical data provider flow.
 - [x] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Core scheduler integration.
+- [x] **Reference DTC store (v2.1.0)**: freeze frame and extended-data counters, served by 0x19 0x04 and 0x06, copied to an application-owned NVM buffer.
 
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.
