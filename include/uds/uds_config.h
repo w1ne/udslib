@@ -19,6 +19,8 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
+#include "uds/uds_dtc.h"
+
 /* Forward declaration of the opaque context */
 struct uds_ctx;
 
@@ -169,6 +171,9 @@ typedef struct
     int8_t fault_detection_counter; /**< signed -128..127 (0x14) */
     uint8_t aging_counter;          /**< operation cycles since last fault */
     uint8_t functional_group;       /**< WWH-OBD functional group (0x33/0xD0/0xFE) */
+    uds_dtc_extended_data_t extended; /**< 0x19 0x06 counters (ageing mirrors aging_counter) */
+    uds_dtc_snapshot_t snapshot;      /**< 0x19 0x04 freeze frame */
+    uint8_t snapshot_valid;           /**< Non-zero once @ref snapshot has been captured. */
 } uds_dtc_record_t;
 
 /**

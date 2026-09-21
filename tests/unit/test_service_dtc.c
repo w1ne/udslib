@@ -733,8 +733,9 @@ static void test_store_backed_extdata_and_clear(void **state)
     will_return(mock_get_time, 1000);
     will_return(mock_get_time, 1000);
     expect_any(mock_tp_send, data);
-    /* 59 06 DTC(3) + extdata(4) = 5 + 4 = 9 */
-    expect_value(mock_tp_send, len, 9);
+    /* 59 06 DTC(3) + status + record + 4 counters = 11.
+     * One failing report has not confirmed the DTC, so the counters are 0. */
+    expect_value(mock_tp_send, len, 11);
     will_return(mock_tp_send, 0);
 
     uds_input_sdu(&ctx, req_ext, 6);
@@ -744,7 +745,11 @@ static void test_store_backed_extdata_and_clear(void **state)
     assert_int_equal(g_tx_buf[2], 0x01); /* DTC hi */
     assert_int_equal(g_tx_buf[3], 0x23); /* DTC mid */
     assert_int_equal(g_tx_buf[4], 0x45); /* DTC lo */
-    assert_int_equal(g_tx_buf[6], 0x01); /* record_num echoed in payload[1] */
+    assert_int_equal(g_tx_buf[6], 0x01); /* extended-data record 0x01 */
+    assert_int_equal(g_tx_buf[7], 0x00); /* occurrence */
+    assert_int_equal(g_tx_buf[8], 0x00); /* pending */
+    assert_int_equal(g_tx_buf[9], 0x00); /* aged */
+    assert_int_equal(g_tx_buf[10], 0x00); /* ageing */
 
     /* ClearDiagnosticInformation: group 0xFFFFFF */
     uint8_t req_clr[] = {0x14, 0xFF, 0xFF, 0xFF};
@@ -827,6 +832,76 @@ static void test_read_dtc_info_0x17_full_request_reaches_app(void **state)
     assert_int_equal(g_seen_req[3], 0x42); /* MemorySelection reached the app */
 }
 
+static void test_store_backed_snapshot_0x04(void **state)
+{
+    (void) state;
+    BEGIN_UDS_TEST(ctx, cfg);
+
+    static uds_dtc_record_t backing[2];
+    static uds_dtc_store_t store;
+    uds_dtc_store_init(&store, backing, 2u, 40u);
+    uds_dtc_store_register(&store, 0x012345u, UDS_DTC_SEVERITY_CHECK_IMMEDIATELY, 0x10u,
+                           UDS_DTC_FGID_EMISSIONS);
+    uds_dtc_snapshot_t env;
+    env.voltage = 0x8Cu;
+    env.power_mode = 0x02u;
+    env.time.second = 0x2Au;
+    env.time.minute = 0x05u;
+    env.time.hour = 0x0Du;
+    env.time.day = 0x13u;
+    env.time.month = 0x06u;
+    env.time.year = 0x19u;
+    uds_dtc_store_set_environment(&store, &env);
+    for (int i = 0; i < 127; i++) {
+        uds_dtc_store_report_test(&store, 0x012345u, true);
+    }
+
+    cfg.app_data = &store;
+    cfg.fn_dtc_snapshot = uds_dtc_store_snapshot_cb;
+    cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;
+
+    uint8_t req[] = {0x19, 0x04, 0x01, 0x23, 0x45, 0x01};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    /* 59 04 DTC(3) + 15 snapshot bytes */
+    expect_value(mock_tp_send, len, 20);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req, 6);
+
+    assert_int_equal(g_tx_buf[0], 0x59);
+    assert_int_equal(g_tx_buf[1], 0x04);
+    assert_true((g_tx_buf[5] & UDS_DTC_STATUS_CONFIRMED) != 0u);
+    assert_int_equal(g_tx_buf[6], 0x01);
+    assert_int_equal(g_tx_buf[7], 0x02);
+    assert_int_equal(g_tx_buf[8], 0x10);
+    assert_int_equal(g_tx_buf[9], 0x01);
+    assert_int_equal(g_tx_buf[10], 0x19); /* year */
+    assert_int_equal(g_tx_buf[15], 0x2A); /* second */
+    assert_int_equal(g_tx_buf[16], 0x10);
+    assert_int_equal(g_tx_buf[17], 0x02);
+    assert_int_equal(g_tx_buf[18], 0x8C);
+    assert_int_equal(g_tx_buf[19], 0x02);
+
+    uint8_t req_ext[] = {0x19, 0x06, 0x01, 0x23, 0x45, 0xFF};
+
+    will_return(mock_get_time, 1000);
+    will_return(mock_get_time, 1000);
+    expect_any(mock_tp_send, data);
+    expect_value(mock_tp_send, len, 11);
+    will_return(mock_tp_send, 0);
+
+    uds_input_sdu(&ctx, req_ext, 6);
+    assert_int_equal(g_tx_buf[1], 0x06);
+    assert_int_equal(g_tx_buf[6], 0x01); /* 0xFF expands to record 0x01 */
+    assert_int_equal(g_tx_buf[7], 0x01); /* one confirmed occurrence */
+    assert_int_equal(g_tx_buf[8], 0x01); /* pending */
+    assert_int_equal(g_tx_buf[9], 0x00);
+    assert_int_equal(g_tx_buf[10], 0x00);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -854,6 +929,7 @@ int main(void)
         cmocka_unit_test(test_read_dtc_info_0x0F_reaches_legacy),
         cmocka_unit_test(test_store_backed_read_dtc_0x02),
         cmocka_unit_test(test_store_backed_extdata_and_clear),
+        cmocka_unit_test(test_store_backed_snapshot_0x04),
         cmocka_unit_test(test_read_dtc_info_fn_dtc_read_gets_request),
         cmocka_unit_test(test_read_dtc_info_0x17_needs_memory_selection),
         cmocka_unit_test(test_read_dtc_info_0x19_needs_memory_selection),
