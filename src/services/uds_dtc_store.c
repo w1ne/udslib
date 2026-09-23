@@ -324,6 +324,8 @@ void uds_dtc_store_bind(uds_config_t *cfg, uds_dtc_store_bind_t *bind)
     cfg->fn_dtc_read = NULL;
 }
 
+/* uds_dtc_list_fn takes a non-const uds_ctx, so ctx cannot be const. */
+/* cppcheck-suppress constParameterCallback */
 int uds_dtc_store_list_cb(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
                           uint16_t max)
 {
@@ -349,6 +351,8 @@ static bool uds_dtc_known_record(uint8_t record_num)
     return (record_num == 0x01u) || (record_num == 0xFFu);
 }
 
+/* uds_dtc_snapshot_fn takes a non-const uds_ctx, so ctx cannot be const. */
+/* cppcheck-suppress constParameterCallback */
 int uds_dtc_store_snapshot_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
                               uint8_t *out_buf, uint16_t max_len)
 {
@@ -392,6 +396,8 @@ int uds_dtc_store_snapshot_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_
     return 15;
 }
 
+/* uds_dtc_extdata_fn takes a non-const uds_ctx, so ctx cannot be const. */
+/* cppcheck-suppress constParameterCallback */
 int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
                              uint8_t *out_buf, uint16_t max_len)
 {
@@ -418,6 +424,8 @@ int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_n
     return 6;
 }
 
+/* uds_dtc_clear_fn takes a non-const uds_ctx, so ctx cannot be const. */
+/* cppcheck-suppress constParameterCallback */
 int uds_dtc_store_clear_cb(struct uds_ctx *ctx, uint32_t group)
 {
     uds_dtc_store_t *s = uds_dtc_store_from_ctx(ctx);
