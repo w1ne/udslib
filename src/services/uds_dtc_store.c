@@ -309,13 +309,14 @@ int uds_dtc_store_deserialize(uds_dtc_store_t *s, const uint8_t *buf, uint16_t l
     return (int) restored;
 }
 
-void uds_dtc_store_bind(uds_config_t *cfg, const uds_dtc_store_bind_t *bind)
+void uds_dtc_store_bind(uds_config_t *cfg, uds_dtc_store_bind_t *bind)
 {
     if ((cfg == NULL) || (bind == NULL)) {
         return;
     }
     /* Last bind wins: install store cbs and drop any prior raw read hook. */
-    cfg->app_data = (void *) bind;
+    bind->tag = UDS_DTC_STORE_BIND_TAG;
+    cfg->app_data = bind;
     cfg->fn_dtc_list = uds_dtc_store_list_cb;
     cfg->fn_dtc_snapshot = uds_dtc_store_snapshot_cb;
     cfg->fn_dtc_extdata = uds_dtc_store_extdata_cb;

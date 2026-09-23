@@ -290,9 +290,9 @@ static int call_snapshot(uds_dtc_store_t *s, uint32_t dtc, uint8_t rec, uint8_t 
     uds_dtc_store_bind_t bind;
     memset(&cfg, 0, sizeof(cfg));
     memset(&ctx, 0, sizeof(ctx));
+    memset(&bind, 0, sizeof(bind));
     bind.store = s;
-    bind.app_data = NULL;
-    cfg.app_data = &bind;
+    uds_dtc_store_bind(&cfg, &bind);
     ctx.config = &cfg;
     return uds_dtc_store_snapshot_cb(&ctx, dtc, rec, out, max);
 }
@@ -304,9 +304,9 @@ static int call_extdata(uds_dtc_store_t *s, uint32_t dtc, uint8_t rec, uint8_t *
     uds_dtc_store_bind_t bind;
     memset(&cfg, 0, sizeof(cfg));
     memset(&ctx, 0, sizeof(ctx));
+    memset(&bind, 0, sizeof(bind));
     bind.store = s;
-    bind.app_data = NULL;
-    cfg.app_data = &bind;
+    uds_dtc_store_bind(&cfg, &bind);
     ctx.config = &cfg;
     return uds_dtc_store_extdata_cb(&ctx, dtc, rec, out, max);
 }
@@ -677,6 +677,42 @@ static void test_store_bind_serves_0x19_and_0x14(void **state)
     assert_int_equal(uds_dtc_store_get(&store, 0x012345u)->snapshot_valid, 0u);
 }
 
+/* 2.1.0 handed the store itself in app_data. That must not be read as a bind. */
+static void test_store_callbacks_reject_raw_store_app_data(void **state)
+{
+    (void) state;
+    uds_dtc_record_t backing[1];
+    uds_dtc_store_t store;
+    uds_config_t cfg;
+    uds_ctx_t ctx;
+    uint8_t out[32];
+    uds_dtc_record_t *before;
+
+    uds_dtc_store_init(&store, backing, 1u, 40u);
+    assert_int_equal(
+        uds_dtc_store_register(&store, 0x012345u, 0x80u, 0x10u, UDS_DTC_FGID_EMISSIONS), 0);
+    before = uds_dtc_store_get(&store, 0x012345u);
+    assert_non_null(before);
+    assert_int_equal(before->status, 0u);
+
+    memset(&cfg, 0, sizeof(cfg));
+    memset(&ctx, 0, sizeof(ctx));
+    cfg.app_data = &store;
+    ctx.config = &cfg;
+
+    assert_null(uds_dtc_store_from_ctx(&ctx));
+    assert_null(uds_app_data_from_ctx(&ctx));
+    assert_int_equal(uds_dtc_store_list_cb(&ctx, 0xFFu, NULL, 0u),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_snapshot_cb(&ctx, 0x012345u, 0x01u, out, (uint16_t) sizeof(out)),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_extdata_cb(&ctx, 0x012345u, 0x01u, out, (uint16_t) sizeof(out)),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_clear_cb(&ctx, 0xFFFFFFu),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_get(&store, 0x012345u)->status, 0u);
+}
+
 static int custom_clear_ok(struct uds_ctx *ctx, uint32_t group)
 {
     (void) ctx;
@@ -725,6 +761,7 @@ int main(void)
         cmocka_unit_test(test_store_persist_v1_and_snapshot),
         cmocka_unit_test(test_store_bind_preserves_app_data),
         cmocka_unit_test(test_store_bind_serves_0x19_and_0x14),
+        cmocka_unit_test(test_store_callbacks_reject_raw_store_app_data),
         cmocka_unit_test(test_dtc_bind_copies_ops),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

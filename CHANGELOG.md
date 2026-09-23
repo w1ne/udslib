@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Breaking
+- **Reference-store callbacks no longer accept `app_data = &store`.**
+  `uds_dtc_store_list_cb`, `uds_dtc_store_snapshot_cb`, `uds_dtc_store_extdata_cb`,
+  and `uds_dtc_store_clear_cb` require a `uds_dtc_store_bind_t` installed by
+  `uds_dtc_store_bind`. The 2.1.0 wire-up (`cfg.app_data = &store` plus those
+  callbacks) still compiles. It now returns NRC 0x22 (conditionsNotCorrect)
+  instead of treating the record array as a store. Call `uds_dtc_store_bind`.
+
 ### Added
 - **DTC bind API** (`uds_dtc_store_bind` / `uds_dtc_bind`, #130): one call per
   backend replaces hand-wiring store callbacks. Store bind keeps nested

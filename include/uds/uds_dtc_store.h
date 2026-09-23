@@ -7,8 +7,13 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "uds/uds_config.h"
+
+/* First word of a bind object. A uds_dtc_store_t starts with a pointer, so the
+ * 2.1.0 app_data = &store wire-up does not match. */
+#define UDS_DTC_STORE_BIND_TAG 0xA5C3D7B1u
 
 /**
  * @brief Optional reference DTC store (opt-in; not used by the core).
@@ -42,9 +47,10 @@ typedef struct
 /**
  * @brief Stable bind handle for @ref uds_dtc_store_bind (app-owned, no malloc).
  *
- * Keep this object alive for the lifetime of the stack. After bind,
- * @c cfg.app_data points here so store callbacks recover @c store typed,
- * while @c app_data still holds the ECU / application pointer.
+ * Keep this object alive for the lifetime of the stack. @ref uds_dtc_store_bind
+ * writes @c tag. Callbacks ignore @c app_data unless that tag is present, so a
+ * raw store pointer is not walked as a bind. After bind, @c cfg.app_data points
+ * here and @c app_data still holds the ECU / application pointer.
  *
  * @code
  * static uds_dtc_store_bind_t bind = { .store = &store, .app_data = &ecu };
@@ -53,6 +59,7 @@ typedef struct
  */
 typedef struct
 {
+    uint32_t tag;           /**< Written by @ref uds_dtc_store_bind. Leave zero. */
     uds_dtc_store_t *store; /**< Reference store instance. */
     void *app_data;         /**< Nested ECU / app pointer (non-DTC callbacks). */
 } uds_dtc_store_bind_t;
@@ -158,37 +165,62 @@ int uds_dtc_store_deserialize(uds_dtc_store_t *s, const uint8_t *buf, uint16_t l
  *
  * @param cfg   Mutable configuration.
  * @param bind  App-owned stable bind object (@c store + nested @c app_data).
+ *              Not const: bind writes @c tag.
  */
-void uds_dtc_store_bind(uds_config_t *cfg, const uds_dtc_store_bind_t *bind);
+void uds_dtc_store_bind(uds_config_t *cfg, uds_dtc_store_bind_t *bind);
 
 /**
- * @brief Recover the store pointer after @ref uds_dtc_store_bind.
- * @return Store, or NULL if unbound / incomplete.
+ * @brief Bind object installed by @ref uds_dtc_store_bind, or NULL.
+ *
+ * Reads four bytes of @c app_data. A raw @c uds_dtc_store_t does not carry
+ * @ref UDS_DTC_STORE_BIND_TAG, so the 2.1.0 wire-up fails closed.
  */
-static inline uds_dtc_store_t *uds_dtc_store_from_ctx(const struct uds_ctx *ctx)
+static inline const uds_dtc_store_bind_t *uds_dtc_store_bind_from_ctx(const struct uds_ctx *ctx)
 {
+    uint32_t tag;
+
     if ((ctx == NULL) || (ctx->config == NULL) || (ctx->config->app_data == NULL)) {
         return NULL;
     }
-    return ((const uds_dtc_store_bind_t *) ctx->config->app_data)->store;
+    memcpy(&tag, ctx->config->app_data, sizeof(tag));
+    if (tag != UDS_DTC_STORE_BIND_TAG) {
+        return NULL;
+    }
+    return (const uds_dtc_store_bind_t *) ctx->config->app_data;
+}
+
+/**
+ * @brief Recover the store pointer after @ref uds_dtc_store_bind.
+ * @return Store, or NULL if unbound / incomplete / not a bind object.
+ */
+static inline uds_dtc_store_t *uds_dtc_store_from_ctx(const struct uds_ctx *ctx)
+{
+    const uds_dtc_store_bind_t *bind = uds_dtc_store_bind_from_ctx(ctx);
+
+    if (bind == NULL) {
+        return NULL;
+    }
+    return bind->store;
 }
 
 /**
  * @brief Recover nested app_data after @ref uds_dtc_store_bind.
- * @return The bind's @c app_data, or NULL if unbound.
+ * @return The bind's @c app_data, or NULL if unbound / not a bind object.
  */
 static inline void *uds_app_data_from_ctx(const struct uds_ctx *ctx)
 {
-    if ((ctx == NULL) || (ctx->config == NULL) || (ctx->config->app_data == NULL)) {
+    const uds_dtc_store_bind_t *bind = uds_dtc_store_bind_from_ctx(ctx);
+
+    if (bind == NULL) {
         return NULL;
     }
-    return ((const uds_dtc_store_bind_t *) ctx->config->app_data)->app_data;
+    return bind->app_data;
 }
 
 /*
  * DEPRECATED as the public wire-up path — use @ref uds_dtc_store_bind.
- * These remain callable for advanced / test use; they expect cfg.app_data to
- * point at a @c uds_dtc_store_bind_t (as installed by store_bind).
+ * These remain callable for advanced / test use. They return NRC 0x22 unless
+ * cfg.app_data is a uds_dtc_store_bind_t installed by uds_dtc_store_bind.
  */
 int uds_dtc_store_list_cb(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
                           uint16_t max);
