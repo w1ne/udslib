@@ -278,6 +278,48 @@ typedef struct
     uint8_t address_mode;    /**< Allowed addressing (UDS_ADDR_* bitmask); 0 = both */
 } uds_service_entry_t;
 
+/* --- DTC callback types (SID 0x19 / 0x14) --- */
+
+/**
+ * @brief Application-framed ReadDTCInformation leftovers (e.g. 0x03, 0x05,
+ *        0x0F–0x13, …). Complementary to the library-framed list/snapshot/extdata
+ *        hooks — not a second DTC backend.
+ */
+typedef int (*uds_dtc_read_fn)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req,
+                               uint16_t req_len, uint8_t *out_buf, uint16_t max_len);
+
+/** Library-framed DTC enumeration (0x01/0x02/0x0A and related). */
+typedef int (*uds_dtc_list_fn)(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
+                               uint16_t max);
+
+/** Library-framed DTC snapshot payload (0x04). */
+typedef int (*uds_dtc_snapshot_fn)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
+                                   uint8_t *out_buf, uint16_t max_len);
+
+/** Library-framed DTC extended-data payload (0x06). */
+typedef int (*uds_dtc_extdata_fn)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
+                                  uint8_t *out_buf, uint16_t max_len);
+
+/** ClearDiagnosticInformation (0x14). */
+typedef int (*uds_dtc_clear_fn)(struct uds_ctx *ctx, uint32_t group);
+
+/**
+ * @brief Custom DTC backend: one bundle for @ref uds_dtc_bind.
+ *
+ * Pick either this path or @c uds_dtc_store_bind (reference store) — last bind
+ * wins. Library-framed hooks (@c list / @c snapshot / @c extdata) and the
+ * application-framed @c read hook are complementary slots on one backend.
+ */
+typedef struct
+{
+    void *app_data;               /**< Recoverable via ctx->config->app_data. */
+    uds_dtc_list_fn list;         /**< Library-framed 0x19 enumeration. */
+    uds_dtc_snapshot_fn snapshot; /**< Library-framed 0x04 payload. */
+    uds_dtc_extdata_fn extdata;   /**< Library-framed 0x06 payload. */
+    uds_dtc_clear_fn clear;       /**< ClearDiagnosticInformation (0x14). */
+    uds_dtc_read_fn read;         /**< App-framed leftovers only (0x03, 0x05, …). */
+} uds_dtc_ops_t;
+
 /* --- Configuration Structure --- */
 
 /**
@@ -487,7 +529,12 @@ typedef struct
     /* --- Fault Management (DTCs) --- */
 
     /**
-     * @brief Optional: Read DTC Information (SID 0x19).
+     * @brief Optional: Read DTC Information (SID 0x19) — application-framed leftovers.
+     *
+     * Used for sub-functions the library does not format (e.g. 0x03, 0x05,
+     * 0x0F–0x13, 0x16–0x19). Complementary to @ref fn_dtc_list / snapshot /
+     * extdata (library-framed). Prefer @ref uds_dtc_bind to install a full set.
+     *
      * @param ctx       Pointer to context.
      * @param subfn     The 0x19 subfunction (e.g., 0x01, 0x02).
      * @param req       The full ReadDTCInformation request (req[0]=SID 0x19, req[1]=sub-function,
@@ -498,8 +545,7 @@ typedef struct
      * @param max_len   Max buffer size.
      * @return          Number of bytes written, or negative NRC on failure.
      */
-    int (*fn_dtc_read)(struct uds_ctx *ctx, uint8_t subfn, const uint8_t *req, uint16_t req_len,
-                       uint8_t *out_buf, uint16_t max_len);
+    uds_dtc_read_fn fn_dtc_read;
 
     /**
      * @brief Optional: Structured DTC enumeration (SID 0x19, subfunctions
@@ -514,8 +560,7 @@ typedef struct
      * @return Number of matching DTCs (which may exceed @p max), or a
      *         negative NRC on failure.
      */
-    int (*fn_dtc_list)(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
-                       uint16_t max);
+    uds_dtc_list_fn fn_dtc_list;
 
     /**
      * @brief Optional: DTC snapshot record bytes (SID 0x19, subfunction 0x04).
@@ -523,15 +568,13 @@ typedef struct
      *        for @p dtc / @p record_num; the library frames the response.
      * @return Bytes written, 0 if no such record, or a negative NRC.
      */
-    int (*fn_dtc_snapshot)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
-                           uint16_t max_len);
+    uds_dtc_snapshot_fn fn_dtc_snapshot;
 
     /**
      * @brief Optional: DTC extended-data record bytes (SID 0x19, sub 0x06).
      * @return Bytes written, 0 if no such record, or a negative NRC.
      */
-    int (*fn_dtc_extdata)(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num, uint8_t *out_buf,
-                          uint16_t max_len);
+    uds_dtc_extdata_fn fn_dtc_extdata;
 
     /** DTCStatusAvailabilityMask reported in 0x01/0x02/0x0A responses. */
     uint8_t dtc_status_availability_mask;
@@ -543,7 +586,10 @@ typedef struct
     uint8_t dtc_severity_availability_mask;
 
     /** Opaque application handle, recoverable inside callbacks via
-     *  ctx->config->app_data (e.g. a uds_dtc_store_t* for the reference store). */
+     *  ctx->config->app_data. After @ref uds_dtc_store_bind this points at the
+     *  caller-owned @c uds_dtc_store_bind_t (recover the store / nested app
+     *  pointer with @c uds_dtc_store_from_ctx / @c uds_app_data_from_ctx).
+     *  After @ref uds_dtc_bind it is the ops @c app_data pointer. */
     void *app_data;
 
     /**
@@ -552,7 +598,7 @@ typedef struct
      * @param group     The DTC group to clear (usually 0xFFFFFF for all).
      * @return          UDS_OK or negative NRC.
      */
-    int (*fn_dtc_clear)(struct uds_ctx *ctx, uint32_t group);
+    uds_dtc_clear_fn fn_dtc_clear;
 
     /**
      * @brief Optional: Authentication (SID 0x29).
@@ -790,6 +836,29 @@ typedef struct
     uint32_t s3_ms;
 
 } uds_config_t;
+
+/**
+ * @brief Install a custom DTC backend into @p cfg (last bind wins).
+ *
+ * Copies function pointers and @c app_data into @p cfg. Does not allocate.
+ * Call before @c uds_init(). Prefer this over assigning @c fn_dtc_* by hand.
+ * For the reference store use @c uds_dtc_store_bind instead.
+ *
+ * @param cfg  Mutable configuration (must outlive the stack).
+ * @param ops  Bundle of hooks; NULL is ignored.
+ */
+static inline void uds_dtc_bind(uds_config_t *cfg, const uds_dtc_ops_t *ops)
+{
+    if ((cfg == NULL) || (ops == NULL)) {
+        return;
+    }
+    cfg->app_data = ops->app_data;
+    cfg->fn_dtc_list = ops->list;
+    cfg->fn_dtc_snapshot = ops->snapshot;
+    cfg->fn_dtc_extdata = ops->extdata;
+    cfg->fn_dtc_clear = ops->clear;
+    cfg->fn_dtc_read = ops->read;
+}
 
 /* --- Internal Context --- */
 

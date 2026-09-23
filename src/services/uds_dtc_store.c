@@ -309,10 +309,27 @@ int uds_dtc_store_deserialize(uds_dtc_store_t *s, const uint8_t *buf, uint16_t l
     return (int) restored;
 }
 
+void uds_dtc_store_bind(uds_config_t *cfg, const uds_dtc_store_bind_t *bind)
+{
+    if ((cfg == NULL) || (bind == NULL)) {
+        return;
+    }
+    /* Last bind wins: install store cbs and drop any prior raw read hook. */
+    cfg->app_data = (void *) bind;
+    cfg->fn_dtc_list = uds_dtc_store_list_cb;
+    cfg->fn_dtc_snapshot = uds_dtc_store_snapshot_cb;
+    cfg->fn_dtc_extdata = uds_dtc_store_extdata_cb;
+    cfg->fn_dtc_clear = uds_dtc_store_clear_cb;
+    cfg->fn_dtc_read = NULL;
+}
+
 int uds_dtc_store_list_cb(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
                           uint16_t max)
 {
-    uds_dtc_store_t *s = (uds_dtc_store_t *) ctx->config->app_data;
+    uds_dtc_store_t *s = uds_dtc_store_from_ctx(ctx);
+    if (s == NULL) {
+        return -(int) UDS_NRC_CONDITIONS_NOT_CORRECT;
+    }
     uint16_t n = 0u;
     for (uint16_t i = 0u; i < s->count; i++) {
         bool match = (status_mask == 0u) || ((s->entries[i].status & status_mask) != 0u);
@@ -334,7 +351,10 @@ static bool uds_dtc_known_record(uint8_t record_num)
 int uds_dtc_store_snapshot_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
                               uint8_t *out_buf, uint16_t max_len)
 {
-    uds_dtc_store_t *s = (uds_dtc_store_t *) ctx->config->app_data;
+    uds_dtc_store_t *s = uds_dtc_store_from_ctx(ctx);
+    if (s == NULL) {
+        return -(int) UDS_NRC_CONDITIONS_NOT_CORRECT;
+    }
     uds_dtc_record_t *r = uds_dtc_store_get(s, dtc);
     if (r == NULL) {
         return -(int) UDS_NRC_REQUEST_OUT_OF_RANGE;
@@ -374,7 +394,10 @@ int uds_dtc_store_snapshot_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_
 int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,
                              uint8_t *out_buf, uint16_t max_len)
 {
-    uds_dtc_store_t *s = (uds_dtc_store_t *) ctx->config->app_data;
+    uds_dtc_store_t *s = uds_dtc_store_from_ctx(ctx);
+    if (s == NULL) {
+        return -(int) UDS_NRC_CONDITIONS_NOT_CORRECT;
+    }
     uds_dtc_record_t *r = uds_dtc_store_get(s, dtc);
     if (r == NULL) {
         return -(int) UDS_NRC_REQUEST_OUT_OF_RANGE;
@@ -396,7 +419,10 @@ int uds_dtc_store_extdata_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_n
 
 int uds_dtc_store_clear_cb(struct uds_ctx *ctx, uint32_t group)
 {
-    uds_dtc_store_t *s = (uds_dtc_store_t *) ctx->config->app_data;
+    uds_dtc_store_t *s = uds_dtc_store_from_ctx(ctx);
+    if (s == NULL) {
+        return -(int) UDS_NRC_CONDITIONS_NOT_CORRECT;
+    }
     uds_dtc_store_clear(s, group);
     return UDS_OK;
 }

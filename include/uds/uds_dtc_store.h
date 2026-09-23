@@ -16,10 +16,13 @@
  * The application supplies the backing array (no allocation). The store
  * implements the ReadDTCInformation callbacks and owns the diagnostic
  * policy the protocol core deliberately avoids (fault-detection counter,
- * aging, self-heal, freeze frame). Wire it up by setting cfg.app_data = &store
- * and cfg.fn_dtc_list = uds_dtc_store_list_cb, cfg.fn_dtc_snapshot =
- * uds_dtc_store_snapshot_cb, cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb
- * (plus clear as needed).
+ * aging, self-heal, freeze frame). Wire it with @ref uds_dtc_store_bind —
+ * do not assign store callbacks or @c app_data = &store by hand.
+ *
+ * Pick one DTC backend: @ref uds_dtc_store_bind (this store) **or**
+ * @ref uds_dtc_bind (custom ops). Last bind wins. Library-framed 0x19
+ * (list / snapshot / extdata) and the raw @c fn_dtc_read leftovers are
+ * complementary slots on one backend, not two stacks.
  *
  * The store is RAM. It does not write flash. To keep DTC status across a
  * reset, the application calls uds_dtc_store_serialize() and stores that
@@ -35,6 +38,24 @@ typedef struct
     uds_dtc_snapshot_t environment; /**< Latest voltage / power mode / time. */
     bool environment_set;           /**< @ref uds_dtc_store_set_environment was called. */
 } uds_dtc_store_t;
+
+/**
+ * @brief Stable bind handle for @ref uds_dtc_store_bind (app-owned, no malloc).
+ *
+ * Keep this object alive for the lifetime of the stack. After bind,
+ * @c cfg.app_data points here so store callbacks recover @c store typed,
+ * while @c app_data still holds the ECU / application pointer.
+ *
+ * @code
+ * static uds_dtc_store_bind_t bind = { .store = &store, .app_data = &ecu };
+ * uds_dtc_store_bind(&cfg, &bind);
+ * @endcode
+ */
+typedef struct
+{
+    uds_dtc_store_t *store; /**< Reference store instance. */
+    void *app_data;         /**< Nested ECU / app pointer (non-DTC callbacks). */
+} uds_dtc_store_bind_t;
 
 /** Initialise a store over an application-provided backing array. */
 void uds_dtc_store_init(uds_dtc_store_t *s, uds_dtc_record_t *backing, uint16_t capacity,
@@ -127,7 +148,48 @@ int uds_dtc_store_serialize(const uds_dtc_store_t *s, uint8_t *buf, uint16_t max
  */
 int uds_dtc_store_deserialize(uds_dtc_store_t *s, const uint8_t *buf, uint16_t len);
 
-/* --- Ready-made uds_config_t callbacks (store reached via ctx->config->app_data) --- */
+/**
+ * @brief Wire the reference store into @p cfg (replaces hand-assigning store cbs).
+ *
+ * Sets @c fn_dtc_list / snapshot / extdata / clear to the store implementation,
+ * points @c app_data at @p bind (must remain valid), and clears @c fn_dtc_read
+ * so a prior custom read hook cannot silently mix with the store. Last bind
+ * wins over @ref uds_dtc_bind. Call before @c uds_init(). Zero-malloc.
+ *
+ * @param cfg   Mutable configuration.
+ * @param bind  App-owned stable bind object (@c store + nested @c app_data).
+ */
+void uds_dtc_store_bind(uds_config_t *cfg, const uds_dtc_store_bind_t *bind);
+
+/**
+ * @brief Recover the store pointer after @ref uds_dtc_store_bind.
+ * @return Store, or NULL if unbound / incomplete.
+ */
+static inline uds_dtc_store_t *uds_dtc_store_from_ctx(const struct uds_ctx *ctx)
+{
+    if ((ctx == NULL) || (ctx->config == NULL) || (ctx->config->app_data == NULL)) {
+        return NULL;
+    }
+    return ((const uds_dtc_store_bind_t *) ctx->config->app_data)->store;
+}
+
+/**
+ * @brief Recover nested app_data after @ref uds_dtc_store_bind.
+ * @return The bind's @c app_data, or NULL if unbound.
+ */
+static inline void *uds_app_data_from_ctx(const struct uds_ctx *ctx)
+{
+    if ((ctx == NULL) || (ctx->config == NULL) || (ctx->config->app_data == NULL)) {
+        return NULL;
+    }
+    return ((const uds_dtc_store_bind_t *) ctx->config->app_data)->app_data;
+}
+
+/*
+ * DEPRECATED as the public wire-up path — use @ref uds_dtc_store_bind.
+ * These remain callable for advanced / test use; they expect cfg.app_data to
+ * point at a @c uds_dtc_store_bind_t (as installed by store_bind).
+ */
 int uds_dtc_store_list_cb(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
                           uint16_t max);
 int uds_dtc_store_snapshot_cb(struct uds_ctx *ctx, uint32_t dtc, uint8_t record_num,

@@ -419,10 +419,16 @@ int main(void)
     cfg.tx_buffer_size = sizeof(txb);
     cfg.dtc_status_availability_mask = APP_STATUS_AVAIL_MASK;
     cfg.dtc_format_id = APP_DTC_FORMAT_ID;
-    cfg.fn_dtc_list = app_dtc_list;         /* library-framed sub-functions */
-    cfg.fn_dtc_read = app_dtc_read;         /* application-served sub-functions */
-    cfg.fn_dtc_snapshot = app_dtc_snapshot; /* 0x04 freeze-frame payload */
-    cfg.fn_dtc_extdata = app_dtc_extdata;   /* 0x06 extended-data payload */
+    /* Custom backend: framed list/snapshot/extdata + complementary raw read. */
+    const uds_dtc_ops_t dtc_ops = {
+        .app_data = NULL,
+        .list = app_dtc_list,
+        .snapshot = app_dtc_snapshot,
+        .extdata = app_dtc_extdata,
+        .clear = NULL,
+        .read = app_dtc_read, /* 0x03, 0x05, 0x0F–0x13, 0x16–0x19 */
+    };
+    uds_dtc_bind(&cfg, &dtc_ops);
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);

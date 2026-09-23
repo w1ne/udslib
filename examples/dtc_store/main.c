@@ -132,11 +132,9 @@ int main(void)
     cfg.tx_buffer_size = sizeof(txb);
     cfg.dtc_status_availability_mask = 0x7Fu;
     cfg.dtc_format_id = 0x01u;
-    cfg.app_data = &store;
-    cfg.fn_dtc_list = uds_dtc_store_list_cb;
-    cfg.fn_dtc_snapshot = uds_dtc_store_snapshot_cb;
-    cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;
-    cfg.fn_dtc_clear = uds_dtc_store_clear_cb;
+    /* Pick one path: store bind OR custom uds_dtc_bind — last bind wins. */
+    static uds_dtc_store_bind_t dtc_bind = {.store = &store, .app_data = NULL};
+    uds_dtc_store_bind(&cfg, &dtc_bind);
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
