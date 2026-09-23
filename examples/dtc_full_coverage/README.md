@@ -16,11 +16,18 @@ zero-allocation, MISRA-friendly design.
 
 ## How the two paths are wired
 
+Pick **one** backend: custom `uds_dtc_bind` (this example) **or**
+`uds_dtc_store_bind` (reference store). Last bind wins. Framed hooks and
+`read` are complementary slots — not two DTC stacks.
+
 ```c
-cfg.fn_dtc_list     = app_dtc_list;     /* 0x01/0x02/0x0A, severity, first/most-recent, ... */
-cfg.fn_dtc_snapshot = app_dtc_snapshot; /* 0x04 freeze-frame payload                        */
-cfg.fn_dtc_extdata  = app_dtc_extdata;  /* 0x06 extended-data payload                        */
-cfg.fn_dtc_read     = app_dtc_read;     /* 0x03,0x05,0x0F-0x13,0x16-0x19 (app-formatted)     */
+const uds_dtc_ops_t ops = {
+    .list     = app_dtc_list,     /* 0x01/0x02/0x0A, severity, first/most-recent, ... */
+    .snapshot = app_dtc_snapshot, /* 0x04 freeze-frame payload                        */
+    .extdata  = app_dtc_extdata,  /* 0x06 extended-data payload                        */
+    .read     = app_dtc_read,     /* 0x03,0x05,0x0F-0x13,0x16-0x19 (app-formatted)     */
+};
+uds_dtc_bind(&cfg, &ops);
 ```
 
 For an application-served sub-function the library writes `[0x59, sub]` and the
@@ -86,9 +93,9 @@ occurrence / pending / aged / ageing counters.
 
 ## See also
 
-`../dtc_store` — the opt-in reference store. It frames the same `0x04` / `0x06`
-records for you (`uds_dtc_store_snapshot_cb`, `uds_dtc_store_extdata_cb`), so
-the application only publishes the environment and reports test results.
+`../dtc_store` — the opt-in reference store via `uds_dtc_store_bind`. It frames
+the same `0x04` / `0x06` records for you, so the application only publishes the
+environment and reports test results.
 `../dtc_persist` — that store saved across a reset, in a buffer your own
 flash driver writes. Use this example when the reference snapshot layout is
 not the one your specification requires.

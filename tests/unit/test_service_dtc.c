@@ -686,9 +686,8 @@ static void test_store_backed_read_dtc_0x02(void **state)
                            UDS_DTC_FGID_EMISSIONS);
     uds_dtc_store_report_test(&store, 0x012345u, true); /* sets testFailed (0x01) */
 
-    cfg.app_data = &store;
-    cfg.fn_dtc_list = uds_dtc_store_list_cb;
-    cfg.fn_dtc_clear = uds_dtc_store_clear_cb;
+    static uds_dtc_store_bind_t bind = {.store = &store, .app_data = NULL};
+    uds_dtc_store_bind(&cfg, &bind);
     cfg.dtc_status_availability_mask = 0x7Fu;
 
     uint8_t req[] = {0x19, 0x02, 0x01}; /* status mask testFailed */
@@ -721,10 +720,8 @@ static void test_store_backed_extdata_and_clear(void **state)
                            UDS_DTC_FGID_EMISSIONS);
     uds_dtc_store_report_test(&store, 0x012345u, true);
 
-    cfg.app_data = &store;
-    cfg.fn_dtc_list = uds_dtc_store_list_cb;
-    cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;
-    cfg.fn_dtc_clear = uds_dtc_store_clear_cb;
+    static uds_dtc_store_bind_t bind = {.store = &store, .app_data = NULL};
+    uds_dtc_store_bind(&cfg, &bind);
     cfg.dtc_status_availability_mask = 0x7Fu;
 
     /* 0x19 0x06 DTC=01 23 45, record_num=0x01 */
@@ -742,13 +739,13 @@ static void test_store_backed_extdata_and_clear(void **state)
 
     assert_int_equal(g_tx_buf[0], 0x59);
     assert_int_equal(g_tx_buf[1], 0x06);
-    assert_int_equal(g_tx_buf[2], 0x01); /* DTC hi */
-    assert_int_equal(g_tx_buf[3], 0x23); /* DTC mid */
-    assert_int_equal(g_tx_buf[4], 0x45); /* DTC lo */
-    assert_int_equal(g_tx_buf[6], 0x01); /* extended-data record 0x01 */
-    assert_int_equal(g_tx_buf[7], 0x00); /* occurrence */
-    assert_int_equal(g_tx_buf[8], 0x00); /* pending */
-    assert_int_equal(g_tx_buf[9], 0x00); /* aged */
+    assert_int_equal(g_tx_buf[2], 0x01);  /* DTC hi */
+    assert_int_equal(g_tx_buf[3], 0x23);  /* DTC mid */
+    assert_int_equal(g_tx_buf[4], 0x45);  /* DTC lo */
+    assert_int_equal(g_tx_buf[6], 0x01);  /* extended-data record 0x01 */
+    assert_int_equal(g_tx_buf[7], 0x00);  /* occurrence */
+    assert_int_equal(g_tx_buf[8], 0x00);  /* pending */
+    assert_int_equal(g_tx_buf[9], 0x00);  /* aged */
     assert_int_equal(g_tx_buf[10], 0x00); /* ageing */
 
     /* ClearDiagnosticInformation: group 0xFFFFFF */
@@ -856,9 +853,8 @@ static void test_store_backed_snapshot_0x04(void **state)
         uds_dtc_store_report_test(&store, 0x012345u, true);
     }
 
-    cfg.app_data = &store;
-    cfg.fn_dtc_snapshot = uds_dtc_store_snapshot_cb;
-    cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;
+    static uds_dtc_store_bind_t bind = {.store = &store, .app_data = NULL};
+    uds_dtc_store_bind(&cfg, &bind);
 
     uint8_t req[] = {0x19, 0x04, 0x01, 0x23, 0x45, 0x01};
 

@@ -287,9 +287,12 @@ static int call_snapshot(uds_dtc_store_t *s, uint32_t dtc, uint8_t rec, uint8_t 
 {
     uds_config_t cfg;
     uds_ctx_t ctx;
+    uds_dtc_store_bind_t bind;
     memset(&cfg, 0, sizeof(cfg));
     memset(&ctx, 0, sizeof(ctx));
-    cfg.app_data = s;
+    memset(&bind, 0, sizeof(bind));
+    bind.store = s;
+    uds_dtc_store_bind(&cfg, &bind);
     ctx.config = &cfg;
     return uds_dtc_store_snapshot_cb(&ctx, dtc, rec, out, max);
 }
@@ -298,9 +301,12 @@ static int call_extdata(uds_dtc_store_t *s, uint32_t dtc, uint8_t rec, uint8_t *
 {
     uds_config_t cfg;
     uds_ctx_t ctx;
+    uds_dtc_store_bind_t bind;
     memset(&cfg, 0, sizeof(cfg));
     memset(&ctx, 0, sizeof(ctx));
-    cfg.app_data = s;
+    memset(&bind, 0, sizeof(bind));
+    bind.store = s;
+    uds_dtc_store_bind(&cfg, &bind);
     ctx.config = &cfg;
     return uds_dtc_store_extdata_cb(&ctx, dtc, rec, out, max);
 }
@@ -521,6 +527,221 @@ static void test_store_persist_v1_and_snapshot(void **state)
     assert_int_equal(o->snapshot_valid, 0u);
 }
 
+/* --- Bind API (#130) --- */
+
+typedef struct
+{
+    int marker;
+} fake_ecu_t;
+
+static uint32_t bind_time_ms(void)
+{
+    return 0u;
+}
+
+static int bind_tp_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    (void) data;
+    (void) len;
+    return 0;
+}
+
+static void test_store_bind_preserves_app_data(void **state)
+{
+    (void) state;
+    uds_dtc_record_t backing[1];
+    uds_dtc_store_t store;
+    fake_ecu_t ecu = {.marker = 0xA5A5};
+    uds_dtc_store_bind_t bind;
+    uds_config_t cfg;
+    uds_ctx_t ctx;
+    uint8_t rxb[64];
+    uint8_t txb[64];
+
+    uds_dtc_store_init(&store, backing, 1u, 40u);
+    bind.store = &store;
+    bind.app_data = &ecu;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.get_time_ms = bind_time_ms;
+    cfg.fn_tp_send = bind_tp_send;
+    cfg.rx_buffer = rxb;
+    cfg.rx_buffer_size = (uint16_t) sizeof(rxb);
+    cfg.tx_buffer = txb;
+    cfg.tx_buffer_size = (uint16_t) sizeof(txb);
+
+    uds_dtc_store_bind(&cfg, &bind);
+    assert_ptr_equal(cfg.app_data, &bind);
+    assert_ptr_equal(cfg.fn_dtc_list, uds_dtc_store_list_cb);
+    assert_ptr_equal(cfg.fn_dtc_snapshot, uds_dtc_store_snapshot_cb);
+    assert_ptr_equal(cfg.fn_dtc_extdata, uds_dtc_store_extdata_cb);
+    assert_ptr_equal(cfg.fn_dtc_clear, uds_dtc_store_clear_cb);
+    assert_null(cfg.fn_dtc_read);
+
+    assert_int_equal(uds_init(&ctx, &cfg), UDS_OK);
+    assert_ptr_equal(uds_dtc_store_from_ctx(&ctx), &store);
+    assert_ptr_equal(uds_app_data_from_ctx(&ctx), &ecu);
+    assert_int_equal(((fake_ecu_t *) uds_app_data_from_ctx(&ctx))->marker, 0xA5A5);
+}
+
+static uint8_t g_bind_resp[128];
+static uint16_t g_bind_resp_len;
+
+static int bind_capture_send(struct uds_ctx *ctx, const uint8_t *data, uint16_t len)
+{
+    (void) ctx;
+    if (len > sizeof(g_bind_resp)) {
+        len = (uint16_t) sizeof(g_bind_resp);
+    }
+    memcpy(g_bind_resp, data, len);
+    g_bind_resp_len = len;
+    return 0;
+}
+
+static void test_store_bind_serves_0x19_and_0x14(void **state)
+{
+    (void) state;
+    uds_dtc_record_t backing[2];
+    uds_dtc_store_t store;
+    uds_dtc_store_bind_t bind;
+    uds_config_t cfg;
+    uds_ctx_t ctx;
+    uint8_t rxb[128];
+    uint8_t txb[128];
+
+    uds_dtc_store_init(&store, backing, 2u, 40u);
+    uds_dtc_store_register(&store, 0x012345u, 0x80u, 0x10u, UDS_DTC_FGID_EMISSIONS);
+    uds_dtc_snapshot_t env = sample_env();
+    uds_dtc_store_set_environment(&store, &env);
+    confirm_dtc(&store, 0x012345u);
+
+    bind.store = &store;
+    bind.app_data = NULL;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.get_time_ms = bind_time_ms;
+    cfg.fn_tp_send = bind_capture_send;
+    cfg.rx_buffer = rxb;
+    cfg.rx_buffer_size = (uint16_t) sizeof(rxb);
+    cfg.tx_buffer = txb;
+    cfg.tx_buffer_size = (uint16_t) sizeof(txb);
+    cfg.dtc_status_availability_mask = 0x7Fu;
+    cfg.dtc_format_id = 0x01u;
+    uds_dtc_store_bind(&cfg, &bind);
+    assert_int_equal(uds_init(&ctx, &cfg), UDS_OK);
+
+    /* 0x19 0x02 list */
+    g_bind_resp_len = 0u;
+    {
+        const uint8_t req[] = {0x19u, 0x02u, 0xFFu};
+        uds_input_sdu(&ctx, req, (uint16_t) sizeof(req));
+    }
+    assert_true(g_bind_resp_len >= 7u);
+    assert_int_equal(g_bind_resp[0], 0x59u);
+    assert_int_equal(g_bind_resp[1], 0x02u);
+    assert_int_equal(g_bind_resp[3], 0x01u);
+    assert_int_equal(g_bind_resp[4], 0x23u);
+    assert_int_equal(g_bind_resp[5], 0x45u);
+
+    /* 0x19 0x04 snapshot */
+    g_bind_resp_len = 0u;
+    {
+        const uint8_t req[] = {0x19u, 0x04u, 0x01u, 0x23u, 0x45u, 0x01u};
+        uds_input_sdu(&ctx, req, (uint16_t) sizeof(req));
+    }
+    assert_true(g_bind_resp_len >= 20u);
+    assert_int_equal(g_bind_resp[0], 0x59u);
+    assert_int_equal(g_bind_resp[1], 0x04u);
+    assert_int_equal(g_bind_resp[8], 0x10u);  /* DID 0x1001 */
+    assert_int_equal(g_bind_resp[18], 0x8Cu); /* voltage */
+
+    /* 0x19 0x06 extdata */
+    g_bind_resp_len = 0u;
+    {
+        const uint8_t req[] = {0x19u, 0x06u, 0x01u, 0x23u, 0x45u, 0x01u};
+        uds_input_sdu(&ctx, req, (uint16_t) sizeof(req));
+    }
+    assert_true(g_bind_resp_len >= 11u);
+    assert_int_equal(g_bind_resp[0], 0x59u);
+    assert_int_equal(g_bind_resp[1], 0x06u);
+    assert_int_equal(g_bind_resp[7], 0x01u); /* occurrence */
+
+    /* 0x14 clear all */
+    g_bind_resp_len = 0u;
+    {
+        const uint8_t req[] = {0x14u, 0xFFu, 0xFFu, 0xFFu};
+        uds_input_sdu(&ctx, req, (uint16_t) sizeof(req));
+    }
+    assert_int_equal(g_bind_resp_len, 1u);
+    assert_int_equal(g_bind_resp[0], 0x54u);
+    assert_int_equal(uds_dtc_store_get(&store, 0x012345u)->status, 0u);
+    assert_int_equal(uds_dtc_store_get(&store, 0x012345u)->snapshot_valid, 0u);
+}
+
+/* 2.1.0 handed the store itself in app_data. That must not be read as a bind. */
+static void test_store_callbacks_reject_raw_store_app_data(void **state)
+{
+    (void) state;
+    uds_dtc_record_t backing[1];
+    uds_dtc_store_t store;
+    uds_config_t cfg;
+    uds_ctx_t ctx;
+    uint8_t out[32];
+    uds_dtc_record_t *before;
+
+    uds_dtc_store_init(&store, backing, 1u, 40u);
+    assert_int_equal(
+        uds_dtc_store_register(&store, 0x012345u, 0x80u, 0x10u, UDS_DTC_FGID_EMISSIONS), 0);
+    before = uds_dtc_store_get(&store, 0x012345u);
+    assert_non_null(before);
+    assert_int_equal(before->status, 0u);
+
+    memset(&cfg, 0, sizeof(cfg));
+    memset(&ctx, 0, sizeof(ctx));
+    cfg.app_data = &store;
+    ctx.config = &cfg;
+
+    assert_null(uds_dtc_store_from_ctx(&ctx));
+    assert_null(uds_app_data_from_ctx(&ctx));
+    assert_int_equal(uds_dtc_store_list_cb(&ctx, 0xFFu, NULL, 0u),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_snapshot_cb(&ctx, 0x012345u, 0x01u, out, (uint16_t) sizeof(out)),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_extdata_cb(&ctx, 0x012345u, 0x01u, out, (uint16_t) sizeof(out)),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_clear_cb(&ctx, 0xFFFFFFu),
+                     -(int) UDS_NRC_CONDITIONS_NOT_CORRECT);
+    assert_int_equal(uds_dtc_store_get(&store, 0x012345u)->status, 0u);
+}
+
+static int custom_clear_ok(struct uds_ctx *ctx, uint32_t group)
+{
+    (void) ctx;
+    (void) group;
+    return UDS_OK;
+}
+
+static void test_dtc_bind_copies_ops(void **state)
+{
+    (void) state;
+    uds_config_t cfg;
+    fake_ecu_t ecu = {.marker = 42};
+    const uds_dtc_ops_t ops = {
+        .app_data = &ecu,
+        .list = NULL,
+        .snapshot = NULL,
+        .extdata = NULL,
+        .clear = custom_clear_ok,
+        .read = NULL,
+    };
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.fn_dtc_list = uds_dtc_store_list_cb; /* will be overwritten */
+    uds_dtc_bind(&cfg, &ops);
+    assert_ptr_equal(cfg.app_data, &ecu);
+    assert_ptr_equal(cfg.fn_dtc_clear, custom_clear_ok);
+    assert_null(cfg.fn_dtc_list);
+    assert_null(cfg.fn_dtc_read);
+}
+
 int main(void)
 {
     const struct CMUnitTest tests[] = {
@@ -538,6 +759,10 @@ int main(void)
         cmocka_unit_test(test_store_read_dtc_04_and_06),
         cmocka_unit_test(test_store_snapshot_absent_is_status_only),
         cmocka_unit_test(test_store_persist_v1_and_snapshot),
+        cmocka_unit_test(test_store_bind_preserves_app_data),
+        cmocka_unit_test(test_store_bind_serves_0x19_and_0x14),
+        cmocka_unit_test(test_store_callbacks_reject_raw_store_app_data),
+        cmocka_unit_test(test_dtc_bind_copies_ops),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

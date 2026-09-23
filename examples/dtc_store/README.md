@@ -5,9 +5,12 @@ keeps the DTC records and answers `ReadDTCInformation` (0x19) and
 `ClearDiagnosticInformation` (0x14). The application does not build the
 response bytes.
 
-The store is opt-in and uses an **application-provided array** (no `malloc`). It
-implements the library callbacks for you, so wiring it up is three lines of
-config. The protocol core does not depend on it.
+The store is opt-in and uses an **application-provided array** (no `malloc`).
+Wire it with `uds_dtc_store_bind` (do not assign store callbacks by hand).
+Pick **one** DTC backend: store bind **or** custom `uds_dtc_bind` — last bind
+wins. Library-framed 0x19 (`list` / `snapshot` / `extdata`) and raw `fn_dtc_read`
+are complementary slots on that one backend. The protocol core does not depend
+on the store.
 
 ## The whole integration
 
@@ -28,12 +31,9 @@ uds_dtc_snapshot_t env = { .voltage = 0x8Cu, .power_mode = 0x02u };
 uds_dtc_store_set_environment(&store, &env);
 uds_dtc_store_report_test(&store, 0x012345u, true);
 
-/* 4. Point the config at the store and its ready-made callbacks. */
-cfg.app_data       = &store;
-cfg.fn_dtc_list    = uds_dtc_store_list_cb;     /* 0x01/0x02/0x0A, severity, ... */
-cfg.fn_dtc_snapshot = uds_dtc_store_snapshot_cb; /* 0x04 freeze frame */
-cfg.fn_dtc_extdata = uds_dtc_store_extdata_cb;   /* 0x06 occurrence/pending/aged/ageing */
-cfg.fn_dtc_clear   = uds_dtc_store_clear_cb;     /* ClearDiagnosticInformation (0x14) */
+/* 4. Bind the store (keeps nested app_data if you need ECU state elsewhere). */
+static uds_dtc_store_bind_t bind = { .store = &store, .app_data = NULL };
+uds_dtc_store_bind(&cfg, &bind);
 cfg.dtc_status_availability_mask = 0x7Fu;
 ```
 
@@ -120,9 +120,9 @@ The store is RAM. It does not write flash. `uds_dtc_store_serialize()` copies
 status, the fault-detection counter, the aging counter, the extended-data
 counters, and the freeze frame into a buffer the application stores in its own
 NVM. `uds_dtc_store_deserialize()` writes those bytes back after the DTC
-numbers are registered again at boot. Wire 0x04 and 0x06 with
-`uds_dtc_store_snapshot_cb` and `uds_dtc_store_extdata_cb` after publishing the
-live environment through `uds_dtc_store_set_environment()`.
+numbers are registered again at boot. After `uds_dtc_store_bind`, 0x04 and
+0x06 are served by the store. Publish the live environment through
+`uds_dtc_store_set_environment()` before confirmation.
 
 `../dtc_persist` is a host demo of that, with a byte array standing in for flash.
 

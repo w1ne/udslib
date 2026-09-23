@@ -163,8 +163,10 @@ int main(void)
     cfg.rx_buffer_size = sizeof(rxb);
     cfg.tx_buffer = txb;
     cfg.tx_buffer_size = sizeof(txb);
-    cfg.app_data = &ecu;
-    cfg.fn_dtc_clear = ecu_clear_dtc; /* <-- the hook from issue #77 */
+    const uds_dtc_ops_t dtc_ops = {
+        .app_data = &ecu, .clear = ecu_clear_dtc, /* ClearDiagnosticInformation (0x14) */
+    };
+    uds_dtc_bind(&cfg, &dtc_ops);
 
     uds_ctx_t ctx;
     uds_init(&ctx, &cfg);
