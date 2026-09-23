@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-23
+
 ### Breaking
 - **Reference-store callbacks no longer accept `app_data = &store`.**
   `uds_dtc_store_list_cb`, `uds_dtc_store_snapshot_cb`, `uds_dtc_store_extdata_cb`,
@@ -16,6 +18,8 @@
   `app_data` via a caller-owned `uds_dtc_store_bind_t`. Last bind wins; store
   bind clears `fn_dtc_read` so backends do not silently mix. Framed vs raw
   0x19 remain complementary slots. Related: #127.
+- **DTC store example** shows ClearDiagnosticInformation (0x14, group 0xFFFFFF),
+  then an empty 0x19 0x02 list and a 0x19 0x04 response with no freeze frame.
 
 
 ## [2.1.0] - 2026-09-21

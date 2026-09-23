@@ -207,6 +207,7 @@ For current implemented service coverage, see `SERVICE_COMPLIANCE.md`.
 - [x] **Service 0x35 (RequestUpload)**: Symmetrical data provider flow.
 - [x] **Service 0x2A (ReadDataByPeriodicIdentifier)**: Core scheduler integration.
 - [x] **Reference DTC store (v2.1.0)**: freeze frame and extended-data counters, served by 0x19 0x04 and 0x06, copied to an application-owned NVM buffer.
+- [x] **DTC bind API (v2.2.0)**: `uds_dtc_store_bind` and `uds_dtc_bind` install one DTC backend. Nested `app_data` stays recoverable. The 2.1.0 `app_data = &store` wire-up returns NRC 0x22.
 
 ## Future Goals
 - **Interoperability**: Automated testing against major commercial stacks.
