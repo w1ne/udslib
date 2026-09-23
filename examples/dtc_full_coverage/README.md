@@ -92,3 +92,11 @@ the application only publishes the environment and reports test results.
 `../dtc_persist` — that store saved across a reset, in a buffer your own
 flash driver writes. Use this example when the reference snapshot layout is
 not the one your specification requires.
+
+`0x14` ClearDiagnosticInformation is not part of service `0x19`. This example
+does not set `fn_dtc_clear`. `fn_dtc_read` answers only the 0x19 sub-functions
+listed above.
+
+For a clear callback written by the application, see `../dtc_clear`. The
+reference store provides `uds_dtc_store_clear_cb`. `../dtc_store` sends
+`14 FF FF FF`, then `19 02 FF` returns an empty list.

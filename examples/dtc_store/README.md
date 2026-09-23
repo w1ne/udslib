@@ -1,8 +1,9 @@
 # DTC store example
 
-Shows the **optional reference DTC store** (`uds/uds_dtc_store.h`) managing DTC
-instances and serving `ReadDTCInformation` (0x19) end-to-end — without the
-application writing any wire-format code.
+Shows the **optional reference DTC store** (`uds/uds_dtc_store.h`). The store
+keeps the DTC records and answers `ReadDTCInformation` (0x19) and
+`ClearDiagnosticInformation` (0x14). The application does not build the
+response bytes.
 
 The store is opt-in and uses an **application-provided array** (no `malloc`). It
 implements the library callbacks for you, so wiring it up is three lines of
@@ -74,6 +75,17 @@ Call uds_dtc_store_operation_cycle() when the ignition cycle ends.
 === Extended data (0x19 0x06) for DTC 012345 ===
   Response (11 bytes): 59 06 01 23 45 2F 01 01 01 00 00
   Counters: occurrence 1, pending 1, aged 0, ageing 0.
+
+=== ClearDiagnosticInformation (0x14 FF FF FF) ===
+  Response (1 byte): 54
+
+=== ReadDTCInformation (0x19 0x02 0xFF) after clear ===
+  Response (3 bytes): 59 02 7F
+  No DTC in the list. 0x14 set every status byte to 0.
+
+=== Snapshot (0x19 0x04) for DTC 012345 after clear ===
+  Response (6 bytes): 59 04 01 23 45 00
+  No freeze frame.
 ```
 
 The `0x02` response is `59 02 <statusAvailabilityMask>` followed by one
@@ -86,6 +98,21 @@ fault-detection counter reaches +127) after publishing voltage `0x8C`, power
 mode `0x02`, and the time 2025-06-19 13:05:42. `0x04` returns that freeze
 frame. `0x06` returns occurrence `1`, pending `1`, aged `0`, ageing `0`.
 Status `0x2F` adds `confirmed` and `pending` to `0x23`.
+
+Then the demo sends `ClearDiagnosticInformation` (0x14). The group is
+`0xFFFFFF`. In ISO 14229-1 that group clears every DTC. The positive response
+is `54`.
+
+The next `19 02 FF` is `59 02 7F`. `7F` is the status mask. There are no DTC
+records, because every status byte is now 0.
+
+The next `19 04` for DTC `012345` is `59 04 01 23 45 00`. The status is 0.
+There is no freeze frame.
+
+This example does not set `fn_dtc_read`. The store callbacks answer `0x02`,
+`0x04`, and `0x06`. `fn_dtc_read` is for the other 0x19 sub-functions (mirror
+memory, user-defined memory, emissions OBD). See `../dtc_full_coverage`.
+A clear callback written by the application is `../dtc_clear`.
 
 ## Persistence
 

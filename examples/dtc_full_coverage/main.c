@@ -419,6 +419,8 @@ int main(void)
     cfg.tx_buffer_size = sizeof(txb);
     cfg.dtc_status_availability_mask = APP_STATUS_AVAIL_MASK;
     cfg.dtc_format_id = APP_DTC_FORMAT_ID;
+    /* 0x14 ClearDiagnosticInformation uses fn_dtc_clear.
+     * It is not a 0x19 sub-function. See examples/dtc_clear. */
     cfg.fn_dtc_list = app_dtc_list;         /* library-framed sub-functions */
     cfg.fn_dtc_read = app_dtc_read;         /* application-served sub-functions */
     cfg.fn_dtc_snapshot = app_dtc_snapshot; /* 0x04 freeze-frame payload */
