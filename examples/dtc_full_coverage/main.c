@@ -419,7 +419,7 @@ int main(void)
     cfg.tx_buffer_size = sizeof(txb);
     cfg.dtc_status_availability_mask = APP_STATUS_AVAIL_MASK;
     cfg.dtc_format_id = APP_DTC_FORMAT_ID;
-    /* Custom backend: framed list/snapshot/extdata + complementary raw read. */
+    /* 0x14 ClearDiagnosticInformation is not a 0x19 sub-function. See examples/dtc_clear. */
     const uds_dtc_ops_t dtc_ops = {
         .app_data = NULL,
         .list = app_dtc_list,

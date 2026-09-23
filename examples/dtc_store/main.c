@@ -10,9 +10,10 @@
  * Registers the three DTCs from issue #39 into the reference store, wires
  * the store callbacks to a UDS stack, prints each DTC's category
  * (Powertrain / Network / Network), then feeds ReadDTCInformation:
- * 0x02 (DTC list), 0x04 (snapshot), and 0x06 (extended data).
+ * 0x02 (DTC list), 0x04 (snapshot), and 0x06 (extended data). Then it sends
+ * ClearDiagnosticInformation (0x14, group 0xFFFFFF) and reads 0x02 again.
  *
- * Returns 0 on success (positive response 0x59 received), non-zero otherwise.
+ * Returns 0 on success, non-zero otherwise.
  */
 
 #include <stdint.h>
@@ -44,16 +45,17 @@ static int ecu_send(uds_ctx_t *ctx, const uint8_t *data, uint16_t len)
     return 0;
 }
 
-static int serve(uds_ctx_t *ctx, const uint8_t *req, uint8_t req_len, const char *title)
+static int serve(uds_ctx_t *ctx, const uint8_t *req, uint8_t req_len, uint8_t positive,
+                 const char *title)
 {
     printf("\n=== %s ===\n", title);
     g_resp_len = 0u;
     uds_input_sdu(ctx, req, req_len);
-    if ((g_resp_len < 1u) || (g_resp[0] != 0x59u)) {
+    if ((g_resp_len < 1u) || (g_resp[0] != positive)) {
         printf("  ERROR: no positive response (got %u bytes)\n", g_resp_len);
         return 1;
     }
-    printf("  Response (%u bytes):", g_resp_len);
+    printf("  Response (%u byte%s):", g_resp_len, (g_resp_len == 1u) ? "" : "s");
     for (uint16_t i = 0u; i < g_resp_len; i++) {
         printf(" %02X", g_resp[i]);
     }
@@ -132,7 +134,8 @@ int main(void)
     cfg.tx_buffer_size = sizeof(txb);
     cfg.dtc_status_availability_mask = 0x7Fu;
     cfg.dtc_format_id = 0x01u;
-    /* Pick one path: store bind OR custom uds_dtc_bind — last bind wins. */
+    /* Pick one path: store bind OR custom uds_dtc_bind — last bind wins.
+     * 0x14 ClearDiagnosticInformation uses the store clear callback. */
     static uds_dtc_store_bind_t dtc_bind = {.store = &store, .app_data = NULL};
     uds_dtc_store_bind(&cfg, &dtc_bind);
 
@@ -141,7 +144,7 @@ int main(void)
 
     /* --- Feed ReadDTCInformation 0x02 0xFF (all failing DTCs) --- */
     uint8_t req_list[] = {0x19, 0x02, 0xFF};
-    if (serve(&ctx, req_list, (uint8_t) sizeof(req_list),
+    if (serve(&ctx, req_list, (uint8_t) sizeof(req_list), 0x59u,
               "ReadDTCInformation (0x19 0x02 0xFF) response") != 0) {
         return 1;
     }
@@ -178,8 +181,8 @@ int main(void)
     confirm_dtc(&store, 0x012345u);
 
     uint8_t req_snap[] = {0x19, 0x04, 0x01, 0x23, 0x45, 0x01};
-    if (serve(&ctx, req_snap, (uint8_t) sizeof(req_snap), "Snapshot (0x19 0x04) for DTC 012345") !=
-        0) {
+    if (serve(&ctx, req_snap, (uint8_t) sizeof(req_snap), 0x59u,
+              "Snapshot (0x19 0x04) for DTC 012345") != 0) {
         return 1;
     }
     /* 59 04 DTC(3) status rec n DID 1001 time(6) DID 1002 voltage power */
@@ -191,7 +194,7 @@ int main(void)
     printf("  DID 0x1001 time 2025-06-19 13:05:42, DID 0x1002 voltage 14.0 V, power mode 2.\n");
 
     uint8_t req_ext[] = {0x19, 0x06, 0x01, 0x23, 0x45, 0x01};
-    if (serve(&ctx, req_ext, (uint8_t) sizeof(req_ext),
+    if (serve(&ctx, req_ext, (uint8_t) sizeof(req_ext), 0x59u,
               "Extended data (0x19 0x06) for DTC 012345") != 0) {
         return 1;
     }
@@ -202,6 +205,38 @@ int main(void)
         return 1;
     }
     printf("  Counters: occurrence 1, pending 1, aged 0, ageing 0.\n");
+
+    /* 0xFFFFFF means clear all DTCs (ISO 14229-1). */
+    uint8_t req_clear[] = {0x14, 0xFF, 0xFF, 0xFF};
+    if (serve(&ctx, req_clear, (uint8_t) sizeof(req_clear), 0x54u,
+              "ClearDiagnosticInformation (0x14 FF FF FF)") != 0) {
+        return 1;
+    }
+    if (g_resp_len != 1u) {
+        printf("  ERROR: expected a one-byte positive response (54).\n");
+        return 1;
+    }
+
+    if (serve(&ctx, req_list, (uint8_t) sizeof(req_list), 0x59u,
+              "ReadDTCInformation (0x19 0x02 0xFF) after clear") != 0) {
+        return 1;
+    }
+    if ((g_resp_len != 3u) || (g_resp[1] != 0x02u) || (g_resp[2] != 0x7Fu)) {
+        printf("  ERROR: expected an empty DTC list (59 02 7F).\n");
+        return 1;
+    }
+    printf("  No DTC in the list. 0x14 set every status byte to 0.\n");
+
+    if (serve(&ctx, req_snap, (uint8_t) sizeof(req_snap), 0x59u,
+              "Snapshot (0x19 0x04) for DTC 012345 after clear") != 0) {
+        return 1;
+    }
+    /* 59 04 DTC(3) status. No record number and no freeze frame. */
+    if ((g_resp_len != 6u) || (g_resp[5] != 0x00u)) {
+        printf("  ERROR: expected DTC + status 0x00 and no freeze frame.\n");
+        return 1;
+    }
+    printf("  No freeze frame.\n");
 
     return 0;
 }
