@@ -68,6 +68,7 @@ jobs:
         with:
           name: coverage-report
           path: build_coverage/coverage_report/
+          retention-days: 7
 
   build-zephyr:
     if: github.event_name != 'pull_request'
