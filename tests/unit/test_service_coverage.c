@@ -19,24 +19,6 @@
 #include "test_helpers.h"
 #include "uds_internal.h"
 
-/* Drive a single request and expect a 3-byte negative response with `nrc`. */
-static void expect_nrc(uds_ctx_t *ctx, uint8_t *req, uint16_t len, uint8_t sid, uint8_t nrc,
-                       int extra_time)
-{
-    will_return(mock_get_time, 1000);
-    will_return(mock_get_time, 1000);
-    if (extra_time) {
-        will_return(mock_get_time, 1000);
-    }
-    expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 3);
-    will_return(mock_tp_send, 0);
-    uds_input_sdu(ctx, req, len);
-    assert_int_equal(g_tx_buf[0], 0x7F);
-    assert_int_equal(g_tx_buf[1], sid);
-    assert_int_equal(g_tx_buf[2], nrc);
-}
-
 /* ---- 0x10 Session Control ---- */
 
 /* An out-of-range session ID is rejected (uds_service_session.c:21-23). */
@@ -198,13 +180,9 @@ static int link_ok(struct uds_ctx *ctx, uint8_t sub, uint32_t param)
     g_link_param = (int) param;
     return 0;
 }
-static int link_fail(struct uds_ctx *ctx, uint8_t sub, uint32_t param)
-{
-    (void) ctx;
-    (void) sub;
-    (void) param;
-    return -(int) UDS_NRC_CONDITIONS_NOT_CORRECT;
-}
+/* A link-control callback that rejects verify (0x01) with NRC 0x22 is covered by
+   test_service_coverage2.c::test_link_verify_callback_error, which asserts the
+   same NRC AND that link_ctrl_verified stays false. */
 
 /* sub 0x02 decodes the 3-byte baud parameter and succeeds (:40-45,:54-59). */
 static void test_link_verify_specific_baud(void **state)
@@ -228,15 +206,9 @@ static void test_link_verify_specific_baud(void **state)
     assert_true(ctx.server.link_ctrl_verified);
 }
 
-/* fn_link_control negative on verify -> its NRC (:48-51). */
-static void test_link_verify_callback_error(void **state)
-{
-    (void) state;
-    BEGIN_UDS_TEST(ctx, cfg);
-    cfg.fn_link_control = link_fail;
-    uint8_t req[] = {0x87, 0x01, 0x03};
-    expect_nrc(&ctx, req, sizeof(req), 0x87, UDS_NRC_CONDITIONS_NOT_CORRECT, 0);
-}
+/* fn_link_control negative on verify -> its NRC is covered by
+   test_service_coverage2.c::test_link_verify_callback_error (same NRC, plus a
+   link_ctrl_verified==false assertion). */
 
 /* transition (0x03) without a prior verify -> requestSequenceError (:64-65). */
 static void test_link_transition_without_verify(void **state)
@@ -619,7 +591,6 @@ int main(void)
         cmocka_unit_test(test_io_security_denied),
         cmocka_unit_test(test_io_callback_negative),
         cmocka_unit_test(test_link_verify_specific_baud),
-        cmocka_unit_test(test_link_verify_callback_error),
         cmocka_unit_test(test_link_transition_without_verify),
         cmocka_unit_test(test_access_timing_set_given),
         cmocka_unit_test(test_access_timing_set_given_short),

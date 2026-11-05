@@ -89,28 +89,10 @@ static bool transition_deny_default_to_programming(uds_ctx_t *ctx, uint8_t from,
     return true;
 }
 
-/* With no hook configured (default), ISO behavior: any session may be entered
-   from any session -- including default -> programming directly. */
-static void test_no_hook_allows_default_to_programming(void **state)
-{
-    (void) state;
-    BEGIN_UDS_TEST(ctx, cfg);
-    /* active_session defaults to 0x01 (default). */
-
-    uint8_t request[] = {0x10, 0x02};
-
-    will_return(mock_get_time, 1000);
-    will_return(mock_get_time, 1000);
-    expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 6);
-    will_return(mock_tp_send, 0);
-
-    uds_input_sdu(&ctx, request, sizeof(request));
-
-    assert_int_equal(ctx.session.active, 0x02);
-    assert_int_equal(g_tx_buf[0], 0x50);
-    assert_int_equal(g_tx_buf[1], 0x02);
-}
+/* No-hook default -> programming (ISO: any session reachable from any session
+   with no transition hook) is covered by
+   test_service_10_prog.c::test_programming_session_success, which exercises the
+   same {0x10,0x02} request with the same assertions. */
 
 /* Hook rejects default -> programming with NRC 0x22; session is unchanged. */
 static void test_hook_rejects_disallowed_transition(void **state)
@@ -169,7 +151,6 @@ int main(void)
         cmocka_unit_test(test_extended_session_success),
         cmocka_unit_test(test_default_session_success),
         cmocka_unit_test(test_safety_session_success),
-        cmocka_unit_test(test_no_hook_allows_default_to_programming),
         cmocka_unit_test(test_hook_rejects_disallowed_transition),
         cmocka_unit_test(test_hook_allows_permitted_transition),
     };
