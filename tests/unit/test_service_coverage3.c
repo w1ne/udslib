@@ -15,19 +15,6 @@
 #include "uds_internal.h"
 #include "uds/uds_dtc.h"
 
-static void expect_nrc(uds_ctx_t *ctx, uint8_t *req, uint16_t len, uint8_t sid, uint8_t nrc)
-{
-    will_return(mock_get_time, 1000);
-    will_return(mock_get_time, 1000);
-    expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 3);
-    will_return(mock_tp_send, 0);
-    uds_input_sdu(ctx, req, len);
-    assert_int_equal(g_tx_buf[0], 0x7F);
-    assert_int_equal(g_tx_buf[1], sid);
-    assert_int_equal(g_tx_buf[2], nrc);
-}
-
 /* A list callback that claims more records than the library's batch capacity,
  * triggering the responseTooLong guard in every structured subhandler. */
 static int dtc_list_overflow(struct uds_ctx *ctx, uint8_t status_mask, uds_dtc_record_t *out,
@@ -46,7 +33,7 @@ static void test_dtc_overflow_0x02(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x02, 0xFF};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x08(void **state)
 {
@@ -54,7 +41,7 @@ static void test_dtc_overflow_0x08(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x08, 0xFF, 0xFF};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x09(void **state)
 {
@@ -62,7 +49,7 @@ static void test_dtc_overflow_0x09(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x09, 0x12, 0x34, 0x56};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x14(void **state)
 {
@@ -70,7 +57,7 @@ static void test_dtc_overflow_0x14(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x14};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x42(void **state)
 {
@@ -78,7 +65,7 @@ static void test_dtc_overflow_0x42(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x42, 0x33, 0xFF, 0xFF};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x55(void **state)
 {
@@ -86,7 +73,7 @@ static void test_dtc_overflow_0x55(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x55, 0x33};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x0B(void **state)
 {
@@ -94,7 +81,7 @@ static void test_dtc_overflow_0x0B(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x0B};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 static void test_dtc_overflow_0x15(void **state)
 {
@@ -102,7 +89,7 @@ static void test_dtc_overflow_0x15(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_overflow;
     uint8_t req[] = {0x19, 0x15};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* 0x07 by-severity with a too-short request -> incorrectLength (maintenance.c:233). */
@@ -127,7 +114,7 @@ static void test_dtc_severity_short(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_one;
     uint8_t req[] = {0x19, 0x07, 0xFF}; /* len 3, by_severity needs >= 4 */
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH, 0);
 }
 
 /* 0x09 severity info with a too-short request -> incorrectLength (maintenance.c:297). */
@@ -137,7 +124,7 @@ static void test_dtc_severity_info_short(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_one;
     uint8_t req[] = {0x19, 0x09, 0x12, 0x34}; /* len 4, needs >= 5 */
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH, 0);
 }
 
 /* Snapshot callback returns negative -> its NRC (maintenance.c:214-216). */
@@ -157,7 +144,7 @@ static void test_dtc_snapshot_negative(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_snapshot = snapshot_negative;
     uint8_t req[] = {0x19, 0x04, 0x12, 0x34, 0x56, 0x01};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_REQUEST_OUT_OF_RANGE);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_REQUEST_OUT_OF_RANGE, 0);
 }
 
 /* Legacy fn_dtc_read returns negative -> its NRC (maintenance.c:653-655). */
@@ -178,7 +165,7 @@ static void test_dtc_read_legacy_negative(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_read = dtc_read_negative; /* no fn_dtc_list -> legacy path */
     uint8_t req[] = {0x19, 0x0F, 0xFF};  /* niche sub routes to legacy hook */
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_CONDITIONS_NOT_CORRECT);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_CONDITIONS_NOT_CORRECT, 0);
 }
 
 /* Per-record buffer overflow in 0x08 (small tx buffer) -> responseTooLong
@@ -190,7 +177,7 @@ static void test_dtc_0x08_record_overflow(void **state)
     cfg.fn_dtc_list = dtc_list_one;
     cfg.tx_buffer_size = 6u; /* room for header only; first record overflows */
     uint8_t req[] = {0x19, 0x08, 0x80, 0xFF};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* ---- 0x36 transfer sequence error (out-of-order block) ---- */
@@ -224,7 +211,7 @@ static void test_transfer_out_of_order(void **state)
     /* Expected next is 0x02; send 0x05 -> wrongBlockSequenceCounter (0x73).
      * Develop conformance: active transfer + wrong counter -> 0x73, not 0x24. */
     uint8_t b5[] = {0x36, 0x05, 0xBB};
-    expect_nrc(&ctx, b5, sizeof(b5), 0x36, 0x73u);
+    expect_nrc(&ctx, b5, sizeof(b5), 0x36, 0x73u, 0);
 }
 
 /* ---- 0x38 file transfer negative ---- */
@@ -250,7 +237,7 @@ static void test_file_transfer_negative(void **state)
     cfg.fn_file_transfer = file_transfer_negative;
     /* 0x38 <mode=1> <pathLen=0x0002> <path 2 bytes> */
     uint8_t req[] = {0x38, 0x01, 0x00, 0x02, 0x41, 0x42};
-    expect_nrc(&ctx, req, sizeof(req), 0x38, UDS_NRC_CONDITIONS_NOT_CORRECT);
+    expect_nrc(&ctx, req, sizeof(req), 0x38, UDS_NRC_CONDITIONS_NOT_CORRECT, 0);
 }
 
 /* 0x42 WWH-OBD with a too-short request -> incorrectLength (maintenance.c:378-379). */
@@ -260,7 +247,7 @@ static void test_dtc_wwhobd_short(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_one;
     uint8_t req[] = {0x19, 0x42, 0x33, 0xFF}; /* len 4, needs >= 5 */
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH, 0);
 }
 
 /* 0x55 WWH-OBD-permanent with a too-short request -> incorrectLength
@@ -271,7 +258,7 @@ static void test_dtc_wwhobd_permanent_short(void **state)
     BEGIN_UDS_TEST(ctx, cfg);
     cfg.fn_dtc_list = dtc_list_one;
     uint8_t req[] = {0x19, 0x55}; /* len 2, needs >= 3 */
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_INCORRECT_LENGTH, 0);
 }
 
 /* A confirmed DTC in the requested functional group, matched by 0x55 permanent
@@ -329,7 +316,7 @@ static void test_dtc_0x42_record_overflow(void **state)
     cfg.fn_dtc_list = dtc_list_one;
     cfg.tx_buffer_size = 7u; /* header is 6 bytes; first record (5) overflows */
     uint8_t req[] = {0x19, 0x42, 0x33, 0xFF, 0xFF};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* Fault-counter (0x14) record with fdc in range but a tiny tx buffer ->
@@ -356,7 +343,7 @@ static void test_dtc_0x14_record_overflow(void **state)
     cfg.fn_dtc_list = dtc_list_fdc;
     cfg.tx_buffer_size = 3u; /* header 2 bytes; first record (4) overflows */
     uint8_t req[] = {0x19, 0x14};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* first-or-recent (0x0B) selected record with a tiny tx buffer ->
@@ -369,7 +356,7 @@ static void test_dtc_0x0B_record_overflow(void **state)
     cfg.tx_buffer_size = 5u;        /* header 3; record (4) overflows */
     /* 0x0C selects first confirmed; dtc_list_one record has status 0x08 (confirmed). */
     uint8_t req[] = {0x19, 0x0C};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* permanent (0x15) confirmed record with a tiny tx buffer -> responseTooLong
@@ -381,7 +368,7 @@ static void test_dtc_0x15_record_overflow(void **state)
     cfg.fn_dtc_list = dtc_list_one; /* status 0x08 confirmed */
     cfg.tx_buffer_size = 5u;
     uint8_t req[] = {0x19, 0x15};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* 0x55 confirmed record with a tiny tx buffer -> responseTooLong
@@ -393,7 +380,7 @@ static void test_dtc_0x55_record_overflow(void **state)
     cfg.fn_dtc_list = dtc_list_one; /* confirmed (0x08), emissions group */
     cfg.tx_buffer_size = 6u;        /* header 5; record (4) overflows */
     uint8_t req[] = {0x19, 0x55, 0x33};
-    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG);
+    expect_nrc(&ctx, req, sizeof(req), 0x19, UDS_NRC_RESPONSE_TOO_LONG, 0);
 }
 
 /* 0x42 skips a record whose functional group does not match the FGID

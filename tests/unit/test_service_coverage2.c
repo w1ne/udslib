@@ -15,23 +15,6 @@
 #include "test_helpers.h"
 #include "uds_internal.h"
 
-static void expect_nrc(uds_ctx_t *ctx, uint8_t *req, uint16_t len, uint8_t sid, uint8_t nrc,
-                       int extra_time)
-{
-    will_return(mock_get_time, 1000);
-    will_return(mock_get_time, 1000);
-    if (extra_time) {
-        will_return(mock_get_time, 1000);
-    }
-    expect_any(mock_tp_send, data);
-    expect_value(mock_tp_send, len, 3);
-    will_return(mock_tp_send, 0);
-    uds_input_sdu(ctx, req, len);
-    assert_int_equal(g_tx_buf[0], 0x7F);
-    assert_int_equal(g_tx_buf[1], sid);
-    assert_int_equal(g_tx_buf[2], nrc);
-}
-
 /* ---- 0x22 Read Data By ID ---- */
 
 /* A DID with neither read handler nor storage -> conditionsNotCorrect (data.c:72-74). */
